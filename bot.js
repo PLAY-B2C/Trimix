@@ -22,7 +22,7 @@ bot.on('spawn', () => {
 
 function giveSaturationLoop() {
   const checkAndGive = () => {
-    const hasSaturation = bot.hasEffect('saturation');
+    const hasSaturation = Object.values(bot.entity.effects || {}).some(effect => effect.displayName === 'Saturation');
     if (!hasSaturation) {
       bot.chat('/effect give IamChatGPT minecraft:saturation 999999 1 true');
     }
