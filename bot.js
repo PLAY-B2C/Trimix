@@ -10,20 +10,20 @@ function createBot() {
   });
 
   bot.once('spawn', async () => {
-    console.log('✅ Spawned');
+    console.log('✅ Spawned in');
     setTimeout(() => {
       bot.chat('/login 3043AA');
-      startFishing(bot);
+      begin(bot);
     }, 3000);
   });
 
   bot.on('kicked', () => {
-    console.log('❌ Kicked. Reconnecting in 5s...');
+    console.log('❌ Kicked. Reconnecting...');
     reconnect();
   });
 
   bot.on('end', () => {
-    console.log('🔌 Disconnected. Reconnecting in 5s...');
+    console.log('🔌 Disconnected. Reconnecting...');
     reconnect();
   });
 
@@ -38,32 +38,44 @@ function reconnect() {
   }, 5000);
 }
 
-async function startFishing(bot) {
+async function begin(bot) {
   try {
-    const rod = bot.inventory.items().find(i => i.name.includes('fishing_rod'));
+    const rod = bot.inventory.items().find(item => item.name.includes('fishing_rod'));
+
     if (!rod) {
-      bot.chat('❌ No fishing rod found.');
+      console.log('❌ No fishing rod found in inventory.');
       return;
     }
 
+    console.log('🎣 Equipping fishing rod...');
     await bot.equip(rod, 'hand');
-    fishCycle(bot);
+    fishLoop(bot);
   } catch (err) {
-    console.log('❌ Equip error:', err);
+    console.log('❌ Error preparing fishing:', err);
   }
 }
 
-function fishCycle(bot) {
-  bot.activateItem(); // cast rod
+function fishLoop(bot) {
+  console.log('🎣 Casting rod...');
+  bot.activateItem(); // Cast
+
   bot.once('soundEffectHeard', (sound) => {
-    if (sound && sound.soundName.includes('entity.fishing_bobber.splash')) {
-      bot.deactivateItem(); // reel in
+    if (!sound?.soundName) {
+      console.log('⚠️ No soundName detected.');
+      return setTimeout(() => fishLoop(bot), 2000);
+    }
+
+    console.log('🔊 Heard sound:', sound.soundName);
+
+    if (sound.soundName.includes('entity.fishing_bobber.splash')) {
+      console.log('✅ Splash detected! Reeling in...');
+      bot.deactivateItem(); // Reel in
       setTimeout(() => {
-        fishCycle(bot); // wait and recast
-      }, 1000);
+        fishLoop(bot);
+      }, 1000); // Wait then recast
     } else {
-      // wait again if wrong sound
-      fishCycle(bot);
+      console.log('↪️ Not a splash. Listening again...');
+      fishLoop(bot);
     }
   });
 }
