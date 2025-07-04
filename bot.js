@@ -17,7 +17,6 @@ function createBot() {
     console.log('✅ Spawned in');
     setTimeout(() => {
       bot.chat('/login 3043AA');
-      lockCameraAngle();
       startFishing();
     }, 3000);
   });
@@ -28,7 +27,7 @@ function createBot() {
   });
 
   bot.on('end', () => {
-    console.log('❌ Disconnected from server.');
+    console.log('❌ Disconnected.');
     scheduleReconnect();
   });
 
@@ -47,18 +46,10 @@ function scheduleReconnect() {
   }, 60000);
 }
 
-function lockCameraAngle() {
-  const yaw = 0 * (Math.PI / 180);
-  const pitch = 16 * (Math.PI / 180);
-  setInterval(() => {
-    bot.look(yaw, pitch, true);
-  }, 300); // constant lock every 300ms
-}
-
 async function startFishing() {
   const rod = bot.inventory.items().find(i => i.name.includes('fishing_rod'));
   if (!rod) {
-    bot.chat('❌ No fishing rod found in inventory!');
+    bot.chat('❌ No fishing rod found!');
     return;
   }
 
@@ -66,13 +57,19 @@ async function startFishing() {
     await bot.equip(rod, 'hand');
     bot.chat('🎣 Starting AFK fishing...');
 
+    const yaw = 0 * Math.PI / 180;
+    const pitch = 16 * Math.PI / 180;
+
     if (rightClickInterval) clearInterval(rightClickInterval);
 
     rightClickInterval = setInterval(() => {
-      bot.activateItem(); // simulate right-click
+      bot.activateItem(); // right click
+      setTimeout(() => {
+        bot.look(yaw, pitch, true); // force camera angle
+      }, 150);
     }, 300);
 
-    bot.on('soundEffectHeard', async (sound) => {
+    bot.on('soundEffectHeard', (sound) => {
       if (sound?.soundName?.includes('entity.fishing_bobber.splash')) {
         const caught = bot.inventory.items().slice(-1)[0];
         if (caught) {
