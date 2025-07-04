@@ -29,16 +29,30 @@ function createBot() {
     }
   });
 
-  bot.on('spawn', () => {
-    console.log('✅ Spawned in');
-    bot.entity.position.set(AFK_SPOT.x, AFK_SPOT.y, AFK_SPOT.z);
-    bot.entity.pitch = TARGET_PITCH;
-    
-    setTimeout(() => {
-      bot.chat('/login 3043AA');
-      startFishing();
-    }, 3000);
-  });
+  // Add this to the spawn event handler
+bot.on('spawn', async () => {
+  console.log('✅ Spawned in');
+  
+  // Summon boat and ride it
+  bot.chat('/summon boat');
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  // Find nearest boat
+  const boat = bot.nearestEntity(e => e.name === 'boat');
+  if (boat) {
+    bot.ride(boat);
+    console.log('🚤 Boarded boat');
+  }
+  
+  // Position and angle
+  bot.entity.position.set(AFK_SPOT.x, AFK_SPOT.y, AFK_SPOT.z);
+  bot.entity.pitch = TARGET_PITCH;
+  
+  setTimeout(() => {
+    bot.chat('/login 3043AA');
+    startFishing();
+  }, 3000);
+});
 
   bot.on('kicked', (reason) => {
     console.log('❌ Kicked:', reason);
