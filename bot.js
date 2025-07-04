@@ -15,67 +15,42 @@ bot.on('spawn', () => {
   console.log('✅ Spawned in');
   setTimeout(() => {
     bot.chat('/login 3043AA');
-    prepareFishing();
+    giveSaturationLoop();
+    aimAndFish();
   }, 3000);
 });
 
-async function prepareFishing() {
-  try {
-    await bot.waitForTicks(100);
-
-    const barrelBlock = bot.findBlock({
-      matching: block => block.name === 'barrel',
-      maxDistance: 6
-    });
-
-    if (!barrelBlock) {
-      bot.chat('❌ No barrel found nearby!');
-      return;
+function giveSaturationLoop() {
+  const checkAndGive = () => {
+    const hasSaturation = bot.effects['saturation'];
+    if (!hasSaturation) {
+      bot.chat('/effect give IamChatGPT minecraft:saturation 999999 1 true');
     }
+  };
+  checkAndGive();
+  setInterval(checkAndGive, 10000); // every 10 seconds
+}
 
-    const barrel = await bot.openContainer(barrelBlock);
-    const breadSlot = barrel.containerItems().find(item => item.name === 'bread');
+function aimAndFish() {
+  const fishingSpot = bot.findBlock({
+    matching: block => block.name.includes('trapdoor') || block.name.includes('water'),
+    maxDistance: 6
+  });
 
-    if (!breadSlot) {
-      bot.chat('❌ No bread found inside barrel!');
-      barrel.close();
-      return;
-    }
-
-    await bot.clickWindow(breadSlot.slot, 0, 0);
-    barrel.close();
-
-    const breadInInventory = bot.inventory.items().find(i => i.name === 'bread');
-    if (breadInInventory) {
-      await bot.equip(breadInInventory, 'hand');
-      await bot.moveSlotItem(breadInInventory.slot, 8); // slot 9
-      bot.chat('🥖 Bread equipped to slot 9!');
-    }
-
-    // 🔁 Look at trapdoor/water before fishing
-    const fishingSpot = bot.findBlock({
-      matching: block => block.name.includes('trapdoor') || block.name.includes('water'),
-      maxDistance: 6
-    });
-
-    if (fishingSpot) {
-      bot.lookAt(fishingSpot.position.offset(0.5, 0.5, 0.5));
-      bot.chat('🎯 Aiming at fishing spot...');
-    } else {
-      bot.chat('⚠️ Could not find a fishing block to aim at.');
-    }
-
-    startFishing();
-
-  } catch (err) {
-    console.log('❌ Barrel error:', err);
+  if (fishingSpot) {
+    bot.lookAt(fishingSpot.position.offset(0.5, 0.5, 0.5));
+    bot.chat('🎯 Aiming at fishing spot...');
+  } else {
+    bot.chat('⚠️ Could not find a fishing block to aim at.');
   }
+
+  startFishing();
 }
 
 function startFishing() {
   bot.chat('🎣 Starting AFK fishing...');
   bot.setControlState('sneak', true);
-  bot.activateItem(); // cast rod
+  bot.activateItem();
 
   setInterval(() => {
     const hook = bot.entity?.fishingBobber;
@@ -83,8 +58,8 @@ function startFishing() {
 
     bot.once('soundEffectHeard', async (sound) => {
       if (sound.soundName.includes('entity.fishing_bobber.splash')) {
-        bot.deactivateItem(); // reel in
-        setTimeout(() => bot.activateItem(), 600); // cast again
+        bot.deactivateItem();
+        setTimeout(() => bot.activateItem(), 600);
         bot.chat(`🎣 Caught something!`);
       }
     });
