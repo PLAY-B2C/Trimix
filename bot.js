@@ -9,58 +9,61 @@ function createBot() {
     version: false
   });
 
-  bot.once('spawn', () => {
-    console.log('✅ Joined server');
+  bot.once('spawn', async () => {
+    console.log('✅ Spawned');
     setTimeout(() => {
       bot.chat('/login 3043AA');
       startFishing(bot);
     }, 3000);
   });
 
-  bot.on('kicked', (reason) => {
-    console.log('❌ Kicked:', reason);
+  bot.on('kicked', () => {
+    console.log('❌ Kicked. Reconnecting in 5s...');
     reconnect();
   });
 
   bot.on('end', () => {
-    console.log('🔌 Disconnected.');
+    console.log('🔌 Disconnected. Reconnecting in 5s...');
     reconnect();
   });
 
   bot.on('error', (err) => {
     console.log('⚠️ Error:', err.message);
-    reconnect();
   });
 }
 
 function reconnect() {
   setTimeout(() => {
-    console.log('🔁 Reconnecting...');
     createBot();
   }, 5000);
 }
 
-function startFishing(bot) {
-  const rod = bot.inventory.items().find(i => i.name.includes('fishing_rod'));
-  if (!rod) {
-    console.log('❌ No fishing rod found.');
-    return;
-  }
+async function startFishing(bot) {
+  try {
+    const rod = bot.inventory.items().find(i => i.name.includes('fishing_rod'));
+    if (!rod) {
+      bot.chat('❌ No fishing rod found.');
+      return;
+    }
 
-  bot.equip(rod, 'hand').then(() => {
-    cast(bot);
-  }).catch(err => console.log('❌ Equip error:', err));
+    await bot.equip(rod, 'hand');
+    fishCycle(bot);
+  } catch (err) {
+    console.log('❌ Equip error:', err);
+  }
 }
 
-function cast(bot) {
-  bot.activateItem(); // Cast
+function fishCycle(bot) {
+  bot.activateItem(); // cast rod
   bot.once('soundEffectHeard', (sound) => {
-    if (sound?.soundName?.includes('entity.fishing_bobber.splash')) {
-      bot.deactivateItem(); // Reel in
-      setTimeout(() => cast(bot), 1000); // Wait and recast
+    if (sound && sound.soundName.includes('entity.fishing_bobber.splash')) {
+      bot.deactivateItem(); // reel in
+      setTimeout(() => {
+        fishCycle(bot); // wait and recast
+      }, 1000);
     } else {
-      // Retry if wrong sound
-      cast(bot);
+      // wait again if wrong sound
+      fishCycle(bot);
     }
   });
 }
