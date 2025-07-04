@@ -53,13 +53,14 @@ function startFishing(bot) {
 }
 
 function cast(bot) {
-  bot.activateItem();
+  bot.activateItem(); // Cast
   bot.once('soundEffectHeard', (sound) => {
     if (sound?.soundName?.includes('entity.fishing_bobber.splash')) {
-      bot.deactivateItem();
-      setTimeout(() => cast(bot), 1000); // wait and recast
+      bot.deactivateItem(); // Reel in
+      setTimeout(() => cast(bot), 1000); // Wait and recast
     } else {
-      cast(bot); // listen again if no splash
+      // Retry if wrong sound
+      cast(bot);
     }
   });
 }
