@@ -19,7 +19,7 @@ function createBot() {
     }, 3000);
   });
 
-  bot.on('kicked', (reason) => {
+  bot.on('kicked', reason => {
     console.log('❌ Kicked:', reason);
     reconnectWithDelay();
   });
@@ -29,7 +29,7 @@ function createBot() {
     reconnectWithDelay();
   });
 
-  bot.on('error', (err) => {
+  bot.on('error', err => {
     console.log('⚠️ Error:', err);
   });
 }
@@ -45,18 +45,17 @@ function fishLoop(bot) {
   console.log('🎣 Casting rod...');
   const before = bot.inventory.items().map(item => ({ ...item }));
 
-  bot.activateItem(); // Cast rod
+  bot.activateItem(); // Cast
 
   const waitForBobber = setInterval(() => {
     const bobber = bot.entity?.fishingBobber;
     if (bobber) {
       clearInterval(waitForBobber);
-      console.log('🧵 Bobber detected, waiting for splash...');
+      console.log('🧵 Bobber in water. Waiting for splash...');
 
       bot.once('soundEffectHeard', async (sound) => {
         if (sound?.soundName?.includes('entity.fishing_bobber.splash')) {
-          console.log('✅ Splash! Reeling in...');
-          bot.deactivateItem();
+          bot.deactivateItem(); // Reel in
 
           setTimeout(() => {
             const after = bot.inventory.items().map(item => ({ ...item }));
@@ -81,10 +80,9 @@ function fishLoop(bot) {
             }
 
             fishLoop(bot); // Recast
-          }, 1000);
+          }, 2500); // Wait for item to register
         } else {
-          console.log('⚠️ No splash detected. Resetting...');
-          setTimeout(() => fishLoop(bot), 2000);
+          setTimeout(() => fishLoop(bot), 1000);
         }
       });
     }
@@ -102,7 +100,7 @@ function getInventoryDiff(before, after) {
     const prev = map[item.name] || 0;
     const diff = item.count - prev;
     if (diff > 0) {
-      changes.push(item); // Return full item including NBT
+      changes.push(item); // Include full item info (NBT)
     }
   }
   return changes;
