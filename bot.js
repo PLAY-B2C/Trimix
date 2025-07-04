@@ -21,14 +21,6 @@ function createBot() {
     }, 3000);
   });
 
-  // Lock camera rotation at yaw 0, pitch 16
-setTimeout(() => {
-  const yaw = 0 * (Math.PI / 180);      // 0 degrees
-  const pitch = 16 * (Math.PI / 180);   // 16 degrees
-  bot.look(yaw, pitch, true);
-  bot.chat('📸 Camera angle locked.');
-}, 6000);
-
   bot.on('kicked', reason => {
     console.log('❌ Kicked:', reason);
     scheduleReconnect();
@@ -71,7 +63,7 @@ async function startFishing() {
     }, 300);
 
     bot.on('soundEffectHeard', async (sound) => {
-      if (sound && sound.soundName && sound.soundName.includes('entity.fishing_bobber.splash')) {
+      if (sound?.soundName?.includes('entity.fishing_bobber.splash')) {
         const caught = bot.inventory.items().slice(-1)[0];
         if (caught) {
           bot.chat(`🎣 Caught: ${caught.name}`);
