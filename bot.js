@@ -17,6 +17,7 @@ function createBot() {
     console.log('✅ Spawned in');
     setTimeout(() => {
       bot.chat('/login 3043AA');
+      lockCameraAngle();
       startFishing();
     }, 3000);
   });
@@ -46,10 +47,18 @@ function scheduleReconnect() {
   }, 60000);
 }
 
+function lockCameraAngle() {
+  const yaw = 0 * (Math.PI / 180);
+  const pitch = 16 * (Math.PI / 180);
+  setInterval(() => {
+    bot.look(yaw, pitch, true);
+  }, 300); // constant lock every 300ms
+}
+
 async function startFishing() {
   const rod = bot.inventory.items().find(i => i.name.includes('fishing_rod'));
   if (!rod) {
-    bot.chat('❌ No fishing rod in inventory!');
+    bot.chat('❌ No fishing rod found in inventory!');
     return;
   }
 
@@ -58,11 +67,9 @@ async function startFishing() {
     bot.chat('🎣 Starting AFK fishing...');
 
     if (rightClickInterval) clearInterval(rightClickInterval);
+
     rightClickInterval = setInterval(() => {
       bot.activateItem(); // simulate right-click
-      const yaw = 0 * (Math.PI / 180);
-      const pitch = 16 * (Math.PI / 180);
-      bot.look(yaw, pitch, true); // reset camera angle every time
     }, 300);
 
     bot.on('soundEffectHeard', async (sound) => {
