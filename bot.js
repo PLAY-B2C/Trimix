@@ -13,7 +13,7 @@ function createBot() {
     console.log('✅ Spawned in');
     setTimeout(() => {
       bot.chat('/login 3043AA');
-      begin(bot);
+      startFishing(bot);
     }, 3000);
   });
 
@@ -38,7 +38,7 @@ function reconnect() {
   }, 5000);
 }
 
-async function begin(bot) {
+async function startFishing(bot) {
   try {
     const rod = bot.inventory.items().find(item => item.name.includes('fishing_rod'));
 
@@ -51,33 +51,34 @@ async function begin(bot) {
     await bot.equip(rod, 'hand');
     fishLoop(bot);
   } catch (err) {
-    console.log('❌ Error preparing fishing:', err);
+    console.log('❌ Error equipping rod:', err);
   }
 }
 
 function fishLoop(bot) {
   console.log('🎣 Casting rod...');
-  bot.activateItem(); // Cast
+  bot.activateItem(); // Cast rod
 
-  bot.once('soundEffectHeard', (sound) => {
-    if (!sound?.soundName) {
-      console.log('⚠️ No soundName detected.');
-      return setTimeout(() => fishLoop(bot), 2000);
+  const waitForBobber = setInterval(() => {
+    const bobber = bot.entity?.fishingBobber;
+    if (bobber) {
+      clearInterval(waitForBobber);
+      console.log('🧵 Bobber in water. Listening for splash...');
+
+      bot.once('soundEffectHeard', (sound) => {
+        console.log('🔊 Heard sound:', sound?.soundName);
+
+        if (sound?.soundName?.includes('entity.fishing_bobber.splash')) {
+          console.log('✅ Splash! Reeling in...');
+          bot.deactivateItem(); // Reel in
+          setTimeout(() => fishLoop(bot), 1000); // Recast
+        } else {
+          console.log('⚠️ Not a splash. Restarting...');
+          setTimeout(() => fishLoop(bot), 2000);
+        }
+      });
     }
-
-    console.log('🔊 Heard sound:', sound.soundName);
-
-    if (sound.soundName.includes('entity.fishing_bobber.splash')) {
-      console.log('✅ Splash detected! Reeling in...');
-      bot.deactivateItem(); // Reel in
-      setTimeout(() => {
-        fishLoop(bot);
-      }, 1000); // Wait then recast
-    } else {
-      console.log('↪️ Not a splash. Listening again...');
-      fishLoop(bot);
-    }
-  });
+  }, 200);
 }
 
 createBot();
