@@ -2,7 +2,8 @@ const mineflayer = require('mineflayer');
 
 let bot;
 let reconnectTimeout = null;
-let rightClickInterval = null;
+let fishingInterval = null;
+let lookInterval = null;
 
 function createBot() {
   bot = mineflayer.createBot({
@@ -60,15 +61,18 @@ async function startFishing() {
     const yaw = 0 * Math.PI / 180;
     const pitch = 16 * Math.PI / 180;
 
-    if (rightClickInterval) clearInterval(rightClickInterval);
+    // Clear any existing intervals
+    if (fishingInterval) clearInterval(fishingInterval);
+    if (lookInterval) clearInterval(lookInterval);
 
-    // Set initial look direction
-    bot.look(yaw, pitch, true);
-
-    rightClickInterval = setInterval(() => {
-      // Force look direction BEFORE right-click
+    // Constantly maintain look direction (every 100ms)
+    lookInterval = setInterval(() => {
       bot.look(yaw, pitch, true);
-      bot.activateItem(); // right click
+    }, 100);
+
+    // Handle fishing rod casting/reeling
+    fishingInterval = setInterval(() => {
+      bot.activateItem(); // Right-click to cast/reel
     }, 300);
 
     bot.on('soundEffectHeard', (sound) => {
