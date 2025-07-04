@@ -21,6 +21,14 @@ function createBot() {
     }, 3000);
   });
 
+  // Lock camera rotation at yaw 0, pitch 16
+setTimeout(() => {
+  const yaw = 0 * (Math.PI / 180);      // 0 degrees
+  const pitch = 16 * (Math.PI / 180);   // 16 degrees
+  bot.look(yaw, pitch, true);
+  bot.chat('📸 Camera angle locked.');
+}, 6000);
+
   bot.on('kicked', reason => {
     console.log('❌ Kicked:', reason);
     scheduleReconnect();
