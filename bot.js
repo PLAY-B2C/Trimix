@@ -1,70 +1,93 @@
 const mineflayer = require('mineflayer');
-const { pathfinder, Movements } = require('mineflayer-pathfinder');
+const { pathfinder } = require('mineflayer-pathfinder');
 
-const bot = mineflayer.createBot({
-  host: 'EternxlsSMP.aternos.me',
-  port: 48918,
-  username: 'IamChatGPT',
-  auth: 'offline',
-  version: false
-});
+let bot;
+let reconnectTimeout = null;
 
-bot.loadPlugin(pathfinder);
+function createBot() {
+  bot = mineflayer.createBot({
+    host: 'EternxlsSMP.aternos.me',
+    port: 48918,
+    username: 'IamChatGPT',
+    auth: 'offline',
+    version: false
+  });
 
-bot.on('spawn', () => {
-  console.log('✅ Spawned in');
-  setTimeout(() => {
-    bot.chat('/login 3043AA');
-    giveSaturationLoop();
-    aimAndFish();
-  }, 3000);
-});
+  bot.loadPlugin(pathfinder);
+
+  bot.on('spawn', () => {
+    console.log('✅ Spawned in');
+    setTimeout(() => {
+      bot.chat('/login 3043AA');
+      giveSaturationLoop();
+      aimAndFish();
+    }, 3000);
+  });
+
+  bot.on('kicked', reason => {
+    console.log('❌ Kicked:', reason);
+    scheduleReconnect();
+  });
+
+  bot.on('end', () => {
+    console.log('❌ Disconnected from server.');
+    scheduleReconnect();
+  });
+
+  bot.on('error', err => {
+    console.log('❌ Connection error:', err.message);
+    scheduleReconnect();
+  });
+}
+
+function scheduleReconnect() {
+  if (reconnectTimeout) return;
+  console.log('🔁 Reconnecting in 60 seconds...');
+  reconnectTimeout = setTimeout(() => {
+    reconnectTimeout = null;
+    createBot();
+  }, 60000);
+}
 
 function giveSaturationLoop() {
-  const checkAndGive = () => {
-    const hasSaturation = Object.values(bot.entity.effects || {}).some(effect => effect.displayName === 'Saturation');
+  setInterval(() => {
+    const effects = bot.entity?.effects || {};
+    const hasSaturation = Object.values(effects).some(e => e.displayName === 'Saturation');
     if (!hasSaturation) {
       bot.chat('/effect give IamChatGPT minecraft:saturation 999999 1 true');
     }
-  };
-  checkAndGive();
-  setInterval(checkAndGive, 10000); // every 10 seconds
+  }, 10000);
 }
 
 function aimAndFish() {
-  const fishingSpot = bot.findBlock({
-    matching: block => block.name.includes('trapdoor') || block.name.includes('water'),
-    maxDistance: 6
+  const waterBlocks = bot.findBlocks({
+    matching: block => block.name === 'water',
+    maxDistance: 6,
+    count: 10
   });
 
-  if (fishingSpot) {
-    bot.lookAt(fishingSpot.position.offset(0.5, 0.5, 0.5));
-    bot.chat('🎯 Aiming at fishing spot...');
-  } else {
-    bot.chat('⚠️ Could not find a fishing block to aim at.');
+  for (const pos of waterBlocks) {
+    const waterBlock = bot.blockAt(pos);
+    const above = bot.blockAt(waterBlock.position.offset(0, 1, 0));
+
+    if (above && above.name.includes('trapdoor')) {
+      bot.lookAt(above.position.offset(0.5, 0.5, 0.5), true);
+      bot.setControlState('sneak', true);
+      bot.activateItem();
+      bot.chat('🎯 Aiming at fishing spot...');
+
+      bot.on('soundEffectHeard', (sound) => {
+        if (sound.soundName.includes('entity.fishing_bobber.splash')) {
+          bot.deactivateItem();
+          setTimeout(() => bot.activateItem(), 600);
+          bot.chat('🎣 Caught something!');
+        }
+      });
+      return;
+    }
   }
 
-  startFishing();
+  bot.chat('❌ No valid trapdoor-water fishing spot found.');
 }
 
-function startFishing() {
-  bot.chat('🎣 Starting AFK fishing...');
-  bot.setControlState('sneak', true);
-  bot.activateItem();
-
-  setInterval(() => {
-    const hook = bot.entity?.fishingBobber;
-    if (!hook) return;
-
-    bot.once('soundEffectHeard', async (sound) => {
-      if (sound.soundName.includes('entity.fishing_bobber.splash')) {
-        bot.deactivateItem();
-        setTimeout(() => bot.activateItem(), 600);
-        bot.chat(`🎣 Caught something!`);
-      }
-    });
-  }, 2000);
-}
-
-bot.on('kicked', reason => console.log('❌ Kicked:', reason));
-bot.on('error', err => console.log('❌ Error:', err));
+createBot();
