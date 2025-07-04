@@ -3,8 +3,9 @@ const mineflayer = require('mineflayer');
 let bot;
 let reconnectTimeout = null;
 let fishingInterval = null;
+let lookInterval = null;
 
-// Configuration - Set your AFK spot coordinates here
+// Configuration
 const AFK_SPOT = { x: -2768.5, y: 69, z: -342.5 };
 const FISHING_ANGLE = { yaw: 0, pitch: 16 * Math.PI / 180 };
 
@@ -20,7 +21,7 @@ function createBot() {
   bot.on('spawn', () => {
     console.log('✅ Spawned in');
     
-    // Immediately position and orient the bot
+    // Immediately set position and angle
     bot.entity.position.set(AFK_SPOT.x, AFK_SPOT.y, AFK_SPOT.z);
     bot.look(FISHING_ANGLE.yaw, FISHING_ANGLE.pitch, true);
     
@@ -30,7 +31,7 @@ function createBot() {
     }, 3000);
   });
 
-  bot.on('kicked', reason => {
+  bot.on('kicked', (reason) => {
     console.log('❌ Kicked:', reason);
     scheduleReconnect();
     clearIntervals();
@@ -42,7 +43,7 @@ function createBot() {
     clearIntervals();
   });
 
-  bot.on('error', err => {
+  bot.on('error', (err) => {
     console.log('❌ Error:', err.message);
     scheduleReconnect();
     clearIntervals();
@@ -51,7 +52,9 @@ function createBot() {
 
 function clearIntervals() {
   if (fishingInterval) clearInterval(fishingInterval);
+  if (lookInterval) clearInterval(lookInterval);
   fishingInterval = null;
+  lookInterval = null;
 }
 
 function scheduleReconnect() {
@@ -74,17 +77,27 @@ async function startFishing() {
     await bot.equip(rod, 'hand');
     bot.chat('🎣 Starting AFK fishing...');
 
-    // Clear existing interval
+    // Clear existing intervals
     clearIntervals();
 
-    // Create a combined interval for position and fishing
-    fishingInterval = setInterval(() => {
-      // Maintain position and look angle
-      bot.entity.position.set(AFK_SPOT.x, AFK_SPOT.y, AFK_SPOT.z);
+    // CONSTANTLY force look direction (every 50ms)
+    lookInterval = setInterval(() => {
       bot.look(FISHING_ANGLE.yaw, FISHING_ANGLE.pitch, true);
       
-      // Fishing action
-      bot.activateItem();
+      // Debug: Log current pitch in degrees
+      const currentPitch = Math.round(bot.entity.pitch * 180 / Math.PI);
+      if (currentPitch !== 16) {
+        console.log(`⚠️ Pitch reset to ${currentPitch}°, forcing back to 16°`);
+      }
+    }, 50);
+
+    // Fishing action at 300ms interval
+    fishingInterval = setInterval(() => {
+      try {
+        bot.activateItem();
+      } catch (err) {
+        console.log('❌ Right-click error:', err.message);
+      }
     }, 300);
 
     // Sound detection for caught fish
