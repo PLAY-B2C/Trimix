@@ -19,7 +19,6 @@ function createBot() {
     console.log('✅ Spawned in');
     setTimeout(() => {
       bot.chat('/login 3043AA');
-      giveSaturationLoop();
       aimAndFish();
     }, 3000);
   });
@@ -49,16 +48,6 @@ function scheduleReconnect() {
   }, 60000);
 }
 
-function giveSaturationLoop() {
-  setInterval(() => {
-    const effects = bot.entity?.effects || {};
-    const hasSaturation = Object.values(effects).some(e => e.displayName === 'Saturation');
-    if (!hasSaturation) {
-      bot.chat('/effect give IamChatGPT minecraft:saturation 999999 1 true');
-    }
-  }, 10000);
-}
-
 function aimAndFish() {
   const waterBlocks = bot.findBlocks({
     matching: block => block.name === 'water',
@@ -85,14 +74,12 @@ function aimAndFish() {
             bot.activateItem();
           }, 600);
 
-          // Check inventory & offload if full
           const full = isInventoryFull();
           if (full) {
             bot.chat('📦 Inventory full, dumping to chest...');
             await dumpToChest();
           }
 
-          // Announce caught item
           const caught = bot.inventory.items().slice(-1)[0];
           if (caught) {
             bot.chat(`🎣 Caught: ${caught.name}`);
