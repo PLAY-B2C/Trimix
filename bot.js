@@ -59,7 +59,10 @@ async function startFishing() {
 
     if (rightClickInterval) clearInterval(rightClickInterval);
     rightClickInterval = setInterval(() => {
-      bot.activateItem(); // right click every 300ms
+      bot.activateItem(); // simulate right-click
+      const yaw = 0 * (Math.PI / 180);
+      const pitch = 16 * (Math.PI / 180);
+      bot.look(yaw, pitch, true); // reset camera angle every time
     }, 300);
 
     bot.on('soundEffectHeard', async (sound) => {
