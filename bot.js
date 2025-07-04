@@ -49,49 +49,59 @@ function scheduleReconnect() {
 }
 
 function aimAndFish() {
-  const waterBlocks = bot.findBlocks({
-    matching: block => block.name === 'water',
-    maxDistance: 6,
-    count: 10
-  });
-
-  for (const pos of waterBlocks) {
-    const waterBlock = bot.blockAt(pos);
-    const above = bot.blockAt(waterBlock.position.offset(0, 1, 0));
-
-    if (above && above.name.includes('trapdoor')) {
-      bot.lookAt(above.position.offset(0.5, 0.5, 0.5), true);
-      bot.setControlState('sneak', true);
-      bot.activateItem();
-      bot.chat('🎯 Aiming at fishing spot...');
-
-      bot.on('soundEffectHeard', async (sound) => {
-        if (!sound || !sound.soundName) return;
-        if (sound.soundName.includes('entity.fishing_bobber.splash')) {
-          bot.deactivateItem();
-
-          setTimeout(() => {
-            bot.activateItem();
-          }, 600);
-
-          const full = isInventoryFull();
-          if (full) {
-            bot.chat('📦 Inventory full, dumping to chest...');
-            await dumpToChest();
-          }
-
-          const caught = bot.inventory.items().slice(-1)[0];
-          if (caught) {
-            bot.chat(`🎣 Caught: ${caught.name}`);
-          }
-        }
-      });
-
-      return;
-    }
+  const rod = bot.inventory.items().find(i => i.name.includes('fishing_rod'));
+  if (!rod) {
+    bot.chat('❌ No fishing rod in inventory!');
+    return;
   }
 
-  bot.chat('❌ No valid trapdoor-water fishing spot found.');
+  bot.equip(rod, 'hand').then(() => {
+    const waterBlocks = bot.findBlocks({
+      matching: block => block.name === 'water',
+      maxDistance: 6,
+      count: 10
+    });
+
+    for (const pos of waterBlocks) {
+      const waterBlock = bot.blockAt(pos);
+      const above = bot.blockAt(waterBlock.position.offset(0, 1, 0));
+
+      if (above && above.name.includes('trapdoor')) {
+        bot.lookAt(above.position.offset(0.5, 0.5, 0.5), true);
+        bot.setControlState('sneak', true);
+        bot.activateItem();
+        bot.chat('🎯 Aiming and casting fishing rod...');
+
+        bot.on('soundEffectHeard', async (sound) => {
+          if (!sound || !sound.soundName) return;
+          if (sound.soundName.includes('entity.fishing_bobber.splash')) {
+            bot.deactivateItem();
+
+            setTimeout(() => {
+              bot.activateItem();
+            }, 600);
+
+            const full = isInventoryFull();
+            if (full) {
+              bot.chat('📦 Inventory full, dumping to chest...');
+              await dumpToChest();
+            }
+
+            const caught = bot.inventory.items().slice(-1)[0];
+            if (caught) {
+              bot.chat(`🎣 Caught: ${caught.name}`);
+            }
+          }
+        });
+
+        return;
+      }
+    }
+
+    bot.chat('❌ No valid trapdoor-water fishing spot found.');
+  }).catch(err => {
+    bot.chat('❌ Failed to equip fishing rod: ' + err.message);
+  });
 }
 
 function isInventoryFull() {
