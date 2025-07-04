@@ -77,10 +77,13 @@ function aimAndFish() {
       bot.chat('🎯 Aiming at fishing spot...');
 
       bot.on('soundEffectHeard', (sound) => {
-        if (sound.soundName.includes('entity.fishing_bobber.splash')) {
-          bot.deactivateItem();
-          setTimeout(() => bot.activateItem(), 600);
-          bot.chat('🎣 Caught something!');
+  if (!sound || !sound.soundName) return;
+  if (sound.soundName.includes('entity.fishing_bobber.splash')) {
+    bot.deactivateItem();
+    setTimeout(() => bot.activateItem(), 600);
+    bot.chat('🎣 Caught something!');
+  }
+});
         }
       });
       return;
