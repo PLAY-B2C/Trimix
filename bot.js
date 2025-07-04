@@ -62,11 +62,13 @@ async function startFishing() {
 
     if (rightClickInterval) clearInterval(rightClickInterval);
 
+    // Set initial look direction
+    bot.look(yaw, pitch, true);
+
     rightClickInterval = setInterval(() => {
+      // Force look direction BEFORE right-click
+      bot.look(yaw, pitch, true);
       bot.activateItem(); // right click
-      setTimeout(() => {
-        bot.look(yaw, pitch, true); // force camera angle
-      }, 150);
     }, 300);
 
     bot.on('soundEffectHeard', (sound) => {
