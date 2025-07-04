@@ -20,7 +20,7 @@ function createBot() {
     console.log('✅ Spawned in');
     setTimeout(() => {
       bot.chat('/login 3043AA');
-      aimAndFish();
+      startFishingInPlace();
     }, 3000);
   });
 
@@ -49,7 +49,7 @@ function scheduleReconnect() {
   }, 60000);
 }
 
-async function aimAndFish() {
+async function startFishingInPlace() {
   const rod = bot.inventory.items().find(i => i.name.includes('fishing_rod'));
   if (!rod) {
     bot.chat('❌ No fishing rod in inventory!');
@@ -58,29 +58,14 @@ async function aimAndFish() {
 
   try {
     await bot.equip(rod, 'hand');
-
-    const targetPos = bot.vec3(-2769.5, 69, -342.5);
-    const defaultMove = new Movements(bot);
-    bot.pathfinder.setMovements(defaultMove);
-    bot.pathfinder.setGoal(new goals.GoalBlock(targetPos.x, targetPos.y, targetPos.z));
-
-    bot.chat('🚶 Walking to fishing spot...');
-    await bot.waitForTicks(60); // let it reach the spot
-
-    // Align camera
-    const yaw = Math.PI * (90 / 180);
-    const pitch = Math.PI * (16 / 180);
-    await bot.look(yaw, pitch, true);
     bot.setControlState('sneak', true);
-    bot.chat('🎯 Aligned camera angle');
+    bot.chat('🎣 Starting AFK fishing (no movement)...');
 
-    // Start 300ms right-click spam
     if (rightClickInterval) clearInterval(rightClickInterval);
     rightClickInterval = setInterval(() => {
-      bot.activateItem(); // right click
+      bot.activateItem();
     }, 300);
 
-    // Detect splash sound
     bot.on('soundEffectHeard', async (sound) => {
       if (sound?.soundName?.includes('entity.fishing_bobber.splash')) {
         const caught = bot.inventory.items().slice(-1)[0];
