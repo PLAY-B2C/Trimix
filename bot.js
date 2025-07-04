@@ -3,7 +3,6 @@ const mineflayer = require('mineflayer');
 let bot;
 let reconnectTimeout = null;
 let fishingInterval = null;
-let positionInterval = null;
 
 // Configuration - Set your AFK spot coordinates here
 const AFK_SPOT = { x: -2768.5, y: 69, z: -342.5 };
@@ -21,9 +20,9 @@ function createBot() {
   bot.on('spawn', () => {
     console.log('✅ Spawned in');
     
-    // Teleport to AFK spot immediately after spawn
-    bot.chat('/tp IamChatGPT ' + AFK_SPOT.x + ' ' + AFK_SPOT.y + ' ' + AFK_SPOT.z + ' ' + 
-              (FISHING_ANGLE.yaw * 180 / Math.PI) + ' ' + (FISHING_ANGLE.pitch * 180 / Math.PI));
+    // Immediately position and orient the bot
+    bot.entity.position.set(AFK_SPOT.x, AFK_SPOT.y, AFK_SPOT.z);
+    bot.look(FISHING_ANGLE.yaw, FISHING_ANGLE.pitch, true);
     
     setTimeout(() => {
       bot.chat('/login 3043AA');
@@ -34,17 +33,25 @@ function createBot() {
   bot.on('kicked', reason => {
     console.log('❌ Kicked:', reason);
     scheduleReconnect();
+    clearIntervals();
   });
 
   bot.on('end', () => {
     console.log('❌ Disconnected.');
     scheduleReconnect();
+    clearIntervals();
   });
 
   bot.on('error', err => {
     console.log('❌ Error:', err.message);
     scheduleReconnect();
+    clearIntervals();
   });
+}
+
+function clearIntervals() {
+  if (fishingInterval) clearInterval(fishingInterval);
+  fishingInterval = null;
 }
 
 function scheduleReconnect() {
@@ -67,30 +74,20 @@ async function startFishing() {
     await bot.equip(rod, 'hand');
     bot.chat('🎣 Starting AFK fishing...');
 
-    // Clear existing intervals
-    if (fishingInterval) clearInterval(fishingInterval);
-    if (positionInterval) clearInterval(positionInterval);
+    // Clear existing interval
+    clearIntervals();
 
-    // Force position and look angle constantly
-    positionInterval = setInterval(() => {
-      // Force position and look angle
+    // Create a combined interval for position and fishing
+    fishingInterval = setInterval(() => {
+      // Maintain position and look angle
+      bot.entity.position.set(AFK_SPOT.x, AFK_SPOT.y, AFK_SPOT.z);
       bot.look(FISHING_ANGLE.yaw, FISHING_ANGLE.pitch, true);
       
-      // Teleport to AFK spot if moved
-      const pos = bot.entity.position;
-      if (Math.abs(pos.x - AFK_SPOT.x) > 0.1 || 
-          Math.abs(pos.y - AFK_SPOT.y) > 0.1 || 
-          Math.abs(pos.z - AFK_SPOT.z) > 0.1) {
-        bot.chat('/tp IamChatGPT ' + AFK_SPOT.x + ' ' + AFK_SPOT.y + ' ' + AFK_SPOT.z + ' ' + 
-                 (FISHING_ANGLE.yaw * 180 / Math.PI) + ' ' + (FISHING_ANGLE.pitch * 180 / Math.PI));
-      }
-    }, 100);  // Run every 100ms
-
-    // Handle fishing rod casting/reeling
-    fishingInterval = setInterval(() => {
-      bot.activateItem(); // Right-click to cast/reel
+      // Fishing action
+      bot.activateItem();
     }, 300);
 
+    // Sound detection for caught fish
     bot.on('soundEffectHeard', (sound) => {
       if (sound?.soundName?.includes('entity.fishing_bobber.splash')) {
         const caught = bot.inventory.items().slice(-1)[0];
