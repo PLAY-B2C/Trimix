@@ -1,5 +1,5 @@
 const mineflayer = require('mineflayer');
-const { pathfinder } = require('mineflayer-pathfinder');
+const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 
 let bot;
 let reconnectTimeout = null;
@@ -35,7 +35,7 @@ function createBot() {
   });
 
   bot.on('error', err => {
-    console.log('❌ Connection error:', err.message);
+    console.log('❌ Error:', err.message);
     scheduleReconnect();
   });
 }
@@ -49,33 +49,40 @@ function scheduleReconnect() {
   }, 60000);
 }
 
-function aimAndFish() {
+async function aimAndFish() {
   const rod = bot.inventory.items().find(i => i.name.includes('fishing_rod'));
   if (!rod) {
     bot.chat('❌ No fishing rod in inventory!');
     return;
   }
 
-  bot.equip(rod, 'hand').then(async () => {
-    bot.chat('/tp IamChatGPT -2769.5 69 -342.5');
-    await bot.waitForTicks(20);
+  try {
+    await bot.equip(rod, 'hand');
 
-    // Look at correct angle
+    const targetPos = bot.vec3(-2769.5, 69, -342.5);
+    const defaultMove = new Movements(bot);
+    bot.pathfinder.setMovements(defaultMove);
+    bot.pathfinder.setGoal(new goals.GoalBlock(targetPos.x, targetPos.y, targetPos.z));
+
+    bot.chat('🚶 Walking to fishing spot...');
+    await bot.waitForTicks(60); // let it reach the spot
+
+    // Align camera
     const yaw = Math.PI * (90 / 180);
     const pitch = Math.PI * (16 / 180);
-    bot.look(yaw, pitch, true);
+    await bot.look(yaw, pitch, true);
     bot.setControlState('sneak', true);
-    bot.chat('🎯 Aiming at fishing spot...');
-    
+    bot.chat('🎯 Aligned camera angle');
+
     // Start 300ms right-click spam
     if (rightClickInterval) clearInterval(rightClickInterval);
     rightClickInterval = setInterval(() => {
-      bot.activateItem(); // right-click
+      bot.activateItem(); // right click
     }, 300);
 
-    // Listen for splash to detect catch
+    // Detect splash sound
     bot.on('soundEffectHeard', async (sound) => {
-      if (sound && sound.soundName && sound.soundName.includes('entity.fishing_bobber.splash')) {
+      if (sound?.soundName?.includes('entity.fishing_bobber.splash')) {
         const caught = bot.inventory.items().slice(-1)[0];
         if (caught) {
           bot.chat(`🎣 Caught: ${caught.name}`);
@@ -87,9 +94,10 @@ function aimAndFish() {
         }
       }
     });
-  }).catch(err => {
-    bot.chat('❌ Failed to equip rod: ' + err.message);
-  });
+
+  } catch (err) {
+    bot.chat('❌ Error: ' + err.message);
+  }
 }
 
 function isInventoryFull() {
@@ -103,7 +111,7 @@ async function dumpToChest() {
   });
 
   if (!chestBlock) {
-    bot.chat('❌ No chest found to dump items.');
+    bot.chat('❌ No chest found nearby.');
     return;
   }
 
@@ -114,9 +122,9 @@ async function dumpToChest() {
       await chest.deposit(item.type, null, item.count);
     }
     chest.close();
-    bot.chat('✅ Items dumped into chest.');
+    bot.chat('✅ Items stored.');
   } catch (err) {
-    bot.chat('❌ Error dumping items: ' + err.message);
+    bot.chat('❌ Chest error: ' + err.message);
   }
 }
 
