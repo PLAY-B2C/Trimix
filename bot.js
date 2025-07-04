@@ -3,6 +3,7 @@ const { pathfinder } = require('mineflayer-pathfinder');
 
 let bot;
 let reconnectTimeout = null;
+let rightClickInterval = null;
 
 function createBot() {
   bot = mineflayer.createBot({
@@ -55,58 +56,44 @@ function aimAndFish() {
     return;
   }
 
-  bot.equip(rod, 'hand').then(() => {
-    const waterBlocks = bot.findBlocks({
-      matching: block => block.name === 'water',
-      maxDistance: 6,
-      count: 10
-    });
+  bot.equip(rod, 'hand').then(async () => {
+    bot.chat('/tp IamChatGPT -2769.5 69 -342.5');
+    await bot.waitForTicks(20);
 
-    for (const pos of waterBlocks) {
-      const waterBlock = bot.blockAt(pos);
-      const above = bot.blockAt(waterBlock.position.offset(0, 1, 0));
+    // Look at correct angle
+    const yaw = Math.PI * (90 / 180);
+    const pitch = Math.PI * (16 / 180);
+    bot.look(yaw, pitch, true);
+    bot.setControlState('sneak', true);
+    bot.chat('🎯 Aiming at fishing spot...');
+    
+    // Start 300ms right-click spam
+    if (rightClickInterval) clearInterval(rightClickInterval);
+    rightClickInterval = setInterval(() => {
+      bot.activateItem(); // right-click
+    }, 300);
 
-      if (above && above.name.includes('trapdoor')) {
-        bot.lookAt(above.position.offset(0.5, 0.5, 0.5), true);
-        bot.setControlState('sneak', true);
-        bot.activateItem();
-        bot.chat('🎯 Aiming and casting fishing rod...');
+    // Listen for splash to detect catch
+    bot.on('soundEffectHeard', async (sound) => {
+      if (sound && sound.soundName && sound.soundName.includes('entity.fishing_bobber.splash')) {
+        const caught = bot.inventory.items().slice(-1)[0];
+        if (caught) {
+          bot.chat(`🎣 Caught: ${caught.name}`);
+        }
 
-        bot.on('soundEffectHeard', async (sound) => {
-          if (!sound || !sound.soundName) return;
-          if (sound.soundName.includes('entity.fishing_bobber.splash')) {
-            bot.deactivateItem();
-
-            setTimeout(() => {
-              bot.activateItem();
-            }, 600);
-
-            const full = isInventoryFull();
-            if (full) {
-              bot.chat('📦 Inventory full, dumping to chest...');
-              await dumpToChest();
-            }
-
-            const caught = bot.inventory.items().slice(-1)[0];
-            if (caught) {
-              bot.chat(`🎣 Caught: ${caught.name}`);
-            }
-          }
-        });
-
-        return;
+        if (isInventoryFull()) {
+          bot.chat('📦 Inventory full, dumping to chest...');
+          await dumpToChest();
+        }
       }
-    }
-
-    bot.chat('❌ No valid trapdoor-water fishing spot found.');
+    });
   }).catch(err => {
-    bot.chat('❌ Failed to equip fishing rod: ' + err.message);
+    bot.chat('❌ Failed to equip rod: ' + err.message);
   });
 }
 
 function isInventoryFull() {
-  const emptySlots = bot.inventory.emptySlotCount();
-  return emptySlots === 0;
+  return bot.inventory.emptySlotCount() === 0;
 }
 
 async function dumpToChest() {
@@ -123,7 +110,7 @@ async function dumpToChest() {
   try {
     const chest = await bot.openContainer(chestBlock);
     for (const item of bot.inventory.items()) {
-      if (item.name === 'bread' || item.name.includes('fishing')) continue;
+      if (item.name.includes('fishing') || item.name === 'bread') continue;
       await chest.deposit(item.type, null, item.count);
     }
     chest.close();
