@@ -1,5 +1,4 @@
 const mineflayer = require('mineflayer');
-const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 
 let bot;
 let reconnectTimeout = null;
@@ -14,13 +13,11 @@ function createBot() {
     version: false
   });
 
-  bot.loadPlugin(pathfinder);
-
   bot.on('spawn', () => {
     console.log('✅ Spawned in');
     setTimeout(() => {
       bot.chat('/login 3043AA');
-      startFishingInPlace();
+      startFishing();
     }, 3000);
   });
 
@@ -49,7 +46,7 @@ function scheduleReconnect() {
   }, 60000);
 }
 
-async function startFishingInPlace() {
+async function startFishing() {
   const rod = bot.inventory.items().find(i => i.name.includes('fishing_rod'));
   if (!rod) {
     bot.chat('❌ No fishing rod in inventory!');
@@ -58,58 +55,24 @@ async function startFishingInPlace() {
 
   try {
     await bot.equip(rod, 'hand');
-    bot.setControlState('sneak', true);
-    bot.chat('🎣 Starting AFK fishing (no movement)...');
+    bot.chat('🎣 Starting AFK fishing...');
 
     if (rightClickInterval) clearInterval(rightClickInterval);
     rightClickInterval = setInterval(() => {
-      bot.activateItem();
+      bot.activateItem(); // right click every 300ms
     }, 300);
 
     bot.on('soundEffectHeard', async (sound) => {
-      if (sound?.soundName?.includes('entity.fishing_bobber.splash')) {
+      if (sound && sound.soundName && sound.soundName.includes('entity.fishing_bobber.splash')) {
         const caught = bot.inventory.items().slice(-1)[0];
         if (caught) {
           bot.chat(`🎣 Caught: ${caught.name}`);
-        }
-
-        if (isInventoryFull()) {
-          bot.chat('📦 Inventory full, dumping to chest...');
-          await dumpToChest();
         }
       }
     });
 
   } catch (err) {
-    bot.chat('❌ Error: ' + err.message);
-  }
-}
-
-function isInventoryFull() {
-  return bot.inventory.emptySlotCount() === 0;
-}
-
-async function dumpToChest() {
-  const chestBlock = bot.findBlock({
-    matching: block => block.name === 'chest' || block.name === 'trapped_chest',
-    maxDistance: 6
-  });
-
-  if (!chestBlock) {
-    bot.chat('❌ No chest found nearby.');
-    return;
-  }
-
-  try {
-    const chest = await bot.openContainer(chestBlock);
-    for (const item of bot.inventory.items()) {
-      if (item.name.includes('fishing') || item.name === 'bread') continue;
-      await chest.deposit(item.type, null, item.count);
-    }
-    chest.close();
-    bot.chat('✅ Items stored.');
-  } catch (err) {
-    bot.chat('❌ Chest error: ' + err.message);
+    bot.chat('❌ Fishing error: ' + err.message);
   }
 }
 
