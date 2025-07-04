@@ -1,114 +1,84 @@
-const mineflayer = require('mineflayer')
-const pathfinder = require('mineflayer-pathfinder').pathfinder
+const mineflayer = require('mineflayer');
+const { pathfinder, Movements } = require('mineflayer-pathfinder');
 
-let afkJump, clickFish, checkInv
+const bot = mineflayer.createBot({
+  host: 'EternxlsSMP.aternos.me',
+  port: 48918,
+  username: 'IamChatGPT',
+  auth: 'offline',
+  version: false
+});
 
-function createBot() {
-  const bot = mineflayer.createBot({
-    host: 'EternxlsSMP.aternos.me',
-    port: 48918,
-    username: 'IamChatGPT',
-    auth: 'offline',
-    version: '1.21.4'
-  })
+bot.loadPlugin(pathfinder);
 
-  bot.loadPlugin(pathfinder)
+// Login when spawned
+bot.on('spawn', () => {
+  console.log('✅ Spawned in');
+  setTimeout(() => {
+    bot.chat('/login 3043AA');
+    prepareFishing();
+  }, 3000);
+});
 
-  bot.on('spawn', async () => {
-    bot.chat('/login 3043AA')
-    await bot.waitForTicks(40)
-    equipRod(bot)
-    startFishingLoop(bot)
-    startAfkJump(bot)
-    monitorHunger(bot)
-    monitorInventory(bot)
-    setupCatchLogging(bot)
-  })
+async function prepareFishing() {
+  try {
+    await bot.waitForTicks(100);
 
-  bot.on('end', () => {
-    clearInterval(afkJump)
-    clearInterval(clickFish)
-    clearInterval(checkInv)
-    setTimeout(createBot, 5000)
-  })
-}
+    const barrelBlock = bot.findBlock({
+      matching: block => block.name === 'barrel',
+      maxDistance: 6
+    });
 
-function equipRod(bot) {
-  const rod = bot.inventory.items().find(i => i.name.includes('fishing_rod'))
-  if (rod) bot.equip(rod, 'hand').catch(console.log)
-}
-
-function startFishingLoop(bot) {
-  clickFish = setInterval(() => bot.activateItem(), 300)
-}
-
-function startAfkJump(bot) {
-  afkJump = setInterval(() => {
-    bot.setControlState('jump', true)
-    setTimeout(() => bot.setControlState('jump', false), 300)
-  }, 60000)
-}
-
-function monitorHunger(bot) {
-  setInterval(async () => {
-    if (bot.food < 18) {
-      const barrel = bot.findBlock({
-        matching: block => block.name.includes('barrel'),
-        maxDistance: 6
-      })
-      if (!barrel) return
-      try {
-        const container = await bot.openContainer(barrel)
-        const bread = container.containerItems().find(i => i.name === 'bread')
-        if (bread) {
-          await container.withdraw(bread.type, null, 1)
-          await bot.waitForTicks(5)
-          const slot9 = 8
-          await bot.moveSlotItem(bread.slot, slot9)
-          bot.chat('🍞 Eating bread...')
-          bot.look(bot.entity.yaw, -Math.PI / 2, true)
-          await bot.equip(bot.inventory.slots[slot9 + 36], 'hand')
-          await bot.consume()
-        }
-        container.close()
-      } catch (err) { console.log('❌ Barrel error:', err) }
+    if (!barrelBlock) {
+      bot.chat('❌ No barrel found nearby!');
+      return;
     }
-  }, 5000)
+
+    const barrel = await bot.openContainer(barrelBlock);
+    const breadSlot = barrel.containerItems().find(item => item.name === 'bread');
+
+    if (!breadSlot) {
+      bot.chat('❌ No bread found inside barrel!');
+      barrel.close();
+      return;
+    }
+
+    await bot.clickWindow(breadSlot.slot, 0, 0); // take bread
+    barrel.close();
+
+    const breadInInventory = bot.inventory.items().find(i => i.name === 'bread');
+    if (breadInInventory) {
+      await bot.equip(breadInInventory, 'hand');
+      await bot.moveSlotItem(breadInInventory.slot, 8); // slot 9 (index 8)
+      bot.chat('🥖 Bread equipped to slot 9!');
+    }
+
+    startFishing();
+
+  } catch (err) {
+    console.log('❌ Barrel error:', err);
+  }
 }
 
-function monitorInventory(bot) {
-  checkInv = setInterval(async () => {
-    if (!bot.inventory.emptySlotCount()) {
-      const chests = bot.findBlocks({
-        matching: b => b.name.includes('chest') && !b.name.includes('barrel'),
-        maxDistance: 6,
-        count: 3
-      })
-      for (const pos of chests) {
-        const chestBlock = bot.blockAt(pos)
-        try {
-          const chest = await bot.openContainer(chestBlock)
-          for (let item of bot.inventory.items()) {
-            if (item.name !== 'bread') {
-              await chest.deposit(item.type, null, item.count)
-              bot.chat(`📦 Stored: ${item.name}`)
-            }
-          }
-          chest.close()
-          break
-        } catch (err) { console.log('❌ Chest error:', err) }
+function startFishing() {
+  bot.chat('🎣 Starting AFK fishing...');
+  bot.setControlState('sneak', true);
+  bot.activateItem(); // cast rod
+
+  setInterval(() => {
+    const hook = bot.entity?.fishingBobber;
+    if (!hook) return;
+
+    // Listen for splash sound
+    bot.once('soundEffectHeard', async (sound) => {
+      if (sound.soundName.includes('entity.fishing_bobber.splash')) {
+        bot.deactivateItem(); // reel in
+        setTimeout(() => bot.activateItem(), 600); // cast again
+        bot.chat(`🎣 Caught something!`);
       }
-    }
-  }, 8000)
+    });
+  }, 2000);
 }
 
-function setupCatchLogging(bot) {
-  bot.on('playerCollect', (collector, item) => {
-    if (collector.username === bot.username) {
-      const name = item?.metadata?.[7]?.value || item.name
-      bot.chat(`🎣 Caught: ${item.displayName || name}`)
-    }
-  })
-}
-
-createBot()
+bot.on('kicked', reason => console.log('❌ Kicked:', reason));
+bot.on('error', err => console.log('❌ Error:', err));
