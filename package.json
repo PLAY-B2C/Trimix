@@ -1,0 +1,13 @@
+{
+  "name": "IamChatGPT",
+  "version": "1.0.0",
+  "description": "Advanced Minecraft AFK fishing bot",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "mineflayer": "^4.16.0",
+    "mineflayer-pathfinder": "^2.25.1"
+  }
+}
