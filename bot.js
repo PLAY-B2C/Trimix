@@ -3,11 +3,10 @@ const mineflayer = require('mineflayer');
 let bot;
 let reconnectTimeout = null;
 let fishingInterval = null;
-let lookInterval = null;
 
 // Configuration
 const AFK_SPOT = { x: -2768.5, y: 69, z: -342.5 };
-const FISHING_ANGLE = { yaw: 0, pitch: 16 * Math.PI / 180 };
+const TARGET_PITCH = 16 * Math.PI / 180; // 16 degrees in radians
 
 function createBot() {
   bot = mineflayer.createBot({
@@ -15,15 +14,25 @@ function createBot() {
     port: 48918,
     username: 'IamChatGPT',
     auth: 'offline',
-    version: false
+    version: '1.21.4'
+  });
+
+  // Lock pitch in physics engine
+  bot.on('physicsTick', () => {
+    if (bot.entity) {
+      // Force pitch to 16 degrees
+      bot.entity.pitch = TARGET_PITCH;
+      
+      // Lock position
+      bot.entity.position.set(AFK_SPOT.x, AFK_SPOT.y, AFK_SPOT.z);
+      bot.entity.velocity.set(0, 0, 0);
+    }
   });
 
   bot.on('spawn', () => {
     console.log('✅ Spawned in');
-    
-    // Immediately set position and angle
     bot.entity.position.set(AFK_SPOT.x, AFK_SPOT.y, AFK_SPOT.z);
-    bot.look(FISHING_ANGLE.yaw, FISHING_ANGLE.pitch, true);
+    bot.entity.pitch = TARGET_PITCH;
     
     setTimeout(() => {
       bot.chat('/login 3043AA');
@@ -52,9 +61,7 @@ function createBot() {
 
 function clearIntervals() {
   if (fishingInterval) clearInterval(fishingInterval);
-  if (lookInterval) clearInterval(lookInterval);
   fishingInterval = null;
-  lookInterval = null;
 }
 
 function scheduleReconnect() {
@@ -77,19 +84,8 @@ async function startFishing() {
     await bot.equip(rod, 'hand');
     bot.chat('🎣 Starting AFK fishing...');
 
-    // Clear existing intervals
+    // Clear existing interval
     clearIntervals();
-
-    // CONSTANTLY force look direction (every 50ms)
-    lookInterval = setInterval(() => {
-      bot.look(FISHING_ANGLE.yaw, FISHING_ANGLE.pitch, true);
-      
-      // Debug: Log current pitch in degrees
-      const currentPitch = Math.round(bot.entity.pitch * 180 / Math.PI);
-      if (currentPitch !== 16) {
-        console.log(`⚠️ Pitch reset to ${currentPitch}°, forcing back to 16°`);
-      }
-    }, 50);
 
     // Fishing action at 300ms interval
     fishingInterval = setInterval(() => {
