@@ -11,7 +11,6 @@ const bot = mineflayer.createBot({
 
 bot.loadPlugin(pathfinder);
 
-// Login when spawned
 bot.on('spawn', () => {
   console.log('✅ Spawned in');
   setTimeout(() => {
@@ -43,14 +42,27 @@ async function prepareFishing() {
       return;
     }
 
-    await bot.clickWindow(breadSlot.slot, 0, 0); // take bread
+    await bot.clickWindow(breadSlot.slot, 0, 0);
     barrel.close();
 
     const breadInInventory = bot.inventory.items().find(i => i.name === 'bread');
     if (breadInInventory) {
       await bot.equip(breadInInventory, 'hand');
-      await bot.moveSlotItem(breadInInventory.slot, 8); // slot 9 (index 8)
+      await bot.moveSlotItem(breadInInventory.slot, 8); // slot 9
       bot.chat('🥖 Bread equipped to slot 9!');
+    }
+
+    // 🔁 Look at trapdoor/water before fishing
+    const fishingSpot = bot.findBlock({
+      matching: block => block.name.includes('trapdoor') || block.name.includes('water'),
+      maxDistance: 6
+    });
+
+    if (fishingSpot) {
+      bot.lookAt(fishingSpot.position.offset(0.5, 0.5, 0.5));
+      bot.chat('🎯 Aiming at fishing spot...');
+    } else {
+      bot.chat('⚠️ Could not find a fishing block to aim at.');
     }
 
     startFishing();
@@ -69,7 +81,6 @@ function startFishing() {
     const hook = bot.entity?.fishingBobber;
     if (!hook) return;
 
-    // Listen for splash sound
     bot.once('soundEffectHeard', async (sound) => {
       if (sound.soundName.includes('entity.fishing_bobber.splash')) {
         bot.deactivateItem(); // reel in
