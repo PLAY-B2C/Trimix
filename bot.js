@@ -76,21 +76,64 @@ function aimAndFish() {
       bot.activateItem();
       bot.chat('🎯 Aiming at fishing spot...');
 
-      bot.on('soundEffectHeard', (sound) => {
-  if (!sound || !sound.soundName) return;
-  if (sound.soundName.includes('entity.fishing_bobber.splash')) {
-    bot.deactivateItem();
-    setTimeout(() => bot.activateItem(), 600);
-    bot.chat('🎣 Caught something!');
-  }
-});
+      bot.on('soundEffectHeard', async (sound) => {
+        if (!sound || !sound.soundName) return;
+        if (sound.soundName.includes('entity.fishing_bobber.splash')) {
+          bot.deactivateItem();
+
+          setTimeout(() => {
+            bot.activateItem();
+          }, 600);
+
+          // Check inventory & offload if full
+          const full = isInventoryFull();
+          if (full) {
+            bot.chat('📦 Inventory full, dumping to chest...');
+            await dumpToChest();
+          }
+
+          // Announce caught item
+          const caught = bot.inventory.items().slice(-1)[0];
+          if (caught) {
+            bot.chat(`🎣 Caught: ${caught.name}`);
+          }
         }
       });
+
       return;
     }
   }
 
   bot.chat('❌ No valid trapdoor-water fishing spot found.');
+}
+
+function isInventoryFull() {
+  const emptySlots = bot.inventory.emptySlotCount();
+  return emptySlots === 0;
+}
+
+async function dumpToChest() {
+  const chestBlock = bot.findBlock({
+    matching: block => block.name === 'chest' || block.name === 'trapped_chest',
+    maxDistance: 6
+  });
+
+  if (!chestBlock) {
+    bot.chat('❌ No chest found to dump items.');
+    return;
+  }
+
+  try {
+    const chest = await bot.openContainer(chestBlock);
+    for (const item of bot.inventory.items()) {
+      if (item.name === 'bread' || item.name.includes('fishing')) continue;
+      await chest.deposit(item.type, null, item.count);
+    }
+    chest.close();
+    bot.chat('✅ Items dumped into chest.');
+  } catch (err) {
+    bot.chat('❌ Error dumping items: ' + err.message);
+  }
 }
 
 createBot();
