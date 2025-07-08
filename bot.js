@@ -5,51 +5,63 @@ const config = {
   port: 48918,
   username: 'notAreeb',
   password: '/login 3043AA',
+  version: '1.21.4', // Force version to avoid protocol -1 error
   reconnectDelay: 30000 // 30 seconds
 };
 
-let reconnecting = false;
 let bot;
+let reconnecting = false;
 
 function createBot() {
   console.log('🔁 Attempting to connect...');
-  bot = mineflayer.createBot({
-    host: config.host,
-    port: config.port,
-    username: config.username
-  });
 
-  bot.once('spawn', () => {
-    reconnecting = false;
-    console.log('✅ Bot spawned. Staying AFK...');
+  try {
+    bot = mineflayer.createBot({
+      host: config.host,
+      port: config.port,
+      username: config.username,
+      version: config.version
+    });
 
-    // Auto-login with password
-    setTimeout(() => {
-      bot.chat(config.password);
-    }, 1000);
+    bot.once('spawn', () => {
+      reconnecting = false;
+      console.log('✅ Bot spawned. Staying AFK...');
 
-    // Jump every 40 seconds
-    setInterval(() => {
-      if (!bot || !bot.entity) return;
-      bot.setControlState('jump', true);
-      setTimeout(() => bot.setControlState('jump', false), 300);
-    }, 40000);
+      // Auto-login
+      setTimeout(() => {
+        bot.chat(config.password);
+      }, 1000);
 
-    // Send random AFK chat every 5 minutes
-    setInterval(() => {
-      if (!bot || !bot.chat) return;
-      const msg = ["Why are you so gay", "Wanna become my Gaylord?"];
-      bot.chat(msg[Math.floor(Math.random() * msg.length)]);
-    }, 300000);
-  });
+      // Jump every 40 seconds
+      setInterval(() => {
+        if (!bot || !bot.entity) return;
+        bot.setControlState('jump', true);
+        setTimeout(() => bot.setControlState('jump', false), 300);
+      }, 40000);
 
-  bot.on('end', handleDisconnect);
-  bot.on('error', handleDisconnect);
+      // Random chat every 5 minutes
+      setInterval(() => {
+        if (!bot || !bot.chat) return;
+        const msg = ["Why are you so gay", "Wanna become my Gaylord?"];
+        bot.chat(msg[Math.floor(Math.random() * msg.length)]);
+      }, 300000);
+    });
+
+    bot.on('end', handleDisconnect);
+    bot.on('error', handleDisconnect);
+  } catch (e) {
+    console.log('❌ Bot crashed:', e.message);
+    scheduleReconnect();
+  }
 }
 
 function handleDisconnect(err) {
   console.log(`❌ Bot disconnected: ${err?.message || 'unknown reason'}`);
-  if (reconnecting) return; // prevent multiple timers
+  scheduleReconnect();
+}
+
+function scheduleReconnect() {
+  if (reconnecting) return;
   reconnecting = true;
   console.log(`⏳ Reconnecting in ${config.reconnectDelay / 1000}s...`);
   setTimeout(() => createBot(), config.reconnectDelay);
