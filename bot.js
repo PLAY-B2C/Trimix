@@ -1,36 +1,58 @@
-
 const mineflayer = require('mineflayer');
 
-const bot = mineflayer.createBot({
-  host: 'EternxlsSMP.aternos.me', // Replace with your DynIP
-  port: 48918,                  // Replace with your port
-  username: 'notAreeb'        // Bot username
-});
+const config = {
+  host: 'EternxlsSMP.aternos.me',
+  port: 48918,
+  username: 'notAreeb',
+  password: '/login 3043AA',
+  reconnectDelay: 30000 // 30 seconds
+};
 
-bot.once('spawn', () => {
-  console.log('✅ Bot spawned. Staying AFK...');
+let reconnecting = false;
+let bot;
 
-  // Auto-login with password after spawn
-  setTimeout(() => {
-    bot.chat('/login 3043AA');
-  }, 1000);
+function createBot() {
+  console.log('🔁 Attempting to connect...');
+  bot = mineflayer.createBot({
+    host: config.host,
+    port: config.port,
+    username: config.username
+  });
 
-  // Jump every 40 seconds
-  setInterval(() => {
-    bot.setControlState('jump', true);
-    setTimeout(() => bot.setControlState('jump', false), 300);
-  }, 40000);
+  bot.once('spawn', () => {
+    reconnecting = false;
+    console.log('✅ Bot spawned. Staying AFK...');
 
-  // Send AFK chat message every 5 minutes
-  setInterval(() => {
-    const msg = ["Why are you so gay", "Wanna become my Gaylord?"];
-    bot.chat(msg[Math.floor(Math.random() * msg.length)]);
-  }, 300000);
-});
+    // Auto-login with password
+    setTimeout(() => {
+      bot.chat(config.password);
+    }, 1000);
 
-bot.on('end', () => {
-  console.log('❌ Disconnected. Reconnecting in 30s...');
-  setTimeout(() => process.exit(1), 30000); // Auto-restart logic can be handled externally
-});
+    // Jump every 40 seconds
+    setInterval(() => {
+      if (!bot || !bot.entity) return;
+      bot.setControlState('jump', true);
+      setTimeout(() => bot.setControlState('jump', false), 300);
+    }, 40000);
 
-bot.on('error', err => console.log('❗ Error:', err));
+    // Send random AFK chat every 5 minutes
+    setInterval(() => {
+      if (!bot || !bot.chat) return;
+      const msg = ["Why are you so gay", "Wanna become my Gaylord?"];
+      bot.chat(msg[Math.floor(Math.random() * msg.length)]);
+    }, 300000);
+  });
+
+  bot.on('end', handleDisconnect);
+  bot.on('error', handleDisconnect);
+}
+
+function handleDisconnect(err) {
+  console.log(`❌ Bot disconnected: ${err?.message || 'unknown reason'}`);
+  if (reconnecting) return; // prevent multiple timers
+  reconnecting = true;
+  console.log(`⏳ Reconnecting in ${config.reconnectDelay / 1000}s...`);
+  setTimeout(() => createBot(), config.reconnectDelay);
+}
+
+createBot();
