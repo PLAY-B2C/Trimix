@@ -1,21 +1,37 @@
 const mineflayer = require('mineflayer');
+const mc = require('minecraft-protocol'); // for ping
 
 const config = {
-  host: 'EternxlsSMP.aternos.me',
+  host: 'javelin.aternos.host',
   port: 48918,
-  username: 'notAreeb',
+  username: 'LisaMC',
+  version: '1.21.4',
   password: '/login 3043AA',
-  version: '1.21.4', // Force version to avoid protocol -1 error
-  reconnectDelay: 30000 // 30 seconds
+  reconnectDelay: 30000 // 30s
 };
 
 let bot;
 let reconnecting = false;
+let intervals = [];
 
 function createBot() {
-  console.log('🔁 Attempting to connect...');
+  if (reconnecting) return; // Prevent stacked calls
+  reconnecting = true;
 
-  try {
+  console.log(`🔁 Pinging server ${config.host}...`);
+
+  mc.ping({ host: config.host, port: config.port }, (err, res) => {
+    if (err || !res) {
+      console.log('❌ Server offline. Retrying in 30s...');
+      return setTimeout(() => {
+        reconnecting = false;
+        createBot();
+      }, config.reconnectDelay);
+    }
+
+    console.log(`✅ Server is online. Version: ${res.version.name}`);
+    console.log('🔌 Connecting bot...');
+
     bot = mineflayer.createBot({
       host: config.host,
       port: config.port,
@@ -27,43 +43,47 @@ function createBot() {
       reconnecting = false;
       console.log('✅ Bot spawned. Staying AFK...');
 
-      // Auto-login
-      setTimeout(() => {
-        bot.chat(config.password);
-      }, 1000);
+      // Auto login
+      setTimeout(() => bot.chat(config.password), 1000);
 
-      // Jump every 40 seconds
-      setInterval(() => {
+      // AFK jumping
+      intervals.push(setInterval(() => {
         if (!bot || !bot.entity) return;
         bot.setControlState('jump', true);
         setTimeout(() => bot.setControlState('jump', false), 300);
-      }, 40000);
+      }, 40000));
 
-      // Random chat every 5 minutes
-      setInterval(() => {
+      // AFK chat
+      intervals.push(setInterval(() => {
         if (!bot || !bot.chat) return;
-        const msg = ["Why are you so gay", "Wanna become my Gaylord?"];
-        bot.chat(msg[Math.floor(Math.random() * msg.length)]);
-      }, 300000);
+        const msgs = [
+          "Why are you so gay 💅",
+          "Wanna become my Gaylord? 😘"
+        ];
+        bot.chat(msgs[Math.floor(Math.random() * msgs.length)]);
+      }, 300000));
     });
 
-    bot.on('end', handleDisconnect);
-    bot.on('error', handleDisconnect);
-  } catch (e) {
-    console.log('❌ Bot crashed:', e.message);
-    scheduleReconnect();
+    bot.on('end', () => {
+      console.log('❌ Disconnected. Retrying in 30s...');
+      cleanupAndRetry();
+    });
+
+    bot.on('error', (err) => {
+      console.log('❗ Error:', err.message);
+      cleanupAndRetry();
+    });
+  });
+}
+
+function cleanupAndRetry() {
+  reconnecting = false;
+  if (bot) {
+    try { bot.quit(); } catch {}
+    bot = null;
   }
-}
-
-function handleDisconnect(err) {
-  console.log(`❌ Bot disconnected: ${err?.message || 'unknown reason'}`);
-  scheduleReconnect();
-}
-
-function scheduleReconnect() {
-  if (reconnecting) return;
-  reconnecting = true;
-  console.log(`⏳ Reconnecting in ${config.reconnectDelay / 1000}s...`);
+  intervals.forEach(clearInterval);
+  intervals = [];
   setTimeout(() => createBot(), config.reconnectDelay);
 }
 
