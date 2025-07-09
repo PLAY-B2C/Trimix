@@ -2,9 +2,9 @@ const mineflayer = require('mineflayer');
 const mc = require('minecraft-protocol'); // for ping
 
 const config = {
-  host: 'hussar.aternos.host',
+  host: 'EternxlsSMP.aternos.me',
   port: 48918,
-  username: 'notAreeb',
+  username: 'Anouncement',
   version: '1.21.4',
   password: '/login 3043AA',
   reconnectDelay: 10000 // 10 seconds
