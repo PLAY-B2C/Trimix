@@ -54,14 +54,29 @@ function createBot() {
       }, 40000));
 
       // AFK chat
-      intervals.push(setInterval(() => {
-        if (!bot || !bot.chat) return;
-        const msgs = [
-          "Why are you so gay 💅",
-          "Wanna become my Gaylord? 😘"
-        ];
-        bot.chat(msgs[Math.floor(Math.random() * msgs.length)]);
-      }, 300000));
+      const facts = [
+  "Fun Fact: You can use spruce planks + shift to chop leaves faster 😎",
+  "Fun Fact: Jumping while mining doubles your drop rate... probably 🪨",
+  "Fun Fact: If you name a cow 'Dinnerbone' it becomes a spy 👀",
+  "Fun Fact: Shift + Q throws diamonds faster. Speedrun tech 💎",
+  "Fun Fact: Mining at Y=-69 gives the best enchant rates. Trust me 🤓",
+  "Fun Fact: Creepers only hiss if you're being cringe 💥",
+  "Fun Fact: Beds explode in the Nether because Mojang hates sleep 🛌🔥",
+  "Fun Fact: Right-clicking grass with bread attracts sheep 🐑🍞",
+  "Fun Fact: Mobs drop extra loot if you shout 'YEET!' IRL 🎤",
+  "Fun Fact: Axolotls judge your builds silently 🥲",
+  "Fun Fact: You can tame Endermen with eye contact... if you’re brave enough 😳",
+  "Fun Fact: Punching wood with a stick is 17% faster (totally not made up) 🌲",
+  "Fun Fact: If you throw 8 eggs at a wall, 1 becomes a chicken. Coincidence? 🐣",
+  "Fun Fact: Stepping on crops resets your karma 🧘‍♀️",
+  "Fun Fact: Wearing a pumpkin gives you +69 IQ 🎃"
+];
+
+setInterval(() => {
+  if (!bot || !bot.chat) return;
+  const random = facts[Math.floor(Math.random() * facts.length)];
+  bot.chat(random);
+}, 300000); // Every 5 minutes
     });
 
     bot.on('end', () => {
