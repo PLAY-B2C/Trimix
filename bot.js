@@ -2,7 +2,7 @@ const mineflayer = require('mineflayer');
 const mc = require('minecraft-protocol'); // for ping
 
 const config = {
-  host: 'flagtail.aternos.host',
+  host: 'hussar.aternos.host',
   port: 48918,
   username: 'notAreeb',
   version: '1.21.4',
