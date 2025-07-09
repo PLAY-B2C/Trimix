@@ -7,7 +7,7 @@ const config = {
   username: 'notAreeb',
   version: '1.21.4',
   password: '/login 3043AA',
-  reconnectDelay: 30000 // 30s
+  reconnectDelay: 10000 // 10s
 };
 
 let bot;
@@ -22,7 +22,7 @@ function createBot() {
 
   mc.ping({ host: config.host, port: config.port }, (err, res) => {
     if (err || !res) {
-      console.log('❌ Server offline. Retrying in 30s...');
+      console.log('❌ Server offline. Retrying in 10s...');
       return setTimeout(() => {
         reconnecting = false;
         createBot();
@@ -80,7 +80,7 @@ setInterval(() => {
     });
 
     bot.on('end', () => {
-      console.log('❌ Disconnected. Retrying in 30s...');
+      console.log('❌ Disconnected. Retrying in 10s...');
       cleanupAndRetry();
     });
 
