@@ -4,7 +4,7 @@ const mc = require('minecraft-protocol'); // for ping
 const config = {
   host: 'flagtail.aternos.host',
   port: 48918,
-  username: 'LisaMC',
+  username: 'notAreeb',
   version: '1.21.4',
   password: '/login 3043AA',
   reconnectDelay: 30000 // 30s
