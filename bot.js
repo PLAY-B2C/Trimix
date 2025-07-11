@@ -6,7 +6,7 @@ const path = require('path');
 
 const config = {
   host: 'EternxlsSMP.aternos.me',
-  port: 48918
+  port: 48918',
   username: 'IamChatGPT',
   version: false,
   loginCommand: '/login 3043AA',
