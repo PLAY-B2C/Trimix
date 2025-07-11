@@ -47,15 +47,6 @@ function connectBot() {
     loopRandomMessages();
   });
 
-  bot.on('chat', (username, message) => {
-    if (username.toLowerCase() === bot.username.toLowerCase()) return;
-
-    const msg = message.toLowerCase();
-    if (msg.includes('hi') || msg.includes('hello')) {
-      bot.chat('what r u doin');
-    }
-  });
-
   bot.on('error', err => {
     console.error(`❌ Bot error: ${err.code}`);
     setTimeout(pingServerAndConnect, 10000);
