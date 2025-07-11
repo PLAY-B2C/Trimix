@@ -1,23 +1,23 @@
-// bot.js
 const mineflayer = require('mineflayer');
 const mc = require('minecraft-protocol');
 const fs = require('fs');
-const path = require('path');
 
 const config = {
   host: 'EternxlsSMP.aternos.me',
-  port: 48918,
-  username: 'Anouncement',
+  port: 25565,
+  username: 'IamChatGPT',
   version: false,
   loginCommand: '/login 3043AA',
 };
 
-// Load chat messages from botchat.txt
-const chatMessages = fs
-  .readFileSync(path.join(__dirname, 'botchat.txt'), 'utf-8')
-  .split('\n')
-  .map(line => line.trim())
-  .filter(line => line.length > 0);
+let chatMessages = [];
+try {
+  chatMessages = fs.readFileSync('./botchat.txt', 'utf-8')
+    .split('\n')
+    .filter(line => line.trim() !== '');
+} catch (err) {
+  console.error('❌ Failed to load botchat.txt:', err);
+}
 
 let bot;
 
@@ -25,7 +25,7 @@ function pingServerAndConnect() {
   console.log(`🔁 Pinging server ${config.host}...`);
   mc.ping({ host: config.host, port: config.port }, (err, result) => {
     if (err || !result || result.version.name.includes('Offline')) {
-      console.log(`❌ Server offline. Retrying in 10s...`);
+      console.log('❌ Server offline. Retrying in 10s...');
       return setTimeout(pingServerAndConnect, 10000);
     }
 
@@ -41,9 +41,9 @@ function connectBot() {
     username: config.username,
   });
 
-  bot.on('login', () => {
-    console.log(`✅ Bot spawned. Staying AFK...`);
-    bot.chat(config.loginCommand);
+  bot.once('spawn', () => {
+    console.log('✅ Bot spawned. Staying AFK...');
+    if (config.loginCommand) bot.chat(config.loginCommand);
     loopRandomMessages();
   });
 
@@ -60,11 +60,11 @@ function connectBot() {
 
 function loopRandomMessages() {
   setInterval(() => {
-    if (bot && bot.chat) {
+    if (bot && bot.player && chatMessages.length > 0) {
       const msg = chatMessages[Math.floor(Math.random() * chatMessages.length)];
       bot.chat(msg);
     }
-  }, 5 * 60 * 1000); // every 5 minutes
+  }, 5 * 60 * 1000);
 }
 
 pingServerAndConnect();
