@@ -4,8 +4,8 @@ const fs = require('fs');
 
 const config = {
   host: 'EternxlsSMP.aternos.me',
-  port: 25565,
-  username: 'IamChatGPT',
+  port: 48918,
+  username: 'Anouncement',
   version: false,
   loginCommand: '/login 3043AA',
 };
