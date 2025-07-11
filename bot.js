@@ -6,7 +6,7 @@ const path = require('path');
 
 const config = {
   host: 'EternxlsSMP.aternos.me',
-  port: 48918',
+  port: 48918,
   username: 'IamChatGPT',
   version: false,
   loginCommand: '/login 3043AA',
@@ -45,6 +45,15 @@ function connectBot() {
     console.log(`✅ Bot spawned. Staying AFK...`);
     bot.chat(config.loginCommand);
     loopRandomMessages();
+  });
+
+  bot.on('chat', (username, message) => {
+    if (username.toLowerCase() === bot.username.toLowerCase()) return;
+
+    const msg = message.toLowerCase();
+    if (msg.includes('hi') || msg.includes('hello')) {
+      bot.chat('what r u doin');
+    }
   });
 
   bot.on('error', err => {
