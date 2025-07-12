@@ -6,7 +6,7 @@ const config = {
   host: 'EternxlsSMP.aternos.me',
   port: 48918,
   username: 'Anouncement',
-  version: '1.20.4',
+  version: '1.12.2',
   loginCommand: '/login 3043AA',
 };
 
