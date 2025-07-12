@@ -6,7 +6,7 @@ const config = {
   host: 'EternxlsSMP.aternos.me',
   port: 48918,
   username: 'Anouncement',
-  version: false,
+  version: '1.20.4', // Force bot to use 1.20.4 protocol
   loginCommand: '/login 3043AA',
 };
 
@@ -39,6 +39,7 @@ function connectBot() {
     host: config.host,
     port: config.port,
     username: config.username,
+    version: config.version,
   });
 
   bot.once('spawn', () => {
