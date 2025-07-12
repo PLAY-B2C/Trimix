@@ -6,7 +6,7 @@ const config = {
   host: 'EternxlsSMP.aternos.me',
   port: 48918,
   username: 'Anouncement',
-  version: '1.20.4', // Force bot to use 1.20.4 protocol
+  version: '1.20.4',
   loginCommand: '/login 3043AA',
 };
 
@@ -20,12 +20,17 @@ try {
 }
 
 let bot;
+let connecting = false;
 
 function pingServerAndConnect() {
+  if (connecting) return;
+  connecting = true;
+
   console.log(`🔁 Pinging server ${config.host}...`);
   mc.ping({ host: config.host, port: config.port }, (err, result) => {
     if (err || !result || result.version.name.includes('Offline')) {
       console.log('❌ Server offline. Retrying in 10s...');
+      connecting = false;
       return setTimeout(pingServerAndConnect, 10000);
     }
 
@@ -44,19 +49,26 @@ function connectBot() {
 
   bot.once('spawn', () => {
     console.log('✅ Bot spawned. Staying AFK...');
-    if (config.loginCommand) bot.chat(config.loginCommand);
+    if (config.loginCommand && typeof bot.chat === 'function') {
+      setTimeout(() => bot.chat(config.loginCommand), 1000);
+    }
     loopRandomMessages();
   });
 
   bot.on('error', err => {
     console.error(`❌ Bot error: ${err.code}`);
-    setTimeout(pingServerAndConnect, 10000);
+    reconnect();
   });
 
   bot.on('end', () => {
     console.log('❌ Bot disconnected. Reconnecting...');
-    setTimeout(pingServerAndConnect, 10000);
+    reconnect();
   });
+}
+
+function reconnect() {
+  connecting = false;
+  setTimeout(pingServerAndConnect, 10000);
 }
 
 function loopRandomMessages() {
