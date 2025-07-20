@@ -6,7 +6,7 @@ const { GoalBlock } = goals;
 const config = {
   host: 'mc.cloudpixel.fun',
   port: 25565,
-  version: '1.16.5',
+  version: '1.18.2',
   password: 'ABCDEFG',
   botNames: ['DrakonTide', 'ConnieSpringer'],
   npcCoords: { x: -30.5, y: 92, z: -5.5 }
