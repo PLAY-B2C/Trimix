@@ -2,11 +2,11 @@ const mineflayer = require('mineflayer');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const { Vec3 } = require('vec3');
 
-const botNames = ['DrakonTide', 'ConnieSpringer'];
-const server = 'mc.cloudpixel.fun';
+const botNames = ['ConnieSpringer'];
+const server = 'mc.fakepixel.fun';
 const loginPassword = 'ABCDEFG';
 const version = '1.16.5';
-const npcPos = new Vec3(-30, 92, -5);
+const npcPos = new Vec3(-26, 92, -1);
 
 botNames.forEach((name, i) => startBot(name, i * 5000)); // delay bots
 
