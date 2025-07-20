@@ -2,97 +2,94 @@ const mineflayer = require('mineflayer');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const { Vec3 } = require('vec3');
 
-const config = {
-  host: 'mc.cloudpixel.fun',
-  username: 'DrakonTide',
-  version: '1.16.5',
-  loginCommand: '/login ABCDEFG',
-  npcLocation: new Vec3(-30, 92, -5)
-};
+const botNames = ['DrakonTide', 'ConnieSpringer'];
+const server = 'mc.cloudpixel.fun';
+const loginPassword = 'ABCDEFG';
+const version = '1.16.5';
+const npcPos = new Vec3(-30, 92, -5);
 
-let bot;
-let reconnecting = false;
+botNames.forEach((name, i) => startBot(name, i * 5000)); // delay bots
 
-function createBot() {
-  bot = mineflayer.createBot({
-    host: config.host,
-    username: config.username,
-    version: config.version,
-  });
+function startBot(username, delay) {
+  setTimeout(() => {
+    const bot = mineflayer.createBot({
+      host: server,
+      username,
+      version
+    });
 
-  bot.loadPlugin(pathfinder);
+    bot.loadPlugin(pathfinder);
 
-  bot.once('spawn', () => {
-    console.log(`✅ ${bot.username} spawned.`);
+    bot.once('spawn', () => {
+      console.log(`✅ ${username} spawned.`);
 
-    if (config.loginCommand) {
-      setTimeout(() => bot.chat(config.loginCommand), 1000);
-    }
-
-    goToNPC();
-  });
-
-  bot.on('error', (err) => {
-    console.log(`❌ ${bot.username} error: ${err.message}`);
-  });
-
-  bot.on('end', () => {
-    console.log(`❌ ${bot.username} disconnected. Reconnecting...`);
-    if (!reconnecting) {
-      reconnecting = true;
+      // Send login command
       setTimeout(() => {
-        reconnecting = false;
-        createBot();
-      }, 10000);
-    }
-  });
+        bot.chat(`/login ${loginPassword}`);
+      }, 1000);
+
+      // Walk to NPC after login
+      setTimeout(() => goToNPC(bot), 3000);
+    });
+
+    bot.on('end', () => {
+      console.log(`❌ ${username} disconnected. Reconnecting...`);
+      startBot(username, 10000);
+    });
+
+    bot.on('error', err => {
+      console.log(`❌ ${username} error: ${err.message}`);
+    });
+  }, delay);
 }
 
-function goToNPC() {
+function goToNPC(bot) {
   const mcData = require('minecraft-data')(bot.version);
   const defaultMove = new Movements(bot, mcData);
   bot.pathfinder.setMovements(defaultMove);
-  bot.pathfinder.setGoal(new goals.GoalBlock(config.npcLocation.x, config.npcLocation.y, config.npcLocation.z));
+
+  const goal = new goals.GoalBlock(npcPos.x, npcPos.y, npcPos.z);
+  bot.pathfinder.setGoal(goal);
 
   bot.once('goal_reached', () => {
     console.log(`🎯 ${bot.username} reached NPC location.`);
-    interactWithNPC();
+    interactWithNPC(bot);
   });
 }
 
-function interactWithNPC() {
-  const npc = bot.nearestEntity(entity => entity.position.distanceTo(config.npcLocation) < 3);
+function interactWithNPC(bot) {
+  const npc = bot.nearestEntity(e => e.type === 'player' && e.username && e.username !== bot.username);
+  
   if (!npc) {
-    console.log("❌ NPC not found near target location.");
+    console.log('❌ No NPC found nearby.');
     return;
   }
 
-  // Look directly at the NPC
-  const lookPoint = npc.position.offset(0, npc.height / 2, 0);
-  bot.lookAt(lookPoint, true, () => {
-    console.log("👀 Looking at NPC...");
-    swingAt(npc, 3, () => {
-      startRunning();
-    });
+  // Look at NPC's head and simulate clicks
+  const lookPos = npc.position.offset(0, 1.6, 0);
+  bot.lookAt(lookPos, true, () => {
+    console.log(`👀 ${bot.username} looking at NPC ${npc.username}`);
+
+    setTimeout(() => {
+      // Left click x3
+      for (let i = 0; i < 3; i++) {
+        bot.attack(npc);
+        bot.swingArm('right');
+      }
+
+      // Right click x2
+      for (let i = 0; i < 2; i++) {
+        bot.activateEntity(npc); // right click
+      }
+
+      // Start sprinting forward
+      startSprinting(bot);
+    }, 1000);
   });
 }
 
-function swingAt(entity, times, callback) {
-  let count = 0;
-  const swing = () => {
-    if (!entity || count >= times) return callback();
-
-    bot.attack(entity); // Server-detected left-click
-    count++;
-    setTimeout(swing, 500); // Delay between clicks
-  };
-  swing();
-}
-
-function startRunning() {
-  bot.setControlState('forward', true);
+function startSprinting(bot) {
   bot.setControlState('sprint', true);
-  console.log("🏃 Started running forward...");
+  bot.setControlState('forward', true);
+  console.log(`🏃 ${bot.username} is sprinting forward.`);
 }
-
-createBot();
