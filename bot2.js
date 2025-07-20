@@ -9,7 +9,7 @@ const config = {
   version: '1.16.5',
   password: 'ABCDEFG',
   botNames: ['DrakonTide', 'ConnieSpringer'],
-  npcCoords: { x: -29.5, y: 93, z: -5.5 }
+  npcCoords: { x: -30.5, y: 92, z: -5.5 }
 };
 
 function createBot(username) {
