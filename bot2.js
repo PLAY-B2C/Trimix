@@ -8,13 +8,12 @@ const config = {
   version: '1.8.9',
   password: 'ABCDEFG',
   botNames: ['DrakonTide', 'ConnieSpringer'],
-  npcPos: { x: -29.5, y: 93, z: -5.5 }
+  npcCoords: { x: -29.5, y: 93, z: -5.5 }
 };
 
 function createBot(username) {
   const bot = mineflayer.createBot({
     host: config.host,
-    port: config.port,
     username,
     version: config.version
   });
@@ -22,47 +21,54 @@ function createBot(username) {
   bot.loadPlugin(pathfinder);
 
   bot.once('spawn', () => {
-    console.log(`✅ ${username} joined.`);
+    console.log(`✅ ${username} spawned.`);
 
     setTimeout(() => {
       bot.chat(`/login ${config.password}`);
-      console.log(`🔐 ${username} sent /login`);
     }, 1000);
 
     setTimeout(() => {
       const goal = new GoalBlock(
-        Math.floor(config.npcPos.x),
-        Math.floor(config.npcPos.y),
-        Math.floor(config.npcPos.z)
+        Math.floor(config.npcCoords.x),
+        Math.floor(config.npcCoords.y),
+        Math.floor(config.npcCoords.z)
       );
-      const movements = new Movements(bot);
-      bot.pathfinder.setMovements(movements);
+      const defaultMove = new Movements(bot);
+      bot.pathfinder.setMovements(defaultMove);
       bot.pathfinder.setGoal(goal);
     }, 3000);
   });
 
   bot.on('goal_reached', () => {
-    console.log(`🎯 ${bot.username} reached target.`);
-    simulateLeftClicks(bot);
+    console.log(`🎯 ${username} reached NPC location.`);
+    simulateNpcClick(bot);
   });
 
-  function simulateLeftClicks(bot) {
-    // Look straight ahead (yaw unchanged, pitch = 0)
-    bot.look(bot.entity.yaw, 0, true, () => {
-      // Swing arm (left click) 3 times
-      bot.swingArm('right'); // 1
-      setTimeout(() => bot.swingArm('right'), 500); // 2
-      setTimeout(() => bot.swingArm('right'), 1000); // 3
+  function simulateNpcClick(bot) {
+    const { x, y, z } = config.npcCoords;
 
-      console.log(`🗡️ ${bot.username} swung arm 3 times.`);
+    // Look exactly at the NPC coordinates (eye level)
+    bot.lookAt({ x, y: y + 1.5, z }, true, () => {
+      console.log(`👀 ${username} looking at NPC position`);
 
-      // Start sprinting forward
-      setTimeout(() => {
-        bot.setControlState('forward', true);
-        bot.setControlState('sprint', true);
-        console.log(`🏃 ${bot.username} started sprinting.`);
-      }, 1500);
+      // Swing (simulate left-click) 3 times
+      swingRepeatedly(bot, 3, () => {
+        console.log(`🗡️ ${username} finished swinging.`);
+        startRunning(bot);
+      });
     });
+  }
+
+  function swingRepeatedly(bot, times, cb, count = 0) {
+    if (count >= times) return cb();
+    bot.swingArm('right');
+    setTimeout(() => swingRepeatedly(bot, times, cb, count + 1), 500);
+  }
+
+  function startRunning(bot) {
+    bot.setControlState('forward', true);
+    bot.setControlState('sprint', true);
+    console.log(`🏃 ${bot.username} is sprinting.`);
   }
 
   bot.on('end', () => {
