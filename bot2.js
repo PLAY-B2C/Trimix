@@ -7,7 +7,7 @@ const config = {
   username: 'DrakonTide',
   version: '1.16.5',
   loginCommand: '/login ABCDEFG',
-  npcLocation: new Vec3(-29.5, 93, -5.5)
+  npcLocation: new Vec3(-30, 92, -5)
 };
 
 let bot;
