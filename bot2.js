@@ -38,31 +38,19 @@ function createBot(username) {
       bot.pathfinder.setMovements(defaultMove);
       bot.pathfinder.setGoal(goal);
     }, 3000);
+
+    // Start swinging forever
+    setInterval(() => {
+      if (bot && bot.entity) {
+        bot.swingArm('right');
+      }
+    }, 500); // every 0.5s
   });
 
   bot.on('goal_reached', () => {
     console.log(`🎯 ${username} reached NPC location.`);
-    simulateNpcClick(bot);
+    startRunning(bot);
   });
-
-  function simulateNpcClick(bot) {
-    const { x, y, z } = config.npcCoords;
-
-    bot.lookAt(new Vec3(x, y + 1.5, z), true, () => {
-      console.log(`👀 ${username} looking at NPC position`);
-
-      swingRepeatedly(bot, 3, () => {
-        console.log(`🗡️ ${username} finished swinging.`);
-        startRunning(bot);
-      });
-    });
-  }
-
-  function swingRepeatedly(bot, times, cb, count = 0) {
-    if (count >= times) return cb();
-    bot.swingArm('right');
-    setTimeout(() => swingRepeatedly(bot, times, cb, count + 1), 500);
-  }
 
   function startRunning(bot) {
     bot.setControlState('forward', true);
