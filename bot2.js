@@ -3,7 +3,7 @@ const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const mc = require('minecraft-protocol');
 
 const config = {
-  host: 'testserverboltmc.falixsrv.me',
+  host: 'mc.cloudpixel.fun',
   port: 38495,
   version: '1.8.9',
   password: '3043AA',
