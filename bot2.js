@@ -42,35 +42,26 @@ function createBot(username) {
   });
 
   bot.on('goal_reached', () => {
-    console.log(`🎯 ${bot.username} reached NPC position.`);
-    attackNPC(bot);
+    console.log(`🎯 ${bot.username} reached target.`);
+    simulateLeftClicks(bot);
   });
 
-  function attackNPC(bot) {
-    const npc = bot.nearestEntity(entity =>
-      entity.type === 'player' &&
-      entity.username !== bot.username &&
-      entity.position.distanceTo(bot.entity.position) < 4
-    );
+  function simulateLeftClicks(bot) {
+    // Look straight ahead (yaw unchanged, pitch = 0)
+    bot.look(bot.entity.yaw, 0, true, () => {
+      // Swing arm (left click) 3 times
+      bot.swingArm('right'); // 1
+      setTimeout(() => bot.swingArm('right'), 500); // 2
+      setTimeout(() => bot.swingArm('right'), 1000); // 3
 
-    if (!npc) {
-      console.log(`❌ ${bot.username} couldn't find NPC entity.`);
-      return;
-    }
-
-    // Look at NPC
-    bot.lookAt(npc.position.offset(0, 1.6, 0), true, () => {
-      // Attack 3 times
-      bot.attack(npc);
-      setTimeout(() => bot.attack(npc), 600);
-      setTimeout(() => bot.attack(npc), 1200);
+      console.log(`🗡️ ${bot.username} swung arm 3 times.`);
 
       // Start sprinting forward
       setTimeout(() => {
         bot.setControlState('forward', true);
         bot.setControlState('sprint', true);
-        console.log(`🏃 ${bot.username} is now sprinting forward.`);
-      }, 2000);
+        console.log(`🏃 ${bot.username} started sprinting.`);
+      }, 1500);
     });
   }
 
