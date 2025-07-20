@@ -4,7 +4,7 @@ const mc = require('minecraft-protocol');
 
 const config = {
   host: 'mc.cloudpixel.fun',
-  port: 38495,
+  port: 25565,
   version: '1.8.9',
   password: '3043AA',
   botNames: ['ConnieSpringer', 'SashaBraus', 'HangeZoe', 'JeanKirstein', 'FlochForster'],
