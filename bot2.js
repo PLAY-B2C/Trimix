@@ -8,7 +8,7 @@ const config = {
   version: '1.8.9',
   password: 'ABCDEFG',
   botNames: ['DrakonTide', 'ConnieSpringer'],
-  targetPos: { x: -30.5, y: 92, z: -5.5 }
+  npcPos: { x: -29.5, y: 93, z: -5.5 }
 };
 
 function createBot(username) {
@@ -31,9 +31,9 @@ function createBot(username) {
 
     setTimeout(() => {
       const goal = new GoalBlock(
-        Math.floor(config.targetPos.x),
-        Math.floor(config.targetPos.y),
-        Math.floor(config.targetPos.z)
+        Math.floor(config.npcPos.x),
+        Math.floor(config.npcPos.y),
+        Math.floor(config.npcPos.z)
       );
       const movements = new Movements(bot);
       bot.pathfinder.setMovements(movements);
@@ -42,29 +42,34 @@ function createBot(username) {
   });
 
   bot.on('goal_reached', () => {
-    console.log(`🎯 ${bot.username} reached target.`);
-    performClickSequence(bot);
+    console.log(`🎯 ${bot.username} reached NPC.`);
+    interactWithNPC(bot);
   });
 
-  function performClickSequence(bot) {
+  function interactWithNPC(bot) {
+    // Face forward (horizontal only)
     bot.look(bot.entity.yaw, 0, true, () => {
-      const blockBelow = bot.blockAt(bot.entity.position.offset(0, -1, 0));
+      const block = bot.blockAt(bot.entity.position.offset(0, -1, 0));
 
-      if (blockBelow) {
-        bot.activateBlock(blockBelow); // Right click 1
-        setTimeout(() => bot.activateBlock(blockBelow), 1000); // Right click 2
+      if (block) {
+        // Right click NPC
+        bot.activateBlock(block); // Right click 1
+        setTimeout(() => bot.activateBlock(block), 800); // Right click 2
 
-        // Left click after right click
-        setTimeout(() => bot.swingArm('right'), 2000); // Left click 1
-        setTimeout(() => bot.swingArm('right'), 2500); // Left click 2
+        // Left click NPC
+        setTimeout(() => bot.swingArm('right'), 1600); // Left click 1
+        setTimeout(() => bot.swingArm('right'), 2000); // Left click 2
+
+        console.log(`🤝 ${bot.username} interacted with NPC.`);
       } else {
-        console.log(`⚠️ ${bot.username} can't find a block below to interact with.`);
+        console.log(`⚠️ ${bot.username} couldn't find block under to click.`);
       }
 
+      // Sprint forward
       setTimeout(() => {
         bot.setControlState('forward', true);
         bot.setControlState('sprint', true);
-        console.log(`🏃 ${bot.username} is sprinting forward.`);
+        console.log(`🏃 ${bot.username} started sprinting forward.`);
       }, 3000);
     });
   }
