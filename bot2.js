@@ -30,7 +30,7 @@ function createBot(username) {
       console.log(`🔐 ${username} sent /login`);
     }, 1000);
 
-    // Step 2: Walk to coords
+    // Step 2: Walk to target coordinates
     setTimeout(() => {
       const goal = new GoalBlock(
         Math.floor(config.targetPos.x),
@@ -43,26 +43,29 @@ function createBot(username) {
     }, 3000);
   });
 
-  // Step 3: After reaching, right click twice then sprint forward
   bot.on('goal_reached', () => {
     console.log(`🎯 ${username} reached target.`);
-    rightClickTwiceThenSprint();
+    rightClickBlockThenSprint(bot);
   });
 
-  function rightClickTwiceThenSprint() {
-    const entity = bot.nearestEntity();
-    if (entity) {
-      bot.activateEntity(entity); // 1st click
-      setTimeout(() => bot.activateEntity(entity), 1000); // 2nd click
+  function rightClickBlockThenSprint(bot) {
+    const blockBelow = bot.blockAt(bot.entity.position.offset(0, -1, 0));
+
+    if (blockBelow) {
+      bot.activateBlock(blockBelow); // First right click
+      setTimeout(() => bot.activateBlock(blockBelow), 1000); // Second right click
+      console.log(`🖱️ ${bot.username} right-clicked the block below twice.`);
+    } else {
+      console.log(`⚠️ ${bot.username} couldn't find block below to right-click.`);
     }
+
     setTimeout(() => {
       bot.setControlState('forward', true);
       bot.setControlState('sprint', true);
-      console.log(`🏃 ${username} is sprinting forward.`);
+      console.log(`🏃 ${bot.username} is sprinting forward.`);
     }, 2000);
   }
 
-  // Auto-reconnect
   bot.on('end', () => {
     console.log(`❌ ${username} disconnected. Reconnecting...`);
     setTimeout(() => createBot(username), 10000);
@@ -73,5 +76,5 @@ function createBot(username) {
   });
 }
 
-// Launch bots
+// Launch the bots
 config.botNames.forEach(name => createBot(name));
