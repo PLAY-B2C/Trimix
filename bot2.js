@@ -1,71 +1,98 @@
 const mineflayer = require('mineflayer');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const { Vec3 } = require('vec3');
-const { GoalBlock } = goals;
 
 const config = {
   host: 'mc.cloudpixel.fun',
-  port: 25565,
-  version: '1.18.2',
-  password: 'ABCDEFG',
-  botNames: ['DrakonTide', 'ConnieSpringer'],
-  npcCoords: { x: -30.5, y: 92, z: -5.5 }
+  username: 'DrakonTide',
+  version: '1.16.5',
+  loginCommand: '/login ABCDEFG',
+  npcLocation: new Vec3(-29.5, 93, -5.5)
 };
 
-function createBot(username) {
-  const bot = mineflayer.createBot({
+let bot;
+let reconnecting = false;
+
+function createBot() {
+  bot = mineflayer.createBot({
     host: config.host,
-    username,
-    version: config.version
+    username: config.username,
+    version: config.version,
   });
 
   bot.loadPlugin(pathfinder);
 
   bot.once('spawn', () => {
-    console.log(`✅ ${username} spawned.`);
+    console.log(`✅ ${bot.username} spawned.`);
 
-    setTimeout(() => {
-      bot.chat(`/login ${config.password}`);
-    }, 1000);
+    if (config.loginCommand) {
+      setTimeout(() => bot.chat(config.loginCommand), 1000);
+    }
 
-    setTimeout(() => {
-      const goal = new GoalBlock(
-        Math.floor(config.npcCoords.x),
-        Math.floor(config.npcCoords.y),
-        Math.floor(config.npcCoords.z)
-      );
-      const defaultMove = new Movements(bot);
-      bot.pathfinder.setMovements(defaultMove);
-      bot.pathfinder.setGoal(goal);
-    }, 3000);
-
-    // Start swinging forever
-    setInterval(() => {
-      if (bot && bot.entity) {
-        bot.swingArm('right');
-      }
-    }, 500); // every 0.5s
+    goToNPC();
   });
 
-  bot.on('goal_reached', () => {
-    console.log(`🎯 ${username} reached NPC location.`);
-    startRunning(bot);
+  bot.on('error', (err) => {
+    console.log(`❌ ${bot.username} error: ${err.message}`);
   });
-
-  function startRunning(bot) {
-    bot.setControlState('forward', true);
-    bot.setControlState('sprint', true);
-    console.log(`🏃 ${bot.username} is sprinting.`);
-  }
 
   bot.on('end', () => {
-    console.log(`❌ ${username} disconnected. Reconnecting...`);
-    setTimeout(() => createBot(username), 10000);
-  });
-
-  bot.on('error', err => {
-    console.log(`⚠️ ${username} error: ${err.message}`);
+    console.log(`❌ ${bot.username} disconnected. Reconnecting...`);
+    if (!reconnecting) {
+      reconnecting = true;
+      setTimeout(() => {
+        reconnecting = false;
+        createBot();
+      }, 10000);
+    }
   });
 }
 
-config.botNames.forEach(name => createBot(name));
+function goToNPC() {
+  const mcData = require('minecraft-data')(bot.version);
+  const defaultMove = new Movements(bot, mcData);
+  bot.pathfinder.setMovements(defaultMove);
+  bot.pathfinder.setGoal(new goals.GoalBlock(config.npcLocation.x, config.npcLocation.y, config.npcLocation.z));
+
+  bot.once('goal_reached', () => {
+    console.log(`🎯 ${bot.username} reached NPC location.`);
+    interactWithNPC();
+  });
+}
+
+function interactWithNPC() {
+  const npc = bot.nearestEntity(entity => entity.position.distanceTo(config.npcLocation) < 3);
+  if (!npc) {
+    console.log("❌ NPC not found near target location.");
+    return;
+  }
+
+  // Look directly at the NPC
+  const lookPoint = npc.position.offset(0, npc.height / 2, 0);
+  bot.lookAt(lookPoint, true, () => {
+    console.log("👀 Looking at NPC...");
+    swingAt(npc, 3, () => {
+      startRunning();
+    });
+  });
+}
+
+function swingAt(entity, times, callback) {
+  let count = 0;
+  const swing = () => {
+    if (!entity || count >= times) return callback();
+
+    bot.attack(entity); // Server-detected left-click
+    count++;
+    setTimeout(swing, 500); // Delay between clicks
+  };
+  swing();
+}
+
+function startRunning() {
+  bot.setControlState('forward', true);
+  bot.setControlState('sprint', true);
+  console.log("🏃 Started running forward...");
+}
+
+createBot();
