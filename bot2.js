@@ -4,7 +4,7 @@ const { GoalBlock } = goals;
 
 const config = {
   host: 'mc.cloudpixel.fun',
-  port: 25565, // Default port
+  port: 25565, // default port
   version: '1.8.9',
   password: 'ABCDEFG',
   botNames: ['DrakonTide', 'ConnieSpringer'],
@@ -49,21 +49,24 @@ function createBot(username) {
   });
 
   function rightClickBlockThenSprint(bot) {
-    const blockBelow = bot.blockAt(bot.entity.position.offset(0, -1, 0));
+    // Look straight (horizontal), then right click block below
+    bot.look(bot.entity.yaw, 0, true, () => {
+      const blockBelow = bot.blockAt(bot.entity.position.offset(0, -1, 0));
 
-    if (blockBelow) {
-      bot.activateBlock(blockBelow); // First right click
-      setTimeout(() => bot.activateBlock(blockBelow), 1000); // Second right click
-      console.log(`🖱️ ${bot.username} right-clicked the block below twice.`);
-    } else {
-      console.log(`⚠️ ${bot.username} couldn't find block below to right-click.`);
-    }
+      if (blockBelow) {
+        bot.activateBlock(blockBelow); // First right click
+        setTimeout(() => bot.activateBlock(blockBelow), 1000); // Second right click
+        console.log(`🖱️ ${bot.username} looked forward and right-clicked the block below twice.`);
+      } else {
+        console.log(`⚠️ ${bot.username} couldn't find a block below to right-click.`);
+      }
 
-    setTimeout(() => {
-      bot.setControlState('forward', true);
-      bot.setControlState('sprint', true);
-      console.log(`🏃 ${bot.username} is sprinting forward.`);
-    }, 2000);
+      setTimeout(() => {
+        bot.setControlState('forward', true);
+        bot.setControlState('sprint', true);
+        console.log(`🏃 ${bot.username} is sprinting forward.`);
+      }, 2000);
+    });
   }
 
   bot.on('end', () => {
