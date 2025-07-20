@@ -1,5 +1,6 @@
 const mineflayer = require('mineflayer');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
+const { Vec3 } = require('vec3');
 const { GoalBlock } = goals;
 
 const config = {
@@ -47,11 +48,9 @@ function createBot(username) {
   function simulateNpcClick(bot) {
     const { x, y, z } = config.npcCoords;
 
-    // Look exactly at the NPC coordinates (eye level)
-    bot.lookAt({ x, y: y + 1.5, z }, true, () => {
+    bot.lookAt(new Vec3(x, y + 1.5, z), true, () => {
       console.log(`👀 ${username} looking at NPC position`);
 
-      // Swing (simulate left-click) 3 times
       swingRepeatedly(bot, 3, () => {
         console.log(`🗡️ ${username} finished swinging.`);
         startRunning(bot);
