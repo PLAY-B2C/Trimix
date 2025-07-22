@@ -1,72 +1,46 @@
 const mineflayer = require('mineflayer');
-const { Vec3 } = require('vec3');
 
-const config = {
+const bot = mineflayer.createBot({
   host: 'mc.fakepixel.fun',
-  username: 'DrakonTide', // change to ConnieSpringer or others as needed
-  version: '1.16.5',
-  password: '3043AA', // Used for /login
-};
+  username: 'DrakonTide',
+  version: '1.8.9',
+});
 
-let bot;
+bot.once('spawn', () => {
+  console.log('✅ DrakonTide spawned.');
+  bot.chat('/login 3043AA');
 
-function startBot() {
-  bot = mineflayer.createBot({
-    host: config.host,
-    username: config.username,
-    version: config.version,
-  });
+  setTimeout(() => {
+    bot.setQuickBarSlot(0); // Hold item in slot 0
+    bot.activateItem();     // Right-click to open chest GUI
+    console.log('🧤 Right-clicked with held item to open GUI');
+  }, 3000); // Wait 3s to ensure chunk loads
+});
 
-  bot.once('spawn', async () => {
-    console.log(`✅ ${config.username} spawned.`);
+bot.on('windowOpen', (window) => {
+  console.log('📦 Chest opened. Trying to pick item from slot 21...');
 
-    // Login after spawn
-    if (config.password) {
-      setTimeout(() => {
-        bot.chat(`/login ${config.password}`);
-        console.log(`🔐 Logged in with /login ${config.password}`);
-
-        setTimeout(openTeleportChest, 2000); // Open chest after login
-      }, 1000);
+  setTimeout(() => {
+    const item = window.slots[21];
+    if (item) {
+      bot.simpleClick.leftMouse(21)
+        .then(() => {
+          console.log(`✅ Clicked on ${item.name} in slot 21 to teleport`);
+        })
+        .catch(err => {
+          console.error('❌ Failed to click item:', err);
+        });
+    } else {
+      console.log('❌ Slot 21 is empty.');
     }
-  });
+  }, 1000); // Delay to ensure inventory is fully loaded
+});
 
-  bot.on('error', err => {
-    console.log(`❌ ${config.username} error:`, err);
-  });
+bot.on('end', () => {
+  console.log('🔌 Disconnected. Reconnecting in 10s...');
+  setTimeout(() => bot.connect(), 10000);
+});
 
-  bot.on('end', () => {
-    console.log(`🔁 ${config.username} disconnected. Reconnecting in 10s...`);
-    setTimeout(startBot, 10000);
-  });
-}
-
-function openTeleportChest() {
-  try {
-    bot.setQuickBarSlot(0); // Select 1st hotbar slot
-    setTimeout(() => {
-      bot.activateItem(); // Right-click with item
-      console.log(`🧤 Attempted to open chest with held item`);
-
-      bot.once('windowOpen', async (window) => {
-        console.log(`📦 Chest opened. Attempting to take item from slot 21`);
-
-        const targetSlot = window.slots[21];
-        if (targetSlot) {
-          try {
-            await bot.clickWindow(21, 0, 0);
-            console.log(`🎯 Item clicked from slot 21`);
-          } catch (err) {
-            console.error('⚠️ Failed to click slot 21:', err.message);
-          }
-        } else {
-          console.log('❌ Slot 21 is empty or undefined.');
-        }
-      });
-    }, 1500);
-  } catch (err) {
-    console.error('❌ Error opening chest:', err.message);
-  }
-}
-
-startBot();
+bot.on('error', (err) => {
+  console.error('❌ Bot Error:', err);
+});
