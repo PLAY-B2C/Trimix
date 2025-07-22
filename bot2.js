@@ -3,9 +3,9 @@ const { Vec3 } = require('vec3');
 
 const config = {
   host: 'mc.fakepixel.fun',
-  username: 'DrakonTide', // change to ConnieSpringer or others as needed
+  username: 'DrakonTide',
   version: '1.16.5',
-  password: '3043AA', // Used for /login
+  password: '3043AA',
 };
 
 let bot;
@@ -17,16 +17,15 @@ function startBot() {
     version: config.version,
   });
 
-  bot.once('spawn', async () => {
+  bot.once('spawn', () => {
     console.log(`✅ ${config.username} spawned.`);
 
-    // Login after spawn
     if (config.password) {
       setTimeout(() => {
         bot.chat(`/login ${config.password}`);
         console.log(`🔐 Logged in with /login ${config.password}`);
 
-        setTimeout(openTeleportChest, 2000); // Open chest after login
+        setTimeout(openTeleportChest, 2000);
       }, 1000);
     }
   });
@@ -48,20 +47,22 @@ function openTeleportChest() {
       bot.activateItem(); // Right-click with item
       console.log(`🧤 Attempted to open chest with held item`);
 
-      bot.once('windowOpen', async (window) => {
-        console.log(`📦 Chest opened. Attempting to take item from slot 21`);
+      bot.once('windowOpen', (window) => {
+        console.log(`📦 Chest opened. Waiting for slots to load...`);
 
-        const targetSlot = window.slots[20]; // ✅ Corrected index (slot 21)
-        if (targetSlot) {
-          try {
-            await bot.clickWindow(20, 0, 0);
-            console.log(`🎯 Item clicked from slot 21`);
-          } catch (err) {
-            console.error('⚠️ Failed to click slot 21:', err.message);
+        setTimeout(async () => {
+          const targetSlot = window.slots[20]; // slot 21 is index 20
+          if (targetSlot) {
+            try {
+              await bot.clickWindow(20, 0, 0);
+              console.log(`🎯 Item clicked from slot 21`);
+            } catch (err) {
+              console.error('⚠️ Failed to click slot 21:', err.message);
+            }
+          } else {
+            console.log('❌ Slot 21 is still empty or undefined after delay.');
           }
-        } else {
-          console.log('❌ Slot 21 is empty or undefined.');
-        }
+        }, 300); // Wait 300ms for slot contents to load
       });
     }, 1500);
   } catch (err) {
