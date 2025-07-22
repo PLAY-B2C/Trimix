@@ -1,95 +1,72 @@
 const mineflayer = require('mineflayer');
-const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const { Vec3 } = require('vec3');
 
-const botNames = ['BoltMC'];
-const server = 'mc.fakepixel.fun';
-const loginPassword = '2151220';
-const version = '1.16.5';
-const npcPos = new Vec3(-26, 92, -1);
+const config = {
+  host: 'mc.fakepixel.fun',
+  username: 'DrakonTide', // change to ConnieSpringer or others as needed
+  version: '1.16.5',
+  password: '3043AA', // Used for /login
+};
 
-botNames.forEach((name, i) => startBot(name, i * 5000)); // delay bots
+let bot;
 
-function startBot(username, delay) {
-  setTimeout(() => {
-    const bot = mineflayer.createBot({
-      host: server,
-      username,
-      version
-    });
+function startBot() {
+  bot = mineflayer.createBot({
+    host: config.host,
+    username: config.username,
+    version: config.version,
+  });
 
-    bot.loadPlugin(pathfinder);
+  bot.once('spawn', async () => {
+    console.log(`✅ ${config.username} spawned.`);
 
-    bot.once('spawn', () => {
-      console.log(`✅ ${username} spawned.`);
-
-      // Send login command
+    // Login after spawn
+    if (config.password) {
       setTimeout(() => {
-        bot.chat(`/login ${loginPassword}`);
+        bot.chat(`/login ${config.password}`);
+        console.log(`🔐 Logged in with /login ${config.password}`);
+
+        setTimeout(openTeleportChest, 2000); // Open chest after login
       }, 1000);
+    }
+  });
 
-      // Walk to NPC after login
-      setTimeout(() => goToNPC(bot), 3000);
-    });
+  bot.on('error', err => {
+    console.log(`❌ ${config.username} error:`, err);
+  });
 
-    bot.on('end', () => {
-      console.log(`❌ ${username} disconnected. Reconnecting...`);
-      startBot(username, 10000);
-    });
-
-    bot.on('error', err => {
-      console.log(`❌ ${username} error: ${err.message}`);
-    });
-  }, delay);
-}
-
-function goToNPC(bot) {
-  const mcData = require('minecraft-data')(bot.version);
-  const defaultMove = new Movements(bot, mcData);
-  bot.pathfinder.setMovements(defaultMove);
-
-  const goal = new goals.GoalBlock(npcPos.x, npcPos.y, npcPos.z);
-  bot.pathfinder.setGoal(goal);
-
-  bot.once('goal_reached', () => {
-    console.log(`🎯 ${bot.username} reached NPC location.`);
-    interactWithNPC(bot);
+  bot.on('end', () => {
+    console.log(`🔁 ${config.username} disconnected. Reconnecting in 10s...`);
+    setTimeout(startBot, 10000);
   });
 }
 
-function interactWithNPC(bot) {
-  const npc = bot.nearestEntity(e => e.type === 'player' && e.username && e.username !== bot.username);
-  
-  if (!npc) {
-    console.log('❌ No NPC found nearby.');
-    return;
-  }
-
-  // Look at NPC's head and simulate clicks
-  const lookPos = npc.position.offset(0, 1.6, 0);
-  bot.lookAt(lookPos, true, () => {
-    console.log(`👀 ${bot.username} looking at NPC ${npc.username}`);
-
+function openTeleportChest() {
+  try {
+    bot.setQuickBarSlot(0); // Select 1st hotbar slot
     setTimeout(() => {
-      // Left click x3
-      for (let i = 0; i < 3; i++) {
-        bot.attack(npc);
-        bot.swingArm('right');
-      }
+      bot.activateItem(); // Right-click with item
+      console.log(`🧤 Attempted to open chest with held item`);
 
-      // Right click x2
-      for (let i = 0; i < 2; i++) {
-        bot.activateEntity(npc); // right click
-      }
+      bot.once('windowOpen', async (window) => {
+        console.log(`📦 Chest opened. Attempting to take item from slot 21`);
 
-      // Start sprinting forward
-      startSprinting(bot);
-    }, 1000);
-  });
+        const targetSlot = window.slots[21];
+        if (targetSlot) {
+          try {
+            await bot.clickWindow(21, 0, 0);
+            console.log(`🎯 Item clicked from slot 21`);
+          } catch (err) {
+            console.error('⚠️ Failed to click slot 21:', err.message);
+          }
+        } else {
+          console.log('❌ Slot 21 is empty or undefined.');
+        }
+      });
+    }, 1500);
+  } catch (err) {
+    console.error('❌ Error opening chest:', err.message);
+  }
 }
 
-function startSprinting(bot) {
-  bot.setControlState('sprint', true);
-  bot.setControlState('forward', true);
-  console.log(`🏃 ${bot.username} is sprinting forward.`);
-}
+startBot();
