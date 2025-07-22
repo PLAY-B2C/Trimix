@@ -2,9 +2,9 @@ const mineflayer = require('mineflayer');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const { Vec3 } = require('vec3');
 
-const botNames = ['ConnieSpringer'];
+const botNames = ['BoltMC'];
 const server = 'mc.fakepixel.fun';
-const loginPassword = 'ABCDEFG';
+const loginPassword = '2151220';
 const version = '1.16.5';
 const npcPos = new Vec3(-26, 92, -1);
 
