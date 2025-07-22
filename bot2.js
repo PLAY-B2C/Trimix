@@ -1,7 +1,7 @@
 const mineflayer = require('mineflayer');
 
 const bot = mineflayer.createBot({
-  host: 'mc.fakepixel.fun',
+  host: 'mc.220099.fun',
   username: 'DrakonTide',
   version: '1.8.9',
 });
