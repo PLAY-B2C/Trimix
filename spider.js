@@ -69,7 +69,6 @@ function startFlowerPatrol(bot) {
 
   const waypoints = [
     new Vec3(-233, 80, -244),
-    new Vec3(-252, 85, -240),
     new Vec3(-261, 86, -237),
     new Vec3(-281, 95, -233),
     new Vec3(-292, 95, -211),
@@ -80,7 +79,6 @@ function startFlowerPatrol(bot) {
     new Vec3(-357, 67, -270),
     new Vec3(-333, 60, -276),
     new Vec3(-322, 57, -280),
-
     new Vec3(-300, 45, -273),
     new Vec3(-291, 45, -278),
     new Vec3(-284, 44, -250),
@@ -96,35 +94,33 @@ function startFlowerPatrol(bot) {
   ];
 
   let index = 0;
+  let moving = false;
 
   function moveToNext() {
-    if (index >= waypoints.length) index = 0;
+    if (moving) return;
+    moving = true;
 
+    if (index >= waypoints.length) index = 0;
     const point = waypoints[index];
     console.log(`🧭 Moving to ${point.x} ${point.y} ${point.z}`);
     bot.pathfinder.setGoal(new goals.GoalBlock(point.x, point.y, point.z));
 
-    let moved = false;
-
     const watchdog = setTimeout(() => {
-      if (!moved) {
-        console.log(`⛔ Stuck at ${point.x} ${point.y} ${point.z}, skipping...`);
+      console.log(`⛔ Stuck at ${point.x} ${point.y} ${point.z}, skipping...`);
 
-        // OPTIONAL: Try to unstuck
-        bot.setControlState('jump', true);
-        bot.look(bot.entity.yaw + Math.PI / 2, 0);
-        setTimeout(() => {
-          bot.setControlState('jump', false);
-        }, 500);
+      // Optional auto-unstuck
+      bot.setControlState('jump', true);
+      bot.look(bot.entity.yaw + Math.PI / 2, 0);
+      setTimeout(() => bot.setControlState('jump', false), 500);
 
-        index++;
-        setTimeout(moveToNext, 500);
-      }
+      moving = false;
+      index++;
+      setTimeout(moveToNext, 500);
     }, 6000);
 
     const next = () => {
       clearTimeout(watchdog);
-      moved = true;
+      moving = false;
       index++;
       setTimeout(moveToNext, 300);
     };
@@ -142,7 +138,7 @@ function startFlowerPatrol(bot) {
 
   moveToNext();
 
-  // Auto-shoot flower (slot 1)
+  // Auto-shoot flower every 300ms (slot 1)
   setInterval(() => {
     bot.setQuickBarSlot(0);
     bot.activateItem();
