@@ -6,56 +6,62 @@ let reconnecting = false;
 function createBot() {
   const bot = mineflayer.createBot({
     host: 'mc.fakepixel.fun',
-    username: 'DrakonTide',
+    username: 'DeakonTide',
     version: '1.16.5',
   });
 
   bot.once('spawn', async () => {
     console.log('✅ Logged in, locking view');
 
+    // Log in to the server
     bot.chat('/login 3043AA');
 
-    // Right-click the held item to open the GUI
-    await bot.waitForTicks(20); // Wait 1s
+    // Wait 1s then right-click the held item to open a menu
+    await bot.waitForTicks(20);
     bot.activateItem();
     console.log('🖱️ Right-clicked item to open menu');
 
-    // Wait for the chest window to be opened
+    // Wait for a window (GUI) to open
     bot.once('windowOpen', async (window) => {
-      await bot.waitForTicks(30); // 1.5s delay for items to load
+      console.log('📦 Window opened');
 
-      const slot = window.slots[20]; // Slot 21 is index 20
+      // Wait 1.5s for items to fully load
+      await bot.waitForTicks(30);
+
+      const slotIndex = 20; // Slot 21 is index 20
+      const slot = window.slots[slotIndex];
 
       if (slot && slot.name !== 'air') {
         try {
-          await bot.clickWindow(20, 0, 1); // Shift-click
+          await bot.clickWindow(slotIndex, 0, 1); // Shift-click the item
           console.log('✅ Shift-clicked slot 21');
         } catch (err) {
           console.log('❌ Click error:', err.message);
         }
       } else {
-        console.log('⚠️ Slot 21 empty or not loaded');
+        console.log('⚠️ Slot 21 is empty or not loaded');
       }
 
-      // Warp twice
+      // Warp to island after short delay
       setTimeout(() => {
         bot.chat('/warp is');
         bot.chat('/warp is');
         console.log('💬 Sent /warp is x2');
       }, 2000);
 
-      // Begin digging after warp
+      // Start mining and strafing after warp finishes
       setTimeout(() => {
-        console.log('🎯 Locking view & starting dig/strafe loop');
+        console.log('⛏️ Starting dig + strafe loop');
         holdLeftClickForever(bot);
         startStrafing(bot);
-      }, 10000); // Wait 8s after warp
+      }, 10000);
     });
   });
 
   bot.on('end', () => {
     if (reconnecting) return;
     reconnecting = true;
+
     console.log('🔁 Disconnected, retrying in 10s...');
     setTimeout(() => {
       reconnecting = false;
@@ -68,23 +74,27 @@ function createBot() {
   });
 }
 
+// Function to hold left-click continuously (dig)
 function holdLeftClickForever(bot) {
   try {
-    bot.setControlState('swing', true); // Hold down left click
+    bot.setControlState('swing', true); // This simulates holding left-click
   } catch (e) {
-    console.log('⛏️ Dig error:', e.message);
+    console.log('⛏️ Digging error:', e.message);
   }
 }
 
+// Function to alternate strafing every 45 seconds
 function startStrafing(bot) {
   let strafeLeft = true;
+
   bot.setControlState('left', true);
 
   setInterval(() => {
     strafeLeft = !strafeLeft;
     bot.setControlState('left', strafeLeft);
     bot.setControlState('right', !strafeLeft);
-  }, 45000); // Every 45s
+  }, 45000);
 }
 
+// Start the bot
 createBot();
