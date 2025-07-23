@@ -113,4 +113,58 @@ function equipBestAxe() {
 }
 
 // 🧱 Constantly dig block in view
-function holdLeft
+function holdLeftClickDig() {
+  setInterval(() => {
+    const block = bot.blockAtCursor(5);
+    if (!block || bot.targetDigBlock) return;
+
+    const dist = block.position.distanceTo(bot.entity.position);
+    if (dist > 2.8 && dist < 5.1) {
+      bot.dig(block)
+        .then(() => {
+          console.log(`🧱 Dug: ${block.name} at ${block.position}`);
+        })
+        .catch(err => {
+          console.log(`❌ Dig error: ${err.message}`);
+        });
+    }
+  }, 100);
+}
+
+// 🚶 Alternate strafing left and right every 40s
+function startStrafing() {
+  let movingLeft = true;
+
+  function strafe() {
+    const angle = bot.entity.yaw + (movingLeft ? Math.PI / 2 : -Math.PI / 2);
+    const x = Math.cos(angle);
+    const z = Math.sin(angle);
+
+    bot.setControlState('forward', false);
+    bot.setControlState('back', false);
+    bot.setControlState('left', false);
+    bot.setControlState('right', false);
+    bot.setControlState('jump', false);
+
+    bot.physics.velocity.x = x * 0.1;
+    bot.physics.velocity.z = z * 0.1;
+
+    console.log(`🚶 Strafing ${movingLeft ? 'left' : 'right'} for 40s...`);
+    setTimeout(() => {
+      movingLeft = !movingLeft;
+      strafe();
+    }, 40000);
+  }
+
+  strafe();
+}
+
+// 📦 Log when inventory is full
+function monitorInventoryFull() {
+  setInterval(() => {
+    const full = bot.inventory.items().length >= bot.inventory.slots.length - 9;
+    if (full) console.log('📦 Inventory is full!');
+  }, 5000);
+}
+
+startBot();
