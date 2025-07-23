@@ -39,17 +39,20 @@ function createBot() {
     host: 'mc.fakepixel.fun',
     username: 'DrakonTide',
     version: '1.16.5',
+    keepAlive: true,
+    connectTimeout: 60000,
   });
 
   bot.loadPlugin(pathfinder);
 
   bot.once('spawn', async () => {
     console.log('✅ Logged in');
-    bot.chat(loginCommand);
+    setTimeout(() => bot.chat(loginCommand), 2000);
 
-    await bot.waitForTicks(20);
-    bot.setQuickBarSlot(0);
-    bot.activateItem();
+    setTimeout(() => {
+      bot.setQuickBarSlot(0);
+      bot.activateItem();
+    }, 4000);
 
     bot.once('windowOpen', async (window) => {
       await bot.waitForTicks(30);
@@ -107,8 +110,10 @@ function startRightClickLoop(bot) {
     if (!bot?.entity || bot.entity.health <= 0) return;
     try {
       bot.setQuickBarSlot(0);
-      bot.activateItem();
-    } catch {}
+      bot.swingArm('right'); // actual right-click action
+    } catch (err) {
+      console.log('⚠️ Right click failed:', err.message);
+    }
   }, 300);
 }
 
