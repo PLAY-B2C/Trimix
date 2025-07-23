@@ -119,15 +119,20 @@ function startPostTeleportBehavior() {
   }, 2000);
 
   setTimeout(() => {
-    console.log(`🎯 Continuing post-teleport behavior`);
+    console.log(`🎯 Locking view to yaw: -90°, pitch: 33°`);
 
-    // Mining behavior
+    const yaw = -Math.PI / 2; // -90°
+    const pitch = 33 * Math.PI / 180; // 33°
+    bot.look(yaw, pitch, false);
+
+    const lookLock = setInterval(() => {
+      bot.look(yaw, pitch, false);
+    }, 1000);
+    activeIntervals.push(lookLock);
+
+    // Start routines
     holdLeftClickDig();
-
-    // Movement pattern
     loopStrafe();
-
-    // Inventory monitoring
     monitorInventoryFull();
   }, 10000);
 }
@@ -151,13 +156,13 @@ function holdLeftClickDig() {
 function loopStrafe() {
   let movingLeft = true;
   bot.setControlState('left', true);
-  
+
   const strafeInterval = setInterval(() => {
     movingLeft = !movingLeft;
     bot.setControlState('left', movingLeft);
     bot.setControlState('right', !movingLeft);
     console.log(`🚶 Strafing ${movingLeft ? 'left' : 'right'}`);
-  }, 40000);
+  }, 10000);
   activeIntervals.push(strafeInterval);
 }
 
