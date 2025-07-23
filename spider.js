@@ -60,10 +60,10 @@ function createBot() {
 function startFlowerPatrol(bot) {
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
-  movements.maxStepHeight = 2.5;
+  movements.maxStepHeight = 1; // safer default
   movements.canDig = false;
   movements.allowSprinting = true;
-  movements.allowParkour = true;
+  movements.allowParkour = false; // disable parkour to prevent issues
 
   bot.pathfinder.setMovements(movements);
 
@@ -102,15 +102,20 @@ function startFlowerPatrol(bot) {
     if (index >= waypoints.length) index = 0;
 
     const point = waypoints[index];
-    bot.pathfinder.setGoal(new goals.GoalNear(point.x, point.y, point.z, 1));
+    console.log(`🧭 Moving to ${point.x} ${point.y} ${point.z}`);
+    bot.pathfinder.setGoal(new goals.GoalNear(point.x, point.y, point.z, 2)); // radius 2
 
-    const checkInterval = setInterval(() => {
-      if (bot.entity.position.distanceTo(point) < 2) {
-        clearInterval(checkInterval);
-        index++;
-        setTimeout(moveToNext, 300);
-      }
-    }, 500);
+    bot.once('goal_reached', () => {
+      console.log(`✅ Reached ${point.x} ${point.y} ${point.z}`);
+      index++;
+      setTimeout(moveToNext, 300);
+    });
+
+    bot.once('goal_timeout', () => {
+      console.log(`⚠️ Timeout at ${point.x} ${point.y} ${point.z}, skipping...`);
+      index++;
+      setTimeout(moveToNext, 300);
+    });
   }
 
   moveToNext();
