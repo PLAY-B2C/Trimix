@@ -1,94 +1,93 @@
-const mineflayer = require('mineflayer');
-const { setIntervalAsync } = require('set-interval-async');
-let reconnecting = false;
+const mineflayer = require('mineflayer')
+const { setTimeout: wait } = require('timers/promises')
+let reconnectTimeout = null
+let bot
 
-function startBot() {
-  const bot = mineflayer.createBot({
-    host: 'mc.fakepixel.fun', // replace with your dyn IP
-    port: 25565,
-    username: 'DrakonTide',
-    version: '1.16.5',
-  });
-
-  bot.on('login', () => {
-    console.log('✅ Logged in, locking view');
-  });
-
-  bot.on('spawn', () => {
-    console.log('🎮 Spawned');
-
-    setTimeout(() => {
-      bot.activateItem(); // Right click to open menu
-      console.log('🖱️ Right-clicked item to open menu');
-    }, 1000);
-
-    bot.once('windowOpen', (window) => {
-      const slot = window.slots[20];
-      if (!slot) return console.log('⚠️ Slot 21 empty or not loaded');
-
-      setTimeout(async () => {
-        try {
-          await bot.clickWindow(20, 0, 1);
-          console.log('✅ Shift-clicked slot 21');
-        } catch (err) {
-          console.error('❌ Click failed:', err.message);
-        }
-
-        // Continue with warp after click
-        setTimeout(() => {
-          bot.chat('/warp is');
-          bot.chat('/warp is');
-          console.log('💬 Sent /warp is x2');
-
-          setTimeout(() => {
-            console.log('🎯 Locking view & starting dig/strafe loop');
-            holdLeftClick(bot);
-            startStrafing(bot);
-          }, 8000);
-        }, 2000);
-      }, 1000);
-    });
-  });
-
-  bot.on('end', () => {
-    if (!reconnecting) {
-      reconnecting = true;
-      console.log('🔌 Disconnected. Reconnecting in 10s...');
-      setTimeout(() => {
-        reconnecting = false;
-        startBot();
-      }, 10000);
-    }
-  });
-
-  bot.on('error', (err) => {
-    console.error('❌ Bot error:', err.message);
-  });
+function log(msg) {
+  console.log(msg)
 }
 
-// Hold down left click forever (absolute)
-function holdLeftClick(bot) {
+function startBot() {
+  bot = mineflayer.createBot({
+    host: 'EternxlsSMP.aternos.me',
+    username: 'IamChatGPT',
+    version: '1.16.5'
+  })
+
+  bot.on('login', () => log('✅ Logged in, locking view'))
+  bot.once('spawn', async () => {
+    log('🎮 Spawned')
+    bot.chat('/login 3043AA')
+
+    await wait(2000)
+    bot.activateItem() // Right-click to open menu
+    log('🖱️ Right-clicked item to open menu')
+  })
+
+  bot.once('windowOpen', async (window) => {
+    // Wait up to 3s for slot 21 to appear
+    for (let i = 0; i < 30; i++) {
+      if (window.slots[20]) {
+        try {
+          await bot.clickWindow(20, 0, 1) // Shift-click slot 21
+          log('✅ Shift-clicked slot 21')
+        } catch (e) {
+          log(`❌ Click failed: ${e.message}`)
+        }
+        break
+      }
+      await wait(100)
+    }
+
+    if (!window.slots[20]) {
+      log('⚠️ Slot 21 empty or not loaded')
+    }
+
+    await wait(2000)
+    bot.chat('/warp is')
+    bot.chat('/warp is')
+    log('💬 Sent /warp is x2')
+
+    await wait(8000)
+    log('🎯 Locking view & starting dig/strafe loop')
+    startDigAndStrafe()
+  })
+
+  bot.on('error', err => {
+    log(`❌ Bot error: ${err.message}`)
+  })
+
+  bot.on('end', () => {
+    log('🔌 Disconnected. Reconnecting in 10s...')
+    if (reconnectTimeout) return
+    reconnectTimeout = setTimeout(() => {
+      reconnectTimeout = null
+      startBot()
+    }, 10000)
+  })
+}
+
+function startDigAndStrafe() {
+  // Lock the camera angle by never updating yaw/pitch
+  holdLeftClickForever()
+  startStrafing()
+}
+
+function holdLeftClickForever() {
   try {
-    bot.setControlState('swing', true); // 'swing' = left click (use in place of 'attack')
+    bot.swingArm('right', true) // true = continuous
   } catch (e) {
-    console.error('❌ Error holding left click:', e.message);
+    log('❌ Dig error: ' + e.message)
   }
 }
 
-// Strafing logic
-function startStrafing(bot) {
-  let strafeLeft = true;
-
-  setIntervalAsync(() => {
-    if (strafeLeft) {
-      bot.setControlState('left', true);
-      bot.setControlState('right', false);
-    } else {
-      bot.setControlState('right', true);
-      bot.setControlState('left', false);
-    }
-    strafeLeft = !strafeLeft;
-  }, 40000); // every 40s
+function startStrafing() {
+  let strafeLeft = true
+  setInterval(() => {
+    bot.setControlState('left', strafeLeft)
+    bot.setControlState('right', !strafeLeft)
+    strafeLeft = !strafeLeft
+  }, 40000) // switch every 40s
 }
 
-startBot();
+startBot()
