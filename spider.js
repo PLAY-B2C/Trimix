@@ -3,6 +3,7 @@ const Vec3 = require('vec3');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 
 let reconnecting = false;
+let patrolIndex = 0;
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -13,7 +14,70 @@ function createBot() {
 
   bot.loadPlugin(pathfinder);
 
-  let waypoints = [
+  bot.once('spawn', async () => {
+    console.log('✅ Logged in');
+    bot.chat('/login 3043AA');
+
+    await bot.waitForTicks(20);
+    bot.activateItem(); // Right-click to open GUI
+
+    bot.once('windowOpen', async (window) => {
+      await bot.waitForTicks(30);
+      const slotIndex = 20;
+      const slot = window.slots[slotIndex];
+
+      if (slot && slot.name !== 'air') {
+        try {
+          await bot.clickWindow(slotIndex, 0, 1);
+        } catch (err) {
+          console.log('❌ Click error:', err.message);
+        }
+      }
+
+      setTimeout(() => {
+        bot.chat('/warp spider');
+        setTimeout(() => {
+          startFlowerPatrol(bot);
+        }, 8000);
+      }, 2000);
+    });
+  });
+
+  bot.on('end', () => {
+    if (reconnecting) return;
+    reconnecting = true;
+    console.log('🔁 Disconnected, retrying in 10s...');
+    setTimeout(() => {
+      reconnecting = false;
+      createBot();
+    }, 10000);
+  });
+
+  bot.on('error', (err) => {
+    console.log('❌ Bot error:', err.message);
+  });
+
+  bot.on('death', () => {
+    console.log('💀 Died. Restarting patrol from nearest waypoint.');
+    setTimeout(() => {
+      startFlowerPatrol(bot);
+    }, 5000);
+  });
+}
+
+function startFlowerPatrol(bot) {
+  const mcData = require('minecraft-data')(bot.version);
+  const movements = new Movements(bot, mcData);
+  movements.maxStepHeight = 2.5;
+  movements.canDig = false;
+  movements.allowSprinting = true;
+  movements.allowParkour = true;
+  movements.entityHunger = 0; // disables hunger logic
+  movements.sprintSpeed = 0.345 * 0.1; // normalize for higher sprint speed
+
+  bot.pathfinder.setMovements(movements);
+
+  const waypoints = [
     new Vec3(-233, 80, -244),
     new Vec3(-261, 86, -237),
     new Vec3(-281, 95, -233),
@@ -36,91 +100,24 @@ function createBot() {
     new Vec3(-326, 42, -252),
     new Vec3(-313, 43, -234),
     new Vec3(-288, 44, -259),
-    new Vec3(-300, 45, -273)
+    new Vec3(-300, 45, -273),
   ];
 
-  let patrolIndex = 0;
-  let mcData;
-
-  bot.once('spawn', async () => {
-    console.log('✅ Logged in');
-    bot.chat('/login 3043AA');
-    bot.settings.viewDistance = 'far';
-
-    await bot.waitForTicks(20);
-    bot.activateItem();
-
-    bot.once('windowOpen', async (window) => {
-      await bot.waitForTicks(30);
-      const slotIndex = 20;
-      const slot = window.slots[slotIndex];
-
-      if (slot && slot.name !== 'air') {
-        try {
-          await bot.clickWindow(slotIndex, 0, 1);
-        } catch (err) {
-          console.log('❌ Click error:', err.message);
-        }
-      }
-
-      setTimeout(() => {
-        bot.chat('/warp spider');
-        setTimeout(() => {
-          mcData = require('minecraft-data')(bot.version);
-          startFlowerPatrol(bot);
-        }, 8000);
-      }, 2000);
-    });
-  });
-
-  bot.on('end', () => {
-    if (reconnecting) return;
-    reconnecting = true;
-    console.log('🔁 Disconnected, retrying in 10s...');
-    setTimeout(() => {
-      reconnecting = false;
-      createBot();
-    }, 10000);
-  });
-
-  bot.on('death', () => {
-    console.log('💀 Bot died. Restarting patrol from nearest point...');
-    patrolIndex = findNearestWaypointIndex(bot.entity.position);
-    moveToNext(bot);
-  });
-
-  function setupMovement(bot) {
-    const movements = new Movements(bot, mcData);
-    movements.maxStepHeight = 2.5;
-    movements.canDig = false;
-    movements.allowSprinting = true;
-    movements.allowParkour = true;
-    movements.allow1by1towers = true;
-    movements.scafoldingBlocks = [];
-
-    movements.sprintSpeed = 0.45; // ~345% boosted sprint
-    bot.pathfinder.setMovements(movements);
-  }
-
-  function findNearestWaypointIndex(pos) {
-    let nearest = 0;
-    let minDist = Infinity;
-    waypoints.forEach((wp, i) => {
-      const dist = wp.distanceTo(pos);
-      if (dist < minDist) {
-        minDist = dist;
-        nearest = i;
-      }
-    });
-    return nearest;
-  }
-
-  function moveToNext(bot) {
+  function moveToNext() {
     if (!bot || !bot.entity || !bot.entity.position) return;
 
     if (patrolIndex >= waypoints.length) patrolIndex = 0;
 
     const point = waypoints[patrolIndex];
+    const chunkX = Math.floor(point.x) >> 4;
+    const chunkZ = Math.floor(point.z) >> 4;
+
+    if (!bot.world.isChunkLoaded(chunkX, chunkZ)) {
+      console.log(`⏳ Chunk at [${chunkX}, ${chunkZ}] not loaded yet, retrying in 2s...`);
+      setTimeout(moveToNext, 2000);
+      return;
+    }
+
     console.log(`➡️ Moving to [${patrolIndex}]: ${point.x} ${point.y} ${point.z}`);
     bot.pathfinder.setGoal(new goals.GoalNear(point.x, point.y, point.z, 1));
 
@@ -137,42 +134,24 @@ function createBot() {
       if (dist < 2) {
         clearInterval(check);
         patrolIndex++;
-        setTimeout(() => moveToNext(bot), 300);
+        setTimeout(moveToNext, 300);
       }
 
-      // Timeout if stuck >10 seconds
       if (Date.now() - startTime > 10000) {
-        console.log(`⏱️ Stuck at waypoint, retrying`);
+        console.log(`⏱️ Stuck or chunk not reachable. Re-trying...`);
         bot.pathfinder.setGoal(null);
-        setTimeout(() => moveToNext(bot), 500);
         clearInterval(check);
+        setTimeout(moveToNext, 1000);
       }
     }, 500);
   }
 
-  function startFlowerPatrol(bot) {
-    setupMovement(bot);
-    patrolIndex = findNearestWaypointIndex(bot.entity.position);
-    moveToNext(bot);
+  moveToNext();
 
-    // Auto fire flower every 300ms
-    setInterval(() => {
-      bot.setQuickBarSlot(0);
-      bot.activateItem();
-    }, 300);
-  }
-
-  bot.on('error', (err) => {
-    console.log('❌ Bot error:', err.message);
-  });
-
-  bot.on('path_reset', (reason) => {
-    console.log('⚠️ Path reset:', reason);
-    if (reason.includes('chunk')) {
-      console.log('🔄 Retrying current waypoint after chunk fail...');
-      setTimeout(() => moveToNext(bot), 1000);
-    }
-  });
+  setInterval(() => {
+    bot.setQuickBarSlot(0); // Flower in slot 1
+    bot.activateItem(); // Right click to shoot
+  }, 300);
 }
 
 createBot();
