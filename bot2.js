@@ -56,7 +56,7 @@ function openTeleportChest() {
           if (attempts <= 0 || !bot.currentWindow) {
             clearInterval(interval);
             console.log(`✅ Finished clicking or window closed.`);
-            startPostTeleportBehavior(); // ⬅️ Start new behaviors
+            startPostTeleportBehavior();
             return;
           }
 
@@ -84,24 +84,16 @@ function openTeleportChest() {
 function startPostTeleportBehavior() {
   console.log(`⏳ Waiting 10 seconds before starting post-teleport behavior...`);
   setTimeout(() => {
-    const yaw = bot.entity.yaw;
-    const pitch = bot.entity.pitch;
-
-    console.log(`🎯 Locking view direction: yaw=${yaw}, pitch=${pitch}`);
-
-    // 🔒 Lock view
-    setInterval(() => {
-      bot.look(yaw, pitch, false);
-    }, 50);
+    console.log(`🎯 Maintaining view as set by game (no override)`);
 
     equipBestAxe();
     holdLeftClickDig();
-    absoluteStrafe(yaw);
+    startStrafing();
     monitorInventoryFull();
   }, 10000);
 }
 
-// ⛏️ Equip best available axe
+// 🪓 Equip best axe available
 function equipBestAxe() {
   const priorities = ['netherite_axe', 'diamond_axe', 'iron_axe', 'stone_axe', 'wooden_axe'];
 
@@ -120,66 +112,5 @@ function equipBestAxe() {
   console.log(`⚠️ No axe found in inventory.`);
 }
 
-// 🧱 Dig blocks in front if in range
-function holdLeftClickDig() {
-  setInterval(() => {
-    const block = bot.blockAtCursor(5);
-    if (!block || bot.targetDigBlock) return;
-
-    const playerPos = bot.entity.position;
-    const dist = block.position.distanceTo(playerPos);
-
-    if (dist > 2.8 && dist < 5.1) {
-      bot.dig(block)
-        .then(() => {
-          console.log(`🧱 Dug: ${block.name} at ${block.position}`);
-        })
-        .catch(err => {
-          console.log(`❌ Dig error: ${err.message}`);
-        });
-    }
-  }, 100);
-}
-
-// 🚶 Strafe left and right without changing view
-function absoluteStrafe(initialYaw) {
-  let movingLeft = true;
-
-  function getStrafeVector(yaw, direction = 'left') {
-    const angle = yaw + (direction === 'left' ? Math.PI / 2 : -Math.PI / 2);
-    return {
-      x: Math.cos(angle),
-      z: Math.sin(angle)
-    };
-  }
-
-  function strafe() {
-    const dir = getStrafeVector(initialYaw, movingLeft ? 'left' : 'right');
-    bot.setControlState('forward', false);
-    bot.setControlState('back', false);
-    bot.setControlState('left', false);
-    bot.setControlState('right', false);
-    bot.setControlState('jump', false);
-
-    bot.physics.velocity.x = dir.x * 0.1;
-    bot.physics.velocity.z = dir.z * 0.1;
-
-    console.log(`🚶 Strafing ${movingLeft ? 'left' : 'right'} for 40s...`);
-    setTimeout(() => {
-      movingLeft = !movingLeft;
-      strafe();
-    }, 40000);
-  }
-
-  strafe();
-}
-
-// 📦 Notify if inventory is full
-function monitorInventoryFull() {
-  setInterval(() => {
-    const full = bot.inventory.items().length >= bot.inventory.slots.length - 9;
-    if (full) console.log('📦 Inventory is full!');
-  }, 5000);
-}
-
-startBot();
+// 🧱 Constantly dig block in view
+function holdLeft
