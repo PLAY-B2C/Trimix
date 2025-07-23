@@ -1,7 +1,7 @@
 const mineflayer = require('mineflayer');
-const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
-const { GoalBlock } = goals;
 const Vec3 = require('vec3');
+const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
+const { setTimeout } = require('timers');
 
 let reconnecting = false;
 
@@ -19,21 +19,42 @@ function createBot() {
     bot.chat('/login 3043AA');
 
     await bot.waitForTicks(20);
-    bot.setQuickBarSlot(0); // Slot 1
-    bot.activateItem(); // Right-click to open GUI if needed
+    bot.activateItem();
+    console.log('🖱️ Right-clicked item to open menu');
 
-    await bot.waitForTicks(40);
-    bot.chat('/warp spider');
-    console.log('💬 Warped to spider');
+    bot.once('windowOpen', async (window) => {
+      console.log('📦 Window opened');
+      await bot.waitForTicks(30);
 
-    await bot.waitForTicks(100); // Wait to finish teleport
+      const slotIndex = 20;
+      const slot = window.slots[slotIndex];
 
-    startMovingAndSpamming(bot);
+      if (slot && slot.name !== 'air') {
+        try {
+          await bot.clickWindow(slotIndex, 0, 1);
+          console.log('✅ Shift-clicked slot 21');
+        } catch (err) {
+          console.log('❌ Click error:', err.message);
+        }
+      } else {
+        console.log('⚠️ Slot 21 is empty or not loaded');
+      }
+
+      setTimeout(() => {
+        bot.chat('/warp spider');
+        console.log('💬 Sent /warp spider');
+
+        setTimeout(() => {
+          goToAndSpam(bot);
+        }, 8000); // wait after warp
+      }, 2000);
+    });
   });
 
   bot.on('end', () => {
     if (reconnecting) return;
     reconnecting = true;
+
     console.log('🔁 Disconnected, retrying in 10s...');
     setTimeout(() => {
       reconnecting = false;
@@ -41,20 +62,12 @@ function createBot() {
     }, 10000);
   });
 
-  bot.on('error', err => {
+  bot.on('error', (err) => {
     console.log('❌ Bot error:', err.message);
   });
 }
 
-function startMovingAndSpamming(bot) {
-  const mcData = require('minecraft-data')(bot.version);
-  const movements = new Movements(bot, mcData);
-  movements.canDig = false;
-  movements.allow1by1towers = false;
-  movements.maxDropDown = 4;
-
-  bot.pathfinder.setMovements(movements);
-
+function goToAndSpam(bot) {
   const waypoints = [
     new Vec3(-233, 80, -244),
     new Vec3(-248, 83, -240),
@@ -66,29 +79,60 @@ function startMovingAndSpamming(bot) {
     new Vec3(-331, 81, -228)
   ];
 
-  async function walkWaypoints() {
-    for (const point of waypoints) {
-      console.log('🚶 Moving to:', point);
-      try {
-        await bot.pathfinder.goto(new GoalBlock(point.x, point.y, point.z));
-        await bot.waitForTicks(10);
-      } catch (e) {
-        console.log('⚠️ Pathfinding failed:', e.message);
+  const finalLook = new Vec3(-144.5, bot.entity.position.y, 5);
+
+  const mcData = require('minecraft-data')(bot.version);
+  const movements = new Movements(bot, mcData);
+  movements.maxStepHeight = 2.5;
+  movements.canDig = false;
+
+  bot.pathfinder.setMovements(movements);
+
+  let current = 0;
+
+  function moveToNext() {
+    if (current >= waypoints.length) return onArrived();
+
+    const target = waypoints[current];
+    console.log(`➡️ Moving to waypoint ${current + 1}: ${target.x}, ${target.y}, ${target.z}`);
+    const goal = new goals.GoalNear(target.x, target.y, target.z, 1);
+    bot.pathfinder.setGoal(goal);
+
+    const interval = setInterval(() => {
+      const dist = bot.entity.position.distanceTo(target);
+      if (dist <= 1.2) {
+        clearInterval(interval);
+        current++;
+        moveToNext();
       }
-    }
-
-    // Look toward target and spam right-click
-    const lookTarget = new Vec3(-144.5, bot.entity.position.y, 5);
-    await bot.lookAt(lookTarget);
-
-    console.log('🎯 Looking and starting right-click spam');
-    setInterval(() => {
-      bot.setQuickBarSlot(0); // Slot 1
-      bot.activateItem();     // Right-click
-    }, 200);
+    }, 700);
   }
 
-  walkWaypoints();
+  function onArrived() {
+    console.log('✅ Reached final destination');
+    bot.lookAt(finalLook, true, () => {
+      console.log(`🎯 Looking at ${finalLook.x}, ${finalLook.y}, ${finalLook.z}`);
+
+      // Lock camera
+      const yaw = bot.entity.yaw;
+      const pitch = bot.entity.pitch;
+      bot.on('move', () => {
+        bot.entity.yaw = yaw;
+        bot.entity.pitch = pitch;
+      });
+      bot.look = async () => {};
+      bot.lookAt = async () => {};
+
+      bot.setQuickBarSlot(0);
+      console.log('🎒 Holding item in slot 1');
+
+      setInterval(() => {
+        bot.activateItem();
+      }, 300);
+    });
+  }
+
+  moveToNext();
 }
 
 // 🚀 Start bot
