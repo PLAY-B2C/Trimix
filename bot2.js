@@ -85,33 +85,23 @@ function startPostTeleportBehavior() {
   console.log(`⏳ Waiting 10 seconds before starting post-teleport behavior...`);
   setTimeout(() => {
     console.log(`🎯 Maintaining current view direction`);
-    startLeftClickLoop();
-    startAutoDigLoop(); // ✅ Dig any block in front
+    startConstantDigging(); // ✅ Just hold left click and let blocks break
     loopStrafe();
   }, 10000);
 }
 
-// ✅ Simulate holding left click (swing animation)
-function startLeftClickLoop() {
-  setInterval(() => {
-    bot.swingArm(); // Simulate left-click
-  }, 500);
-}
+// ✅ Constant left-click hold simulation
+function startConstantDigging() {
+  console.log(`👊 Simulating constant left click to break blocks`);
 
-// ✅ Auto-dig any block in front of the bot's view
-function startAutoDigLoop() {
-  setInterval(() => {
-    const block = bot.blockAtCursor(4); // Up to 4 blocks ahead
-    if (block && bot.canDigBlock(block)) {
-      bot.dig(block)
-        .then(() => {
-          console.log(`⛏️ Dug block: ${block.name}`);
-        })
-        .catch(err => {
-          console.log(`❌ Failed to dig block: ${err.message}`);
-        });
+  const digLoop = () => {
+    const block = bot.blockAtCursor(4);
+    if (block && bot.canDigBlock(block) && !bot.targetDigBlock) {
+      bot.dig(block).catch(() => {});
     }
-  }, 1500); // Every 1.5s
+  };
+
+  setInterval(digLoop, 200); // Check every 200ms
 }
 
 // ✅ Strafe left/right forever (35s each)
