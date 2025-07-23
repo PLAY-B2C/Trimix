@@ -1,5 +1,4 @@
 const mineflayer = require('mineflayer');
-const { Vec3 } = require('vec3');
 
 const config = {
   host: 'mc.fakepixel.fun',
@@ -41,33 +40,40 @@ function startBot() {
 
 function openTeleportChest() {
   try {
-    bot.setQuickBarSlot(0); // 1st hotbar slot
+    bot.setQuickBarSlot(0); // Select item in 1st hotbar slot
     setTimeout(() => {
       bot.activateItem(); // Right-click to open chest
       console.log(`🧤 Attempted to open chest with held item`);
 
       bot.once('windowOpen', async (window) => {
-        console.log(`📦 Chest opened. Looking for first inventory item to move...`);
+        console.log(`📦 Chest opened. Looking for item in inventory...`);
 
-        const playerInvSlots = bot.inventory.slots.slice(9, 45); // Only player inv slots
+        // Find any item in inventory
+        const playerInventorySlots = bot.inventory.slots.slice(9, 45);
+        const itemToMove = playerInventorySlots.find(i => i);
 
-        // Find first slot with an item
-        const itemSlot = playerInvSlots.find(slot => slot);
-        if (!itemSlot) {
+        if (!itemToMove) {
           console.log('❌ No item found in inventory to move.');
           return;
         }
 
-        const sourceSlot = itemSlot.slot;
-        const targetSlot = 20; // Chest GUI slot 21 (0-indexed)
+        const sourceSlot = itemToMove.slot;
+        const destSlot = 20; // 0-based index for chest GUI slot 21
 
         try {
-          await bot.clickWindow(sourceSlot, 0, 0); // Pick up the item
-          await bot.waitForTicks(10);             // Small delay
-          await bot.clickWindow(targetSlot, 0, 0); // Place into chest
-          console.log(`✅ Moved item from inventory slot ${sourceSlot} to chest slot 21`);
+          await bot.transfer({
+            window: window,
+            itemType: itemToMove.type,
+            metadata: itemToMove.metadata,
+            count: 1,
+            sourceStart: 9,
+            sourceEnd: 44,
+            destStart: 0,
+            destEnd: window.slots.length - 1,
+          });
+          console.log(`✅ Transferred item from inv slot ${sourceSlot} to chest slot 21`);
         } catch (err) {
-          console.error(`⚠️ Failed to move item from ${sourceSlot} → 21:`, err.message);
+          console.error('⚠️ Failed to transfer item:', err.message);
         }
       });
     }, 1500);
