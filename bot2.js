@@ -1,93 +1,90 @@
-const mineflayer = require('mineflayer')
-const { setTimeout: wait } = require('timers/promises')
-let reconnectTimeout = null
-let bot
+const mineflayer = require('mineflayer');
+const { setTimeout } = require('timers');
 
-function log(msg) {
-  console.log(msg)
-}
+let reconnecting = false;
 
-function startBot() {
-  bot = mineflayer.createBot({
-    host: 'mc.fakepixel.fun',
-    username: 'DrakonTide',
-    version: '1.16.5'
-  })
+function createBot() {
+  const bot = mineflayer.createBot({
+    host: 'EternxlsSMP.aternos.me',
+    username: 'IamChatGPT',
+    version: '1.16.5',
+  });
 
-  bot.on('login', () => log('✅ Logged in, locking view'))
   bot.once('spawn', async () => {
-    log('🎮 Spawned')
-    bot.chat('/login 3043AA')
+    console.log('✅ Logged in, locking view');
 
-    await wait(2000)
-    bot.activateItem() // Right-click to open menu
-    log('🖱️ Right-clicked item to open menu')
-  })
+    bot.chat('/login 3043AA');
 
-  bot.once('windowOpen', async (window) => {
-    // Wait up to 3s for slot 21 to appear
-    for (let i = 0; i < 30; i++) {
-      if (window.slots[20]) {
+    // Right-click the held item to open the GUI
+    await bot.waitForTicks(20); // Wait 1s
+    bot.activateItem();
+    console.log('🖱️ Right-clicked item to open menu');
+
+    // Wait for the chest window to be opened
+    bot.once('windowOpen', async (window) => {
+      await bot.waitForTicks(30); // 1.5s delay for items to load
+
+      const slot = window.slots[20]; // Slot 21 is index 20
+
+      if (slot && slot.name !== 'air') {
         try {
-          await bot.clickWindow(20, 0, 1) // Shift-click slot 21
-          log('✅ Shift-clicked slot 21')
-        } catch (e) {
-          log(`❌ Click failed: ${e.message}`)
+          await bot.clickWindow(20, 0, 1); // Shift-click
+          console.log('✅ Shift-clicked slot 21');
+        } catch (err) {
+          console.log('❌ Click error:', err.message);
         }
-        break
+      } else {
+        console.log('⚠️ Slot 21 empty or not loaded');
       }
-      await wait(100)
-    }
 
-    if (!window.slots[20]) {
-      log('⚠️ Slot 21 empty or not loaded')
-    }
+      // Warp twice
+      setTimeout(() => {
+        bot.chat('/warp is');
+        bot.chat('/warp is');
+        console.log('💬 Sent /warp is x2');
+      }, 2000);
 
-    await wait(2000)
-    bot.chat('/warp is')
-    bot.chat('/warp is')
-    log('💬 Sent /warp is x2')
-
-    await wait(8000)
-    log('🎯 Locking view & starting dig/strafe loop')
-    startDigAndStrafe()
-  })
-
-  bot.on('error', err => {
-    log(`❌ Bot error: ${err.message}`)
-  })
+      // Begin digging after warp
+      setTimeout(() => {
+        console.log('🎯 Locking view & starting dig/strafe loop');
+        holdLeftClickForever(bot);
+        startStrafing(bot);
+      }, 10000); // Wait 8s after warp
+    });
+  });
 
   bot.on('end', () => {
-    log('🔌 Disconnected. Reconnecting in 10s...')
-    if (reconnectTimeout) return
-    reconnectTimeout = setTimeout(() => {
-      reconnectTimeout = null
-      startBot()
-    }, 10000)
-  })
+    if (reconnecting) return;
+    reconnecting = true;
+    console.log('🔁 Disconnected, retrying in 10s...');
+    setTimeout(() => {
+      reconnecting = false;
+      createBot();
+    }, 10000);
+  });
+
+  bot.on('error', (err) => {
+    console.log('❌ Bot error:', err.message);
+  });
 }
 
-function startDigAndStrafe() {
-  // Lock the camera angle by never updating yaw/pitch
-  holdLeftClickForever()
-  startStrafing()
-}
-
-function holdLeftClickForever() {
+function holdLeftClickForever(bot) {
   try {
-    bot.swingArm('right', true) // true = continuous
+    bot.setControlState('swing', true); // Hold down left click
   } catch (e) {
-    log('❌ Dig error: ' + e.message)
+    console.log('⛏️ Dig error:', e.message);
   }
 }
 
-function startStrafing() {
-  let strafeLeft = true
+function startStrafing(bot) {
+  let strafeLeft = true;
+  bot.setControlState('left', true);
+
   setInterval(() => {
-    bot.setControlState('left', strafeLeft)
-    bot.setControlState('right', !strafeLeft)
-    strafeLeft = !strafeLeft
-  }, 40000) // switch every 40s
+    strafeLeft = !strafeLeft;
+    bot.setControlState('left', strafeLeft);
+    bot.setControlState('right', !strafeLeft);
+  }, 45000); // Every 45s
 }
 
-startBot()
+createBot();
