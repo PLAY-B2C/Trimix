@@ -48,22 +48,22 @@ function openTeleportChest() {
       console.log(`🧤 Attempted to open chest with held item`);
 
       bot.once('windowOpen', (window) => {
-        console.log(`📦 Chest opened. Preparing to move item from inventory slot 34`);
+        console.log(`📦 Chest opened. Looking for item in inventory to move`);
 
         setTimeout(async () => {
-          const sourceSlot = 34;  // Inventory row 3, 8th slot
-          const targetSlot = 20;  // Chest slot 21 (index 20)
+          const invSlots = bot.inventory.slots;
+          const firstItemSlot = invSlots.findIndex(item => item); // Find first non-empty slot
+          const targetSlot = 20; // Slot 21 in chest (0-indexed)
 
-          const sourceItem = bot.inventory.slots[sourceSlot];
-          if (!sourceItem) {
-            console.log('❌ No item in inventory slot 34 to move.');
+          if (firstItemSlot === -1) {
+            console.log('❌ No items found in inventory to move.');
             return;
           }
 
           try {
-            await bot.clickWindow(sourceSlot, 0, 0); // Pick up
-            await bot.clickWindow(targetSlot, 0, 0); // Drop into chest
-            console.log(`✅ Moved item from slot 34 to chest slot 21`);
+            await bot.clickWindow(firstItemSlot, 0, 0); // Pick up item
+            await bot.clickWindow(targetSlot, 0, 0);     // Place into chest
+            console.log(`✅ Moved item from slot ${firstItemSlot} to chest slot 21`);
           } catch (err) {
             console.error('⚠️ Failed to move item:', err.message);
           }
