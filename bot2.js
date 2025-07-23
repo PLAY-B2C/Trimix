@@ -52,7 +52,7 @@ function createBot() {
       // Start mining and strafing after warp finishes
       setTimeout(() => {
         console.log('⛏️ Starting dig + strafe loop');
-        holdLeftClickForever(bot);
+        breakBlocksConstantly(bot);
         startStrafing(bot);
       }, 10000);
     });
@@ -74,19 +74,19 @@ function createBot() {
   });
 }
 
-// Function to hold left-click continuously (dig)
-function holdLeftClickForever(bot) {
-  try {
-    bot.setControlState('swing', true); // This simulates holding left-click
-  } catch (e) {
-    console.log('⛏️ Digging error:', e.message);
-  }
+// Function to break any block in cursor every tick (no delay)
+function breakBlocksConstantly(bot) {
+  bot.on('physicTick', () => {
+    const block = bot.blockAtCursor(4); // Max 4 blocks away
+    if (block) {
+      bot.dig(block, true).catch(() => {}); // Ignore errors
+    }
+  });
 }
 
 // Function to alternate strafing every 45 seconds
 function startStrafing(bot) {
   let strafeLeft = true;
-
   bot.setControlState('left', true);
 
   setInterval(() => {
