@@ -16,7 +16,7 @@ function startBot() {
     version: config.version,
   });
 
-  bot.once('spawn', () => {
+  bot.once('spawn', async () => {
     console.log(`✅ ${config.username} spawned.`);
 
     // Login
@@ -45,7 +45,7 @@ function openTeleportChest() {
       bot.activateItem(); // Right-click with item
       console.log(`🧤 Attempted to open chest with held item`);
 
-      bot.once('windowOpen', (window) => {
+      bot.once('windowOpen', async (window) => {
         console.log(`📦 Chest opened. Spamming shift-click on slot 21...`);
 
         const slotToClick = 20;
@@ -56,7 +56,7 @@ function openTeleportChest() {
           if (attempts <= 0 || !bot.currentWindow) {
             clearInterval(interval);
             console.log(`✅ Finished clicking or window closed.`);
-            startPostTeleportBehavior();
+            startPostTeleportBehavior(); // ⬅️ Start new behaviors
             return;
           }
 
@@ -84,25 +84,52 @@ function openTeleportChest() {
 function startPostTeleportBehavior() {
   console.log(`⏳ Waiting 10 seconds before starting post-teleport behavior...`);
   setTimeout(() => {
-    console.log(`🎯 Maintaining current view direction`);
-
-    // 🔒 Lock current yaw/pitch
     const yaw = bot.entity.yaw;
     const pitch = bot.entity.pitch;
-    setInterval(() => {
-      bot.look(yaw, pitch, false); // prevent camera movement
-    }, 500);
 
+    console.log(`🎯 Locking view direction: yaw=${yaw}, pitch=${pitch}`);
+
+    // 🔒 Lock view
+    setInterval(() => {
+      bot.look(yaw, pitch, false);
+    }, 50);
+
+    equipBestAxe();
     holdLeftClickDig();
-    loopStrafe();
+    absoluteStrafe(yaw);
     monitorInventoryFull();
   }, 10000);
 }
 
+// ⛏️ Equip best available axe
+function equipBestAxe() {
+  const priorities = ['netherite_axe', 'diamond_axe', 'iron_axe', 'stone_axe', 'wooden_axe'];
+
+  for (let name of priorities) {
+    const item = bot.inventory.items().find(i => i.name === name);
+    if (item) {
+      bot.equip(item, 'hand').then(() => {
+        console.log(`🪓 Equipped best axe: ${name}`);
+      }).catch(err => {
+        console.log(`❌ Failed to equip axe: ${err.message}`);
+      });
+      return;
+    }
+  }
+
+  console.log(`⚠️ No axe found in inventory.`);
+}
+
+// 🧱 Dig blocks in front if in range
 function holdLeftClickDig() {
   setInterval(() => {
     const block = bot.blockAtCursor(5);
-    if (block && bot.canDigBlock(block) && !bot.targetDigBlock) {
+    if (!block || bot.targetDigBlock) return;
+
+    const playerPos = bot.entity.position;
+    const dist = block.position.distanceTo(playerPos);
+
+    if (dist > 2.8 && dist < 5.1) {
       bot.dig(block)
         .then(() => {
           console.log(`🧱 Dug: ${block.name} at ${block.position}`);
@@ -114,32 +141,44 @@ function holdLeftClickDig() {
   }, 100);
 }
 
-function loopStrafe() {
+// 🚶 Strafe left and right without changing view
+function absoluteStrafe(initialYaw) {
   let movingLeft = true;
 
+  function getStrafeVector(yaw, direction = 'left') {
+    const angle = yaw + (direction === 'left' ? Math.PI / 2 : -Math.PI / 2);
+    return {
+      x: Math.cos(angle),
+      z: Math.sin(angle)
+    };
+  }
+
   function strafe() {
-    bot.setControlState('left', movingLeft);
-    bot.setControlState('right', !movingLeft);
+    const dir = getStrafeVector(initialYaw, movingLeft ? 'left' : 'right');
+    bot.setControlState('forward', false);
+    bot.setControlState('back', false);
+    bot.setControlState('left', false);
+    bot.setControlState('right', false);
+    bot.setControlState('jump', false);
+
+    bot.physics.velocity.x = dir.x * 0.1;
+    bot.physics.velocity.z = dir.z * 0.1;
 
     console.log(`🚶 Strafing ${movingLeft ? 'left' : 'right'} for 40s...`);
-
     setTimeout(() => {
-      bot.setControlState('left', false);
-      bot.setControlState('right', false);
       movingLeft = !movingLeft;
       strafe();
-    }, 40000); // 40 seconds
+    }, 40000);
   }
 
   strafe();
 }
 
+// 📦 Notify if inventory is full
 function monitorInventoryFull() {
   setInterval(() => {
-    const emptySlots = bot.inventory.emptySlotCount();
-    if (emptySlots === 0) {
-      console.log("📦 Inventory full!");
-    }
+    const full = bot.inventory.items().length >= bot.inventory.slots.length - 9;
+    if (full) console.log('📦 Inventory is full!');
   }, 5000);
 }
 
