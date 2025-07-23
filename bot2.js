@@ -40,30 +40,40 @@ function startBot() {
 
 function openTeleportChest() {
   try {
-    bot.setQuickBarSlot(0); // Select 1st hotbar slot (slot 0 = key 1)
+    bot.setQuickBarSlot(0); // Select slot 1
     setTimeout(() => {
       bot.activateItem(); // Right-click with item
       console.log(`🧤 Attempted to open chest with held item`);
 
       bot.once('windowOpen', async (window) => {
-        console.log(`📦 Chest opened. Moving item from hotbar slot 1 to slot 21`);
+        console.log(`📦 Chest opened. Spamming shift-click on slot 21...`);
 
-        const fromSlot = 0; // Hotbar slot 1 in inventory
-        const toSlot = 21;
+        const slotToClick = 21;
 
-        const item = bot.inventory.slots[fromSlot];
-        if (item) {
-          try {
-            await bot.clickWindow(fromSlot, 0, 0);
-            await bot.clickWindow(toSlot, 0, 0);
-            await bot.clickWindow(fromSlot, 0, 0); // Drop leftover if any
-            console.log(`✅ Moved item from hotbar to slot 21`);
-          } catch (err) {
-            console.error(`⚠️ Failed to move item:`, err.message);
+        let attempts = 10; // Number of times to shift-click
+        let delay = 300; // ms between clicks
+
+        const interval = setInterval(async () => {
+          if (attempts <= 0 || !bot.currentWindow) {
+            clearInterval(interval);
+            console.log(`✅ Finished clicking or window closed.`);
+            return;
           }
-        } else {
-          console.log('❌ No item in hotbar slot 1 to move.');
-        }
+
+          const slot = bot.currentWindow.slots[slotToClick];
+          if (slot) {
+            try {
+              await bot.clickWindow(slotToClick, 0, 1); // shift-click
+              console.log(`👉 Shift-clicked slot 21`);
+            } catch (err) {
+              console.error(`⚠️ Failed to click slot 21:`, err.message);
+            }
+          } else {
+            console.log(`❌ Slot 21 is empty or undefined.`);
+          }
+
+          attempts--;
+        }, delay);
       });
     }, 1500);
   } catch (err) {
