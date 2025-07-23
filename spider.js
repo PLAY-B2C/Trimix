@@ -2,10 +2,11 @@ const mineflayer = require('mineflayer');
 const Vec3 = require('vec3');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 
+let bot;
 let reconnecting = false;
 
 function createBot() {
-  const bot = mineflayer.createBot({
+  bot = mineflayer.createBot({
     host: 'mc.fakepixel.fun',
     username: 'DrakonTide',
     version: '1.16.5',
@@ -18,7 +19,7 @@ function createBot() {
     bot.chat('/login 3043AA');
 
     await bot.waitForTicks(20);
-    bot.activateItem(); // Right-click to open GUI
+    bot.activateItem(); // Open GUI
 
     bot.once('windowOpen', async (window) => {
       await bot.waitForTicks(30);
@@ -43,13 +44,8 @@ function createBot() {
   });
 
   bot.on('death', () => {
-    console.log('💀 Bot died. Restarting patrol in 10 seconds...');
-    setTimeout(() => {
-      bot.chat('/warp spider');
-      setTimeout(() => {
-        startFlowerPatrol(bot);
-      }, 8000);
-    }, 10000);
+    console.log('☠️ Bot died, restarting patrol...');
+    setTimeout(() => startFlowerPatrol(bot), 2000);
   });
 
   bot.on('end', () => {
@@ -70,16 +66,18 @@ function createBot() {
 function startFlowerPatrol(bot) {
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
-  movements.maxStepHeight = 2.5;
-  movements.canDig = false;
+
   movements.allowSprinting = true;
+  movements.canDig = false;
+  movements.allow1by1towers = false;
   movements.allowParkour = true;
 
-  // 🏃 Boost movement speed (345% = 3.45x vanilla)
-  movements.walkSpeed *= 3.45;
-  movements.sprintSpeed *= 3.45;
+  // Boost movement speed
+  movements.walkSpeed = 0.1 * 3.45;
+  movements.sprintSpeed = 0.3 * 3.45;
 
   bot.pathfinder.setMovements(movements);
+  bot.controlState.sprint = true;
 
   const waypoints = [
     new Vec3(-233, 80, -244),
@@ -93,6 +91,7 @@ function startFlowerPatrol(bot) {
     new Vec3(-357, 67, -270),
     new Vec3(-333, 60, -276),
     new Vec3(-322, 57, -280),
+
     new Vec3(-300, 45, -273),
     new Vec3(-291, 45, -278),
     new Vec3(-284, 44, -250),
@@ -104,45 +103,50 @@ function startFlowerPatrol(bot) {
     new Vec3(-326, 42, -252),
     new Vec3(-313, 43, -234),
     new Vec3(-288, 44, -259),
-    new Vec3(-300, 45, -273),
+    new Vec3(-300, 45, -273)
   ];
 
   let index = 0;
 
-  function moveToNext() {
-    if (index >= waypoints.length) index = 0;
-
-    const point = waypoints[index];
-    bot.pathfinder.setGoal(new goals.GoalNear(point.x, point.y, point.z, 2)); // Radius 2
-
-    const checkInterval = setInterval(() => {
-      if (bot.entity.position.distanceTo(point) < 2.5) {
-        clearInterval(checkInterval);
-        index++;
-        setTimeout(moveToNext, 300);
+  function findClosestWaypoint() {
+    let closest = 0;
+    let closestDist = Infinity;
+    for (let i = 0; i < waypoints.length; i++) {
+      const dist = bot.entity.position.distanceTo(waypoints[i]);
+      if (dist < closestDist) {
+        closest = i;
+        closestDist = dist;
       }
-    }, 500);
+    }
+    return closest;
   }
 
+  function moveToNext() {
+    if (index >= waypoints.length) index = 0;
+    const point = waypoints[index];
+
+    bot.pathfinder.setGoal(new goals.GoalNear(point.x, point.y, point.z, 3));
+
+    const interval = setInterval(() => {
+      if (!bot || !bot.entity) return clearInterval(interval);
+
+      const dist = bot.entity.position.distanceTo(point);
+      if (dist < 3) {
+        clearInterval(interval);
+        index++;
+        setTimeout(moveToNext, 200);
+      }
+    }, 300);
+  }
+
+  index = findClosestWaypoint();
   moveToNext();
 
-  // 🌼 Flower shooting (every 300ms)
+  // Flower shooting loop
   setInterval(() => {
     bot.setQuickBarSlot(0);
     bot.activateItem();
   }, 300);
-
-  // 🚨 Stuck detection
-  let lastPos = null;
-  setInterval(() => {
-    const pos = bot.entity.position;
-    if (lastPos && pos.distanceTo(lastPos) < 0.5) {
-      console.log('⚠️ Bot might be stuck. Rebooting patrol.');
-      bot.chat('/warp spider');
-      setTimeout(() => startFlowerPatrol(bot), 8000);
-    }
-    lastPos = pos;
-  }, 15000);
 }
 
 createBot();
