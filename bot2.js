@@ -24,7 +24,6 @@ function startBot() {
       setTimeout(() => {
         bot.chat(`/login ${config.password}`);
         console.log(`🔐 Logged in with /login ${config.password}`);
-
         setTimeout(openTeleportChest, 2000);
       }, 1000);
     }
@@ -42,32 +41,34 @@ function startBot() {
 
 function openTeleportChest() {
   try {
-    bot.setQuickBarSlot(0); // First hotbar slot (item that opens chest)
+    bot.setQuickBarSlot(0); // 1st hotbar slot
     setTimeout(() => {
       bot.activateItem(); // Right-click to open chest
       console.log(`🧤 Attempted to open chest with held item`);
 
-      bot.once('windowOpen', (window) => {
-        console.log(`📦 Chest opened. Looking for item in inventory to move`);
+      bot.once('windowOpen', async (window) => {
+        console.log(`📦 Chest opened. Looking for first inventory item to move...`);
 
-        setTimeout(async () => {
-          const invSlots = bot.inventory.slots;
-          const firstItemSlot = invSlots.findIndex(item => item); // Find first non-empty slot
-          const targetSlot = 20; // Slot 21 in chest (0-indexed)
+        const playerInvSlots = bot.inventory.slots.slice(9, 45); // Only player inv slots
 
-          if (firstItemSlot === -1) {
-            console.log('❌ No items found in inventory to move.');
-            return;
-          }
+        // Find first slot with an item
+        const itemSlot = playerInvSlots.find(slot => slot);
+        if (!itemSlot) {
+          console.log('❌ No item found in inventory to move.');
+          return;
+        }
 
-          try {
-            await bot.clickWindow(firstItemSlot, 0, 0); // Pick up item
-            await bot.clickWindow(targetSlot, 0, 0);     // Place into chest
-            console.log(`✅ Moved item from slot ${firstItemSlot} to chest slot 21`);
-          } catch (err) {
-            console.error('⚠️ Failed to move item:', err.message);
-          }
-        }, 300);
+        const sourceSlot = itemSlot.slot;
+        const targetSlot = 20; // Chest GUI slot 21 (0-indexed)
+
+        try {
+          await bot.clickWindow(sourceSlot, 0, 0); // Pick up the item
+          await bot.waitForTicks(10);             // Small delay
+          await bot.clickWindow(targetSlot, 0, 0); // Place into chest
+          console.log(`✅ Moved item from inventory slot ${sourceSlot} to chest slot 21`);
+        } catch (err) {
+          console.error(`⚠️ Failed to move item from ${sourceSlot} → 21:`, err.message);
+        }
       });
     }, 1500);
   } catch (err) {
