@@ -2,8 +2,8 @@ const mineflayer = require('mineflayer');
 const { setTimeout } = require('timers');
 
 let reconnecting = false;
-let lockedYaw = 0;
-let lockedPitch = 0;
+let lockedYaw = null;
+let lockedPitch = null;
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -45,8 +45,10 @@ function createBot() {
         console.log('💬 Sent /warp is x2');
       }, 2000);
 
-      setTimeout(() => {
-        // Lock yaw & pitch
+      setTimeout(async () => {
+        await bot.waitForChunksToLoad();
+        console.log('✅ Chunks loaded, starting farming');
+
         lockedYaw = bot.entity.yaw;
         lockedPitch = bot.entity.pitch;
         console.log('🎯 Locked yaw/pitch:', lockedYaw, lockedPitch);
@@ -74,31 +76,22 @@ function createBot() {
   });
 }
 
-// 🔒 Prevent any view movement forever
+// Lock yaw and pitch forever
 function preventViewMovement(bot, yaw, pitch) {
   bot.on('move', () => {
     bot.entity.yaw = yaw;
     bot.entity.pitch = pitch;
   });
-
-  bot.on('forcedMove', () => {
-    bot.entity.yaw = yaw;
-    bot.entity.pitch = pitch;
-  });
-
-  // Block camera control functions
-  bot.look = async () => {};
-  bot.lookAt = async () => {};
 }
 
-// ⛏️ Break all 3x2 cobblestone blocks in front of the bot every tick
+// Break all 3x2 blocks in front of the bot
 function breakBlocksConstantly(bot) {
-  bot.on('physicTick', () => {
-    const pos = bot.entity.position.offset(0, 0, 1); // One block forward
+  bot.on('physicsTick', () => {
+    const basePos = bot.entity.position.offset(0, 0, 1); // Forward
 
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 0; dy++) {
-        const targetPos = pos.offset(dx, dy, 0);
+        const targetPos = basePos.offset(dx, dy, 0);
         const block = bot.blockAt(targetPos);
 
         if (block && block.name !== 'air') {
@@ -118,7 +111,7 @@ function breakBlocksConstantly(bot) {
   });
 }
 
-// ↔️ Left/right strafe loop every 45s
+// Simple strafe loop
 function startStrafing(bot) {
   let strafeLeft = true;
   bot.setControlState('left', true);
@@ -130,5 +123,4 @@ function startStrafing(bot) {
   }, 45000);
 }
 
-// 🚀 Start the bot
 createBot();
