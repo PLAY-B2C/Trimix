@@ -1,7 +1,6 @@
 const mineflayer = require('mineflayer');
 const Vec3 = require('vec3');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
-const { setTimeout } = require('timers');
 
 let reconnecting = false;
 
@@ -45,8 +44,8 @@ function createBot() {
         console.log('💬 Sent /warp spider');
 
         setTimeout(() => {
-          goToAndSpam(bot);
-        }, 8000); // wait after warp
+          moveToWithWaypoints(bot);
+        }, 8000);
       }, 2000);
     });
   });
@@ -54,7 +53,6 @@ function createBot() {
   bot.on('end', () => {
     if (reconnecting) return;
     reconnecting = true;
-
     console.log('🔁 Disconnected, retrying in 10s...');
     setTimeout(() => {
       reconnecting = false;
@@ -67,73 +65,71 @@ function createBot() {
   });
 }
 
-function goToAndSpam(bot) {
-  const waypoints = [
-    new Vec3(-233, 80, -244),
-    new Vec3(-248, 83, -240),
-    new Vec3(-261, 86, -237),
-    new Vec3(-276, 90, -225),
-    new Vec3(-292, 95, -211),
-    new Vec3(-310, 88, -218),
-    new Vec3(-321, 84, -222),
-    new Vec3(-331, 81, -228)
-  ];
-
-  const finalLook = new Vec3(-144.5, bot.entity.position.y, 5);
-
+function moveToWithWaypoints(bot) {
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
   movements.maxStepHeight = 2.5;
   movements.canDig = false;
+  movements.allow1by1towers = false;
+  movements.scafoldingBlocks = [];
 
   bot.pathfinder.setMovements(movements);
 
-  let current = 0;
+  const waypoints = [
+    new Vec3(-233, 80, -244),
+    new Vec3(-261, 86, -237),
+    new Vec3(-292, 95, -211),
+    new Vec3(-331, 81, -228),
+  ];
 
+  let index = 0;
   function moveToNext() {
-    if (current >= waypoints.length) return onArrived();
+    if (index >= waypoints.length) {
+      console.log('✅ Reached final location, start mob hunting');
+      startMobKilling(bot);
+      return;
+    }
 
-    const target = waypoints[current];
-    console.log(`➡️ Moving to waypoint ${current + 1}: ${target.x}, ${target.y}, ${target.z}`);
-    const goal = new goals.GoalNear(target.x, target.y, target.z, 1);
-    bot.pathfinder.setGoal(goal);
+    const point = waypoints[index];
+    console.log(`➡️ Moving to waypoint ${index + 1}: ${point}`);
+    bot.pathfinder.setGoal(new goals.GoalNear(point.x, point.y, point.z, 1));
 
     const interval = setInterval(() => {
-      const dist = bot.entity.position.distanceTo(target);
-      if (dist <= 1.2) {
+      const dist = bot.entity.position.distanceTo(point);
+      if (dist < 2) {
         clearInterval(interval);
-        current++;
-        moveToNext();
+        index++;
+        setTimeout(moveToNext, 1000);
       }
-    }, 700);
-  }
-
-  function onArrived() {
-    console.log('✅ Reached final destination');
-    bot.lookAt(finalLook, true, () => {
-      console.log(`🎯 Looking at ${finalLook.x}, ${finalLook.y}, ${finalLook.z}`);
-
-      // Lock camera
-      const yaw = bot.entity.yaw;
-      const pitch = bot.entity.pitch;
-      bot.on('move', () => {
-        bot.entity.yaw = yaw;
-        bot.entity.pitch = pitch;
-      });
-      bot.look = async () => {};
-      bot.lookAt = async () => {};
-
-      bot.setQuickBarSlot(0);
-      console.log('🎒 Holding item in slot 1');
-
-      setInterval(() => {
-        bot.activateItem();
-      }, 300);
-    });
+    }, 1000);
   }
 
   moveToNext();
 }
 
-// 🚀 Start bot
+function startMobKilling(bot) {
+  bot.setQuickBarSlot(0);
+  console.log('🗡️ Switched to slot 1');
+
+  bot.on('physicsTick', () => {
+    const mobs = bot.nearestEntities((entity) => {
+      return entity.type === 'mob' && entity.mobType !== 'Slime';
+    });
+
+    for (const id in mobs) {
+      const mob = mobs[id];
+      const dist = bot.entity.position.distanceTo(mob.position);
+
+      if (dist <= 4.5) {
+        bot.attack(mob);
+        bot.lookAt(mob.position.offset(0, mob.height / 2, 0), true);
+        console.log(`⚔️ Attacking ${mob.name}`);
+      } else if (dist <= 15) {
+        bot.pathfinder.setGoal(new goals.GoalNear(mob.position.x, mob.position.y, mob.position.z, 1));
+        break;
+      }
+    }
+  });
+}
+
 createBot();
