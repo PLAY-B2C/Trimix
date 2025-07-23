@@ -1,4 +1,5 @@
 const mineflayer = require('mineflayer');
+const { Vec3 } = require('vec3');
 const { setTimeout } = require('timers');
 
 let reconnecting = false;
@@ -12,21 +13,18 @@ function createBot() {
 
   bot.once('spawn', async () => {
     console.log('✅ Logged in, locking view');
-
     bot.chat('/login 3043AA');
-    await bot.waitForTicks(20); // Wait 1s
 
-    bot.activateItem(); // Right-click held item to open menu
-    console.log('🖱️ Right-clicked item to open menu');
+    // Wait 1s and open the menu
+    await bot.waitForTicks(20);
+    bot.activateItem();
 
     bot.once('windowOpen', async (window) => {
       console.log('📦 Window opened');
-
-      await bot.waitForTicks(30); // Wait for slots to load
+      await bot.waitForTicks(30); // Wait for items to load
 
       const slotIndex = 20;
       const slot = window.slots[slotIndex];
-
       if (slot && slot.name !== 'air') {
         try {
           await bot.clickWindow(slotIndex, 0, 1); // Shift-click
@@ -35,37 +33,29 @@ function createBot() {
           console.log('❌ Click error:', err.message);
         }
       } else {
-        console.log('⚠️ Slot 21 is empty or not loaded');
+        console.log('⚠️ Slot 21 empty or not loaded');
       }
 
-      setTimeout(async () => {
+      // Warp after short delay
+      setTimeout(() => {
         bot.chat('/warp is');
         bot.chat('/warp is');
         console.log('💬 Sent /warp is x2');
-
-        // Wait 8s and start everything
-        setTimeout(async () => {
-          await bot.waitForChunksToLoad();
-          console.log('✅ Chunks loaded, starting farming');
-
-          // Lock current yaw/pitch
-          const yaw = bot.entity.yaw;
-          const pitch = bot.entity.pitch;
-          await bot.look(yaw, pitch, true);
-          console.log('🎯 View locked');
-
-          bot.setControlState('forward', true);
-          startStrafing(bot);
-          breakBlocksConstantly(bot);
-        }, 8000);
       }, 2000);
+
+      // After warp, lock view, start mining and strafing
+      setTimeout(() => {
+        console.log('⛏️ Starting break + strafe');
+        lockView(bot);
+        startStrafing(bot);
+        breakThreeBlocks(bot);
+      }, 10000);
     });
   });
 
   bot.on('end', () => {
     if (reconnecting) return;
     reconnecting = true;
-
     console.log('🔁 Disconnected, retrying in 10s...');
     setTimeout(() => {
       reconnecting = false;
@@ -78,37 +68,31 @@ function createBot() {
   });
 }
 
-// Break a 3x2 wall in front of the bot every tick
-function breakBlocksConstantly(bot) {
-  bot.on('physicsTick', () => {
-    const origin = bot.entity.position.offset(0, 0, 1); // 1 block in front
-
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = 0; dy <= 1; dy++) {
-        const target = origin.offset(dx, dy, 0); // 3x2 pattern
-        const block = bot.blockAt(target);
-
-        if (block && block.name !== 'air') {
-          bot._client.write('block_dig', {
-            status: 0,
-            location: block.position,
-            face: 1,
-          });
-          bot._client.write('block_dig', {
-            status: 2,
-            location: block.position,
-            face: 1,
-          });
-        }
-      }
-    }
+function lockView(bot) {
+  const yaw = bot.entity.yaw;
+  const pitch = bot.entity.pitch;
+  bot.look(yaw, pitch, true);
+  bot.on('move', () => {
+    bot.look(yaw, pitch, true);
   });
 }
 
-// Alternate strafing every 45s
+// Constantly mine 3 vertical blocks in front of crosshair
+function breakThreeBlocks(bot) {
+  setInterval(() => {
+    const pos = bot.entity.position.offset(1, 0, 0).floored(); // Block in front
+    for (let dy = 0; dy <= 2; dy++) {
+      const target = bot.blockAt(pos.offset(0, dy, 0));
+      if (target && bot.canDigBlock(target)) {
+        bot.dig(target, true).catch(() => {});
+      }
+    }
+  }, 100); // No delay between blocks
+}
+
+// Strafe left-right every 45s
 function startStrafing(bot) {
   let strafeLeft = true;
-
   bot.setControlState('left', true);
 
   setInterval(() => {
@@ -118,5 +102,4 @@ function startStrafing(bot) {
   }, 45000);
 }
 
-// Start bot
 createBot();
