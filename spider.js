@@ -47,14 +47,15 @@ function createBot() {
     console.log('✅ Logged in');
     bot.chat(loginCommand);
 
-    // Wait and open chest GUI
+    // Wait and open GUI
     await bot.waitForTicks(20);
     bot.setQuickBarSlot(0);
     bot.activateItem();
 
+    // Handle GUI and teleport
     bot.once('windowOpen', async (window) => {
       await bot.waitForTicks(30);
-      const slotIndex = 20;
+      const slotIndex = 20; // 21st slot
       const slot = window.slots[slotIndex];
 
       if (slot && slot.name !== 'air') {
@@ -66,10 +67,12 @@ function createBot() {
         }
       }
 
-      // Warp and start patrol
       setTimeout(() => {
         bot.chat(warpCommand);
-        setTimeout(() => startPatrol(bot), 8000);
+        setTimeout(() => {
+          startPatrol(bot);
+          startRightClickLoop(bot); // Start right-clicking loop
+        }, 8000);
       }, 2000);
     });
   });
@@ -79,7 +82,10 @@ function createBot() {
     console.log('☠️ Bot died. Restarting from first waypoint...');
     setTimeout(() => {
       bot.chat(warpCommand);
-      setTimeout(() => startPatrol(bot), 8000);
+      setTimeout(() => {
+        startPatrol(bot);
+        startRightClickLoop(bot);
+      }, 8000);
     }, 2000);
   });
 
@@ -98,22 +104,19 @@ function createBot() {
   });
 }
 
+function startRightClickLoop(bot) {
+  setInterval(() => {
+    bot.setQuickBarSlot(0);
+    bot.activateItem();
+  }, 300);
+}
+
 function startPatrol(bot) {
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
   movements.canDig = false;
   movements.allowParkour = true;
   bot.pathfinder.setMovements(movements);
-
-  // ✅ Start right-click loop every 300ms
-  setInterval(() => {
-    try {
-      bot.setQuickBarSlot(0);
-      bot.activateItem();
-    } catch (e) {
-      console.log('⚠️ Right-click error:', e.message);
-    }
-  }, 300);
 
   function patrolNext() {
     if (patrolIndex >= waypoints.length) patrolIndex = 0;
@@ -125,11 +128,13 @@ function startPatrol(bot) {
       const dist = bot.entity.position.distanceTo(target);
       if (dist < 2) {
         clearInterval(checkInterval);
+        bot.pathfinder.setGoal(null); // Clear goal after reaching
         patrolIndex++;
         setTimeout(patrolNext, 200);
       } else if (!bot.pathfinder.isMoving()) {
         console.log(`⚠️ Stuck at waypoint ${patrolIndex}, skipping to next...`);
         clearInterval(checkInterval);
+        bot.pathfinder.setGoal(null); // Clear goal if stuck
         patrolIndex++;
         setTimeout(patrolNext, 200);
       }
