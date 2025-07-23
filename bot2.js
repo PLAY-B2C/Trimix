@@ -48,7 +48,7 @@ function openTeleportChest() {
       bot.once('windowOpen', async (window) => {
         console.log(`📦 Chest opened. Moving item from hotbar slot 1 to slot 21`);
 
-        const fromSlot = 36; // Hotbar slot 1 in inventory
+        const fromSlot = 27; // Hotbar slot 1 in inventory
         const toSlot = 21;
 
         const item = bot.inventory.slots[fromSlot];
