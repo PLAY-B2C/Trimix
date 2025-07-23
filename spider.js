@@ -60,15 +60,14 @@ function createBot() {
 function startFlowerPatrol(bot) {
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
-  movements.maxStepHeight = 1; // safer default
+  movements.maxStepHeight = 1;
   movements.canDig = false;
   movements.allowSprinting = true;
-  movements.allowParkour = false; // disable parkour to prevent issues
+  movements.allowParkour = false;
 
   bot.pathfinder.setMovements(movements);
 
   const waypoints = [
-    // Original waypoints
     new Vec3(-233, 80, -244),
     new Vec3(-261, 86, -237),
     new Vec3(-281, 95, -233),
@@ -81,7 +80,6 @@ function startFlowerPatrol(bot) {
     new Vec3(-333, 60, -276),
     new Vec3(-322, 57, -280),
 
-    // New circular patrol
     new Vec3(-300, 45, -273),
     new Vec3(-291, 45, -278),
     new Vec3(-284, 44, -250),
@@ -103,24 +101,47 @@ function startFlowerPatrol(bot) {
 
     const point = waypoints[index];
     console.log(`🧭 Moving to ${point.x} ${point.y} ${point.z}`);
-    bot.pathfinder.setGoal(new goals.GoalNear(point.x, point.y, point.z, 2)); // radius 2
+    bot.pathfinder.setGoal(new goals.GoalBlock(point.x, point.y, point.z));
+
+    let moved = false;
+
+    const watchdog = setTimeout(() => {
+      if (!moved) {
+        console.log(`⛔ Stuck at ${point.x} ${point.y} ${point.z}, skipping...`);
+
+        // OPTIONAL: Try to unstuck
+        bot.setControlState('jump', true);
+        bot.look(bot.entity.yaw + Math.PI / 2, 0);
+        setTimeout(() => {
+          bot.setControlState('jump', false);
+        }, 500);
+
+        index++;
+        setTimeout(moveToNext, 500);
+      }
+    }, 6000);
+
+    const next = () => {
+      clearTimeout(watchdog);
+      moved = true;
+      index++;
+      setTimeout(moveToNext, 300);
+    };
 
     bot.once('goal_reached', () => {
       console.log(`✅ Reached ${point.x} ${point.y} ${point.z}`);
-      index++;
-      setTimeout(moveToNext, 300);
+      next();
     });
 
     bot.once('goal_timeout', () => {
       console.log(`⚠️ Timeout at ${point.x} ${point.y} ${point.z}, skipping...`);
-      index++;
-      setTimeout(moveToNext, 300);
+      next();
     });
   }
 
   moveToNext();
 
-  // Flower shooting (slot 1) every 300ms
+  // Auto-shoot flower (slot 1)
   setInterval(() => {
     bot.setQuickBarSlot(0);
     bot.activateItem();
