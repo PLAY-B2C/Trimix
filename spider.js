@@ -31,7 +31,7 @@ const allWaypoints = [
   new Vec3(-336, 44, -236),
   new Vec3(-326, 42, -252),
   new Vec3(-313, 43, -234),
-  new Vec3(-288, 44, -259)
+  new Vec3(-288, 44, -259),
 ];
 
 function createBot() {
@@ -68,10 +68,11 @@ function createBot() {
         bot.chat(warpCommand);
         setTimeout(() => {
           startPatrol(bot);
-          startRightClickLoop(bot);
         }, 8000);
       }, 2000);
     });
+
+    startRightClickLoop(bot);
   });
 
   bot.on('death', () => {
@@ -82,7 +83,6 @@ function createBot() {
       bot.chat(warpCommand);
       setTimeout(() => {
         startPatrol(bot);
-        startRightClickLoop(bot);
       }, 8000);
     }, 2000);
   });
@@ -105,16 +105,10 @@ function createBot() {
 function startRightClickLoop(bot) {
   setInterval(() => {
     if (!bot?.entity || bot.entity.health <= 0) return;
-
-    const item = bot.inventory.slots[36]; // Slot 0
-    if (!item) return;
-
     try {
-      bot.setQuickBarSlot(0); // Ensure item is selected
-      bot.activateItem();     // Right-click action
-    } catch (err) {
-      // Usually "cooldown" errors — can be ignored
-    }
+      bot.setQuickBarSlot(0);
+      bot.activateItem();
+    } catch {}
   }, 300);
 }
 
@@ -126,17 +120,13 @@ function startPatrol(bot) {
   bot.pathfinder.setMovements(movements);
 
   const waypoints =
-    patrolMode === 'initial' ? allWaypoints : allWaypoints.slice(11); // From "home"
+    patrolMode === 'initial' ? allWaypoints : allWaypoints.slice(11);
 
   function goToNext() {
     if (patrolIndex >= waypoints.length) {
       patrolIndex = 0;
-      if (patrolMode === 'initial') {
-        patrolMode = 'loop';
-        console.log('🔁 Switched to patrol loop.');
-      } else {
-        console.log('🔁 Patrol loop restart.');
-      }
+      patrolMode = 'loop';
+      console.log('🔁 Restarting patrol from HOME');
     }
 
     const target = waypoints[patrolIndex];
