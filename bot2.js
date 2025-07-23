@@ -16,12 +16,14 @@ function startBot() {
     version: config.version,
   });
 
-  bot.once('spawn', async () => {
+  bot.once('spawn', () => {
     console.log(`✅ ${config.username} spawned.`);
 
+    // Login
     setTimeout(() => {
       bot.chat(`/login ${config.password}`);
       console.log(`🔐 Logged in with /login ${config.password}`);
+
       setTimeout(openTeleportChest, 2000);
     }, 1000);
   });
@@ -38,13 +40,14 @@ function startBot() {
 
 function openTeleportChest() {
   try {
-    bot.setQuickBarSlot(0);
+    bot.setQuickBarSlot(0); // Select slot 1
     setTimeout(() => {
-      bot.activateItem();
+      bot.activateItem(); // Right-click with item
       console.log(`🧤 Attempted to open chest with held item`);
 
-      bot.once('windowOpen', async (window) => {
+      bot.once('windowOpen', (window) => {
         console.log(`📦 Chest opened. Spamming shift-click on slot 21...`);
+
         const slotToClick = 20;
         let attempts = 1;
         let delay = 300;
@@ -82,15 +85,23 @@ function startPostTeleportBehavior() {
   console.log(`⏳ Waiting 10 seconds before starting post-teleport behavior...`);
   setTimeout(() => {
     console.log(`🎯 Maintaining current view direction`);
-    holdLeftClick();
+
+    // 🔒 Lock current yaw/pitch
+    const yaw = bot.entity.yaw;
+    const pitch = bot.entity.pitch;
+    setInterval(() => {
+      bot.look(yaw, pitch, false); // prevent camera movement
+    }, 500);
+
+    holdLeftClickDig();
     loopStrafe();
+    monitorInventoryFull();
   }, 10000);
 }
 
-function holdLeftClick() {
+function holdLeftClickDig() {
   setInterval(() => {
-    const block = bot.blockAtCursor(5); // 5 block reach
-
+    const block = bot.blockAtCursor(5);
     if (block && bot.canDigBlock(block) && !bot.targetDigBlock) {
       bot.dig(block)
         .then(() => {
@@ -104,22 +115,32 @@ function holdLeftClick() {
 }
 
 function loopStrafe() {
-  let left = true;
+  let movingLeft = true;
 
   function strafe() {
-    bot.setControlState('left', left);
-    bot.setControlState('right', !left);
-    console.log(`🚶 Strafing ${left ? 'left' : 'right'} for 40s...`);
+    bot.setControlState('left', movingLeft);
+    bot.setControlState('right', !movingLeft);
+
+    console.log(`🚶 Strafing ${movingLeft ? 'left' : 'right'} for 40s...`);
 
     setTimeout(() => {
       bot.setControlState('left', false);
       bot.setControlState('right', false);
-      left = !left;
+      movingLeft = !movingLeft;
       strafe();
     }, 40000); // 40 seconds
   }
 
   strafe();
+}
+
+function monitorInventoryFull() {
+  setInterval(() => {
+    const emptySlots = bot.inventory.emptySlotCount();
+    if (emptySlots === 0) {
+      console.log("📦 Inventory full!");
+    }
+  }, 5000);
 }
 
 startBot();
