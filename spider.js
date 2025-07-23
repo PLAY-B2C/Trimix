@@ -1,6 +1,6 @@
 const mineflayer = require('mineflayer');
-const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const Vec3 = require('vec3');
+const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const { setTimeout } = require('timers');
 
 let reconnecting = false;
@@ -47,7 +47,7 @@ function createBot() {
 
         setTimeout(() => {
           goToAndSpam(bot);
-        }, 8000); // Wait 8s after warp
+        }, 8000); // wait after warp
       }, 2000);
     });
   });
@@ -68,39 +68,49 @@ function createBot() {
   });
 }
 
-// ➤ Move to location and spam right-click
+// ➤ Go to -331 81 -228 and spam right-click
 function goToAndSpam(bot) {
   const targetPos = new Vec3(-331, 81, -228);
-  const lookAtPos = new Vec3(-144.5, 81, -228.5);
+  const lookAtPos = new Vec3(-144.5, bot.entity.position.y, -228.5);
 
-  // Lock look direction
-  bot.lookAt(new Vec3(lookAtPos.x, bot.entity.position.y, lookAtPos.z), true, () => {
-    console.log('🎯 Locked look direction');
+  // Look in the horizontal direction
+  bot.lookAt(lookAtPos, true, () => {
+    console.log(`🎯 Looking toward X:${lookAtPos.x.toFixed(1)} Z:${lookAtPos.z.toFixed(1)}`);
 
     const mcData = require('minecraft-data')(bot.version);
-    const defaultMove = new Movements(bot, mcData);
-    bot.pathfinder.setMovements(defaultMove);
-    bot.pathfinder.setGoal(new goals.GoalBlock(targetPos.x, targetPos.y, targetPos.z));
+    const movements = new Movements(bot, mcData);
+
+    // Support Jump Boost IV
+    movements.maxStepHeight = 2.5;
+    movements.canDig = false;
+
+    bot.pathfinder.setMovements(movements);
+
+    const goal = new goals.GoalNear(targetPos.x, targetPos.y, targetPos.z, 1);
+    bot.pathfinder.setGoal(goal);
 
     const arrivalCheck = setInterval(() => {
-      const dist = bot.entity.position.distanceTo(targetPos);
-      if (dist < 1) {
+      const pos = bot.entity.position;
+      const dist = pos.distanceTo(targetPos);
+      console.log(`📍 Pos: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)} | ➡️ ${dist.toFixed(2)} away`);
+
+      if (dist <= 1) {
         clearInterval(arrivalCheck);
         bot.clearControlStates();
-        console.log('📍 Reached target location');
+        console.log('✅ Reached target position');
 
+        // Select slot 1 and spam right-click
         bot.setQuickBarSlot(0);
-        console.log('🎒 Holding item in hotbar slot 1');
+        console.log('🎒 Holding item in slot 1');
 
-        // Start spamming right-click
         setInterval(() => {
           bot.activateItem();
         }, 300);
       }
-    }, 500);
+    }, 1000);
   });
 
-  // Lock yaw/pitch permanently
+  // Lock yaw/pitch
   const yaw = bot.entity.yaw;
   const pitch = bot.entity.pitch;
 
@@ -113,5 +123,5 @@ function goToAndSpam(bot) {
   bot.lookAt = async () => {};
 }
 
-// 🚀 Start bot
+// 🚀 Start the bot
 createBot();
