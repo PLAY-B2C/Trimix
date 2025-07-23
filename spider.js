@@ -44,7 +44,7 @@ function createBot() {
         console.log('💬 Sent /warp spider');
 
         setTimeout(() => {
-          moveToWithWaypoints(bot);
+          startFlowerPatrol(bot);
         }, 8000);
       }, 2000);
     });
@@ -65,13 +65,16 @@ function createBot() {
   });
 }
 
-function moveToWithWaypoints(bot) {
+function startFlowerPatrol(bot) {
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
   movements.maxStepHeight = 2.5;
   movements.canDig = false;
-  movements.allow1by1towers = false;
+  movements.allowSprinting = true;
+  movements.allowParkour = true;
+  movements.allowFreeMotion = true;
   movements.scafoldingBlocks = [];
+  movements.sprintSpeed = 0.36; // Simulate ~345 speed
 
   bot.pathfinder.setMovements(movements);
 
@@ -81,18 +84,22 @@ function moveToWithWaypoints(bot) {
     new Vec3(-292, 95, -211),
     new Vec3(-315, 96, -191),
     new Vec3(-331, 81, -228),
+    new Vec3(-347, 79, -236),
+    new Vec3(-360, 72, -256),
+    new Vec3(-357, 67, -270),
+    new Vec3(-333, 60, -276),
+    new Vec3(-322, 57, -280) // Final spot
   ];
 
   let index = 0;
   function moveToNext() {
     if (index >= waypoints.length) {
-      console.log('✅ Reached final location, start mob hunting');
-      startMobKilling(bot);
+      console.log('🏁 Reached final patrol location');
       return;
     }
 
     const point = waypoints[index];
-    console.log(`➡️ Moving to waypoint ${index + 1}: ${point}`);
+    console.log(`🚶 Moving to waypoint ${index + 1}: ${point}`);
     bot.pathfinder.setGoal(new goals.GoalNear(point.x, point.y, point.z, 1));
 
     const interval = setInterval(() => {
@@ -102,63 +109,16 @@ function moveToWithWaypoints(bot) {
         index++;
         setTimeout(moveToNext, 1000);
       }
-    }, 1000);
+    }, 500);
   }
 
   moveToNext();
-}
 
-function startMobKilling(bot) {
-  const mcData = require('minecraft-data')(bot.version);
-
-  let lastTeleport = 0;
-
-  console.log('🗡️ Starting mob hunt');
-
+  // Constantly shoot flower every 300ms
   setInterval(() => {
-    const now = Date.now();
-
-    const mobs = Object.values(bot.entities).filter(entity =>
-      entity.type === 'mob' && entity.mobType !== 'Slime'
-    );
-
-    if (mobs.length === 0) return;
-
-    const target = mobs.reduce((a, b) =>
-      bot.entity.position.distanceTo(a.position) < bot.entity.position.distanceTo(b.position) ? a : b
-    );
-
-    const dist = bot.entity.position.distanceTo(target.position);
-
-    // 🌸 Ranged flower shot
-    if (dist <= 30) {
-      bot.lookAt(target.position.offset(0, target.height / 2, 0), true);
-      bot.setQuickBarSlot(0); // flower shooter
-      bot.activateItem(); // shoot flower
-      console.log(`🌸 Shot flower at ${target.name} (${Math.round(dist)} blocks)`);
-      return; // skip melee if handled
-    }
-
-    // ⚔️ Melee fallback
-    if (dist <= 4.5) {
-      bot.setQuickBarSlot(0);
-      bot.attack(target);
-      console.log(`⚔️ Melee attacking ${target.name}`);
-    } else {
-      bot.pathfinder.setGoal(new goals.GoalNear(target.position.x, target.position.y, target.position.z, 1));
-      console.log(`🚶 Approaching ${target.name}`);
-    }
-
-    // 🌀 Teleport shovel
-    if (now - lastTeleport >= 4000) {
-      lastTeleport = now;
-      bot.setQuickBarSlot(1);
-      bot.activateItem();
-      console.log('🌀 Teleporting forward');
-      setTimeout(() => {
-        bot.setQuickBarSlot(0);
-      }, 200);
-    }
+    bot.setQuickBarSlot(0); // Slot 1 (flower shooter)
+    bot.activateItem();     // Right-click
+    console.log('🌸 Shot flower');
   }, 300);
 }
 
