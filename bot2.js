@@ -4,7 +4,7 @@ const config = {
   host: 'mc.fakepixel.fun',
   username: 'DrakonTide',
   version: '1.16.5',
-  password: '3043AA'
+  password: '3043AA',
 };
 
 let bot;
@@ -17,94 +17,85 @@ function startBot() {
   });
 
   bot.once('spawn', () => {
-    console.log(`✅ Spawned as ${bot.username}`);
+    console.log('✅ Spawned');
     setTimeout(() => {
       bot.chat(`/login ${config.password}`);
-      console.log(`🔐 Sent login`);
-      setTimeout(openTeleportChest, 2000);
+      setTimeout(openMenu, 2000);
     }, 1000);
   });
 
-  bot.on('error', err => {
+  bot.on('error', (err) => {
     console.log(`❌ Error: ${err.message}`);
   });
 
   bot.on('end', () => {
-    console.log(`🔁 Disconnected. Reconnecting in 10s...`);
+    console.log('🔁 Disconnected. Reconnecting in 10s...');
     setTimeout(startBot, 10000);
   });
 }
 
-function openTeleportChest() {
+function openMenu() {
   bot.setQuickBarSlot(0);
 
   setTimeout(() => {
     bot.activateItem(); // Right-click to open menu
-    console.log('🧤 Tried to open menu');
+    console.log('🧤 Right-clicked item');
 
-    const timeout = setTimeout(() => {
-      console.log('⚠️ Menu timeout. Proceeding anyway...');
-      postTeleportSteps();
+    const fallback = setTimeout(() => {
+      console.log('⚠️ Window not opened, continuing...');
+      warpAndStart();
     }, 5000);
 
     bot.once('windowOpen', (window) => {
-      clearTimeout(timeout);
-      console.log('📦 Menu opened');
-
-      const slot = 20; // 21st slot (0-indexed)
-      bot.clickWindow(slot, 0, 1).then(() => {
-        console.log(`👉 Shift-clicked slot ${slot + 1}`);
-        setTimeout(postTeleportSteps, 2000);
-      }).catch(err => {
-        console.log(`❌ Click error: ${err.message}`);
-        postTeleportSteps();
+      clearTimeout(fallback);
+      bot.clickWindow(20, 0, 1).then(() => {
+        console.log('✅ Clicked slot 21');
+        setTimeout(warpAndStart, 2000);
+      }).catch((err) => {
+        console.log(`❌ Click failed: ${err.message}`);
+        warpAndStart();
       });
     });
   }, 1500);
 }
 
-function postTeleportSteps() {
+function warpAndStart() {
   bot.chat('/warp is');
   setTimeout(() => {
     bot.chat('/warp is');
-    console.log('💬 Sent /warp is twice');
+    console.log('💬 Sent /warp is x2');
 
     setTimeout(() => {
-      console.log('⛏️ Starting infinite dig loop');
-      startDiggingForever();
-      startStrafingLoop();
+      console.log('🎯 Locking view & starting dig/strafe loop');
+      lockViewOnce();
+      holdLeftClickForever();
+      startStrafeLoop();
     }, 8000);
   }, 2000);
 }
 
-function startDiggingForever() {
-  setInterval(() => {
-    const target = bot.blockAtCursor(4); // 4 block reach
-    if (target) {
-      bot.dig(target).then(() => {
-        console.log(`✅ Dug: ${target.name}`);
-      }).catch(() => {});
-    }
-  }, 1500); // Every 1.5s
+function lockViewOnce() {
+  const yaw = bot.entity.yaw;
+  const pitch = bot.entity.pitch;
+
+  bot.look(yaw, pitch, true); // Lock once and never change again
 }
 
-function startStrafingLoop() {
+function holdLeftClickForever() {
+  bot.setControlState('attack', true); // Absolute hold
+}
+
+function startStrafeLoop() {
   let strafeLeft = true;
 
-  // Clear any existing movement state
-  bot.clearControlStates();
-
-  function strafe() {
-    bot.clearControlStates(); // Clear before switching
-    bot.setControlState('left', strafeLeft);
-    bot.setControlState('right', !strafeLeft);
-    console.log(`🚶 Strafing ${strafeLeft ? 'left' : 'right'}`);
-
+  const loop = () => {
+    bot.clearControlStates();
+    bot.setControlState(strafeLeft ? 'left' : 'right', true);
     strafeLeft = !strafeLeft;
-    setTimeout(strafe, 40000); // Switch every 40s
-  }
+    setTimeout(loop, 40000); // Repeat every 40 sec
+  };
 
-  strafe();
+  loop();
 }
 
 startBot();
