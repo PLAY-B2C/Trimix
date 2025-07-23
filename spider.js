@@ -71,6 +71,7 @@ function startFlowerPatrol(bot) {
     // Original waypoints
     new Vec3(-233, 80, -244),
     new Vec3(-261, 86, -237),
+    new Vec3(-281, 95, -233),
     new Vec3(-292, 95, -211),
     new Vec3(-315, 96, -191),
     new Vec3(-331, 81, -228),
