@@ -19,7 +19,6 @@ function startBot() {
   bot.once('spawn', async () => {
     console.log(`✅ ${config.username} spawned.`);
 
-    // Login
     setTimeout(() => {
       bot.chat(`/login ${config.password}`);
       console.log(`🔐 Logged in with /login ${config.password}`);
@@ -46,20 +45,27 @@ function openTeleportChest() {
       console.log(`🧤 Attempted to open chest with held item`);
 
       bot.once('windowOpen', async (window) => {
-        console.log(`📦 Chest opened. Trying one shift-click on slot 21...`);
+        console.log(`📦 Chest opened. Listing all slots:`);
 
-        const slotToClick = 20;
+        window.slots.forEach((slot, index) => {
+          if (slot) {
+            console.log(`🔍 Slot ${index}: ${slot.name} x${slot.count}`);
+          }
+        });
 
-        const slot = bot.currentWindow.slots[slotToClick];
+        // Optional: click slot if you know the correct one
+        const slotToClick = 21; // Change this after checking logs
+        const slot = window.slots[slotToClick];
+
         if (slot) {
           try {
-            await bot.clickWindow(slotToClick, 0, 1); // Single shift-click
-            console.log(`✅ Shift-clicked slot 21 once`);
+            await bot.clickWindow(slotToClick, 0, 1); // shift-click
+            console.log(`👉 Shift-clicked slot ${slotToClick}`);
           } catch (err) {
-            console.error(`⚠️ Failed to shift-click slot 21:`, err.message);
+            console.error(`⚠️ Failed to click slot ${slotToClick}:`, err.message);
           }
         } else {
-          console.log(`❌ Slot 21 is empty or undefined.`);
+          console.log(`❌ Slot ${slotToClick} is empty or undefined.`);
         }
       });
     }, 1500);
