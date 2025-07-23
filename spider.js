@@ -18,7 +18,7 @@ function createBot() {
     bot.chat('/login 3043AA');
 
     await bot.waitForTicks(20);
-    bot.activateItem(); // Right-click to open menu
+    bot.activateItem(); // Right-click to open GUI
 
     bot.once('windowOpen', async (window) => {
       await bot.waitForTicks(30);
@@ -42,6 +42,16 @@ function createBot() {
     });
   });
 
+  bot.on('death', () => {
+    console.log('💀 Bot died. Restarting patrol in 10 seconds...');
+    setTimeout(() => {
+      bot.chat('/warp spider');
+      setTimeout(() => {
+        startFlowerPatrol(bot);
+      }, 8000);
+    }, 10000);
+  });
+
   bot.on('end', () => {
     if (reconnecting) return;
     reconnecting = true;
@@ -60,17 +70,14 @@ function createBot() {
 function startFlowerPatrol(bot) {
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
-
-  // 🏃 Adjust movement for faster speed and jump boost
   movements.maxStepHeight = 2.5;
   movements.canDig = false;
   movements.allowSprinting = true;
   movements.allowParkour = true;
 
-  // 🏁 Speed scaling (345% speed = 3.45x vanilla)
+  // 🏃 Boost movement speed (345% = 3.45x vanilla)
   movements.walkSpeed *= 3.45;
   movements.sprintSpeed *= 3.45;
-  movements.jumpHeight = 1.25; // Optional: adjust for Jump Boost 4
 
   bot.pathfinder.setMovements(movements);
 
@@ -97,42 +104,45 @@ function startFlowerPatrol(bot) {
     new Vec3(-326, 42, -252),
     new Vec3(-313, 43, -234),
     new Vec3(-288, 44, -259),
-    new Vec3(-300, 45, -273)
+    new Vec3(-300, 45, -273),
   ];
 
-  // Start from closest waypoint
   let index = 0;
-  let minDist = Infinity;
-  waypoints.forEach((pt, i) => {
-    const dist = bot.entity.position.distanceTo(pt);
-    if (dist < minDist) {
-      minDist = dist;
-      index = i;
-    }
-  });
 
   function moveToNext() {
     if (index >= waypoints.length) index = 0;
 
     const point = waypoints[index];
-    bot.pathfinder.setGoal(new goals.GoalNear(point.x, point.y, point.z, 1));
+    bot.pathfinder.setGoal(new goals.GoalNear(point.x, point.y, point.z, 2)); // Radius 2
 
     const checkInterval = setInterval(() => {
-      if (bot.entity.position.distanceTo(point) < 2) {
+      if (bot.entity.position.distanceTo(point) < 2.5) {
         clearInterval(checkInterval);
         index++;
-        setTimeout(moveToNext, 200); // Short delay before next point
+        setTimeout(moveToNext, 300);
       }
-    }, 250);
+    }, 500);
   }
 
   moveToNext();
 
-  // 🌸 Flower shooting every 300ms (slot 1)
+  // 🌼 Flower shooting (every 300ms)
   setInterval(() => {
     bot.setQuickBarSlot(0);
     bot.activateItem();
   }, 300);
+
+  // 🚨 Stuck detection
+  let lastPos = null;
+  setInterval(() => {
+    const pos = bot.entity.position;
+    if (lastPos && pos.distanceTo(lastPos) < 0.5) {
+      console.log('⚠️ Bot might be stuck. Rebooting patrol.');
+      bot.chat('/warp spider');
+      setTimeout(() => startFlowerPatrol(bot), 8000);
+    }
+    lastPos = pos;
+  }, 15000);
 }
 
 createBot();
