@@ -50,7 +50,7 @@ function openTeleportChest() {
 
         const slotToClick = 20;
 
-        let attempts = 1;
+        let attempts = 4;
         let delay = 300;
 
         const interval = setInterval(async () => {
