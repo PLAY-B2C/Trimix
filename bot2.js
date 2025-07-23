@@ -9,8 +9,11 @@ const config = {
 
 let bot;
 let activeIntervals = [];
+let postTeleportStarted = false;
 
 function startBot() {
+  postTeleportStarted = false;
+
   bot = mineflayer.createBot({
     host: config.host,
     username: config.username,
@@ -20,7 +23,7 @@ function startBot() {
   bot.once('spawn', () => {
     console.log(`✅ ${config.username} spawned.`);
 
-    // Login sequence
+    // Login
     setTimeout(() => {
       bot.chat(`/login ${config.password}`);
       console.log(`🔐 Sent login command`);
@@ -72,9 +75,9 @@ function openTeleportChest() {
             startPostTeleportBehavior();
             return;
           }
-          
+
           clickCount++;
-          
+
           bot.clickWindow(teleportSlot, 0, 1)
             .then(() => {
               console.log(`👉 Shift-clicked slot ${teleportSlot + 1} (${clickCount}/${maxClicks})`);
@@ -98,19 +101,25 @@ function openTeleportChest() {
 }
 
 function startPostTeleportBehavior() {
+  if (postTeleportStarted) return;
+  postTeleportStarted = true;
+
   console.log(`⏳ Starting post-teleport routine in 10s...`);
 
-  // Send /warp is every 2 seconds during wait
+  // Send /warp is exactly 2 times
+  let warpCount = 0;
   const warpSpamInterval = setInterval(() => {
+    if (warpCount >= 2) {
+      clearInterval(warpSpamInterval);
+      return;
+    }
     bot.chat('/warp is');
     console.log('💬 Sent: /warp is');
+    warpCount++;
   }, 2000);
 
   setTimeout(() => {
-    clearInterval(warpSpamInterval); // Stop after 10s
-    console.log(`🎯 Locking view direction`);
-
-    // Maintain current camera angle (no override)
+    console.log(`🎯 Continuing post-teleport behavior`);
 
     // Mining behavior
     holdLeftClickDig();
