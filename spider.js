@@ -12,6 +12,7 @@ function createBot() {
     version: '1.16.5',
   });
 
+  // ⬅️ FIX: Load plugin immediately
   bot.loadPlugin(pathfinder);
 
   bot.once('spawn', async () => {
@@ -68,19 +69,17 @@ function createBot() {
   });
 }
 
-// ➤ Go to -331 81 -228 and spam right-click
 function goToAndSpam(bot) {
   const targetPos = new Vec3(-331, 81, -228);
   const lookAtPos = new Vec3(-144.5, bot.entity.position.y, -228.5);
 
-  // Look in the horizontal direction
   bot.lookAt(lookAtPos, true, () => {
     console.log(`🎯 Looking toward X:${lookAtPos.x.toFixed(1)} Z:${lookAtPos.z.toFixed(1)}`);
 
     const mcData = require('minecraft-data')(bot.version);
     const movements = new Movements(bot, mcData);
 
-    // Support Jump Boost IV
+    // ✅ Support Jump Boost 4
     movements.maxStepHeight = 2.5;
     movements.canDig = false;
 
@@ -99,7 +98,6 @@ function goToAndSpam(bot) {
         bot.clearControlStates();
         console.log('✅ Reached target position');
 
-        // Select slot 1 and spam right-click
         bot.setQuickBarSlot(0);
         console.log('🎒 Holding item in slot 1');
 
@@ -110,7 +108,7 @@ function goToAndSpam(bot) {
     }, 1000);
   });
 
-  // Lock yaw/pitch
+  // Lock yaw/pitch after looking
   const yaw = bot.entity.yaw;
   const pitch = bot.entity.pitch;
 
@@ -123,5 +121,5 @@ function goToAndSpam(bot) {
   bot.lookAt = async () => {};
 }
 
-// 🚀 Start the bot
+// 🚀 Start bot
 createBot();
