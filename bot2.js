@@ -54,7 +54,7 @@ function openTeleportChest() {
         });
 
         // Optional: click slot if you know the correct one
-        const slotToClick = 21; // Change this after checking logs
+        const slotToClick = 20; // Change this after checking logs
         const slot = window.slots[slotToClick];
 
         if (slot) {
