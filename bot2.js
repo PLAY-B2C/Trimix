@@ -45,22 +45,15 @@ function openTeleportChest() {
       console.log(`🧤 Attempted to open chest with held item`);
 
       bot.once('windowOpen', async (window) => {
-        console.log(`📦 Chest opened. Listing all slots:`);
+        console.log(`📦 Chest opened. Looking for teleport item in slot 82...`);
 
-        window.slots.forEach((slot, index) => {
-          if (slot) {
-            console.log(`🔍 Slot ${index}: ${slot.name} x${slot.count}`);
-          }
-        });
+        const slotToClick = 20; // player_head
 
-        // Optional: click slot if you know the correct one
-        const slotToClick = 20; // Change this after checking logs
         const slot = window.slots[slotToClick];
-
         if (slot) {
           try {
             await bot.clickWindow(slotToClick, 0, 1); // shift-click
-            console.log(`👉 Shift-clicked slot ${slotToClick}`);
+            console.log(`👉 Shift-clicked slot ${slotToClick} (${slot.name})`);
           } catch (err) {
             console.error(`⚠️ Failed to click slot ${slotToClick}:`, err.message);
           }
