@@ -69,6 +69,7 @@ function startFlowerPatrol(bot) {
 
   const waypoints = [
     new Vec3(-233, 80, -244),
+    new Vec3(-252, 85, -240),
     new Vec3(-261, 86, -237),
     new Vec3(-281, 95, -233),
     new Vec3(-292, 95, -211),
