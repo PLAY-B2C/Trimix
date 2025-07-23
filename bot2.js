@@ -1,101 +1,85 @@
 const mineflayer = require('mineflayer');
 
-const config = {
-  host: 'mc.fakepixel.fun',
-  username: 'DrakonTide',
-  version: '1.16.5',
-  password: '3043AA',
-};
+let reconnectTimeout = null;
 
-let bot;
-
-function startBot() {
-  bot = mineflayer.createBot({
-    host: config.host,
-    username: config.username,
-    version: config.version,
+function createBot() {
+  const bot = mineflayer.createBot({
+    host: 'your.server.ip',
+    port: 25565,
+    username: 'YourUsername',
+    version: '1.16.5',
   });
 
-  bot.once('spawn', () => {
-    console.log('✅ Spawned');
-    setTimeout(() => {
-      bot.chat(`/login ${config.password}`);
-      setTimeout(openMenu, 2000);
-    }, 1000);
+  bot.once('spawn', async () => {
+    console.log('✅ Bot spawned');
+
+    try {
+      bot.chat('/login 3043AA');
+      await sleep(2000);
+
+      // Open menu and shift-click slot 21
+      const heldItem = bot.inventory.slots[36];
+      if (heldItem) bot.activateItem();
+
+      bot.once('windowOpen', (window) => {
+        setTimeout(() => {
+          bot.clickWindow(20, 0, 1); // shift-click slot 21
+        }, 500);
+      });
+
+      setTimeout(() => {
+        bot.chat('/warp is');
+        bot.chat('/warp is');
+      }, 3000);
+
+      setTimeout(() => {
+        console.log('🎯 Locking view & starting dig/strafe loop');
+        holdLeftClickForever(bot);
+        startStrafingLoop(bot);
+      }, 11000);
+    } catch (err) {
+      console.error('❌ Startup error:', err);
+    }
   });
 
   bot.on('error', (err) => {
-    console.log(`❌ Error: ${err.message}`);
+    console.log('❌ Bot error:', err.message);
   });
 
   bot.on('end', () => {
-    console.log('🔁 Disconnected. Reconnecting in 10s...');
-    setTimeout(startBot, 10000);
+    console.log('🔁 Bot disconnected');
+    if (!reconnectTimeout) {
+      reconnectTimeout = setTimeout(() => {
+        reconnectTimeout = null;
+        console.log('🔌 Reconnecting...');
+        createBot();
+      }, 10000); // 10s cooldown
+    }
   });
 }
 
-function openMenu() {
-  bot.setQuickBarSlot(0);
-
-  setTimeout(() => {
-    bot.activateItem(); // Right-click to open menu
-    console.log('🧤 Right-clicked item');
-
-    const fallback = setTimeout(() => {
-      console.log('⚠️ Window not opened, continuing...');
-      warpAndStart();
-    }, 5000);
-
-    bot.once('windowOpen', (window) => {
-      clearTimeout(fallback);
-      bot.clickWindow(20, 0, 1).then(() => {
-        console.log('✅ Clicked slot 21');
-        setTimeout(warpAndStart, 2000);
-      }).catch((err) => {
-        console.log(`❌ Click failed: ${err.message}`);
-        warpAndStart();
-      });
-    });
-  }, 1500);
+function holdLeftClickForever(bot) {
+  bot.setControlState('swing', true); // Use 'swing' for 1.16.5
 }
 
-function warpAndStart() {
-  bot.chat('/warp is');
-  setTimeout(() => {
-    bot.chat('/warp is');
-    console.log('💬 Sent /warp is x2');
-
-    setTimeout(() => {
-      console.log('🎯 Locking view & starting dig/strafe loop');
-      lockViewOnce();
-      holdLeftClickForever();
-      startStrafeLoop();
-    }, 8000);
-  }, 2000);
-}
-
-function lockViewOnce() {
-  const yaw = bot.entity.yaw;
-  const pitch = bot.entity.pitch;
-
-  bot.look(yaw, pitch, true); // Lock once and never change again
-}
-
-function holdLeftClickForever() {
-  bot.setControlState('attack', true); // Absolute hold
-}
-
-function startStrafeLoop() {
+function startStrafingLoop(bot) {
   let strafeLeft = true;
 
-  const loop = () => {
-    bot.clearControlStates();
-    bot.setControlState(strafeLeft ? 'left' : 'right', true);
+  function strafe() {
+    bot.clearControlStates(); // Ensure no extra movement
+    bot.setControlState('left', strafeLeft);
+    bot.setControlState('right', !strafeLeft);
+    console.log(`🚶 Strafing ${strafeLeft ? 'left' : 'right'}`);
     strafeLeft = !strafeLeft;
-    setTimeout(loop, 40000); // Repeat every 40 sec
-  };
 
-  loop();
+    setTimeout(strafe, 40000); // 40 seconds
+  }
+
+  strafe();
 }
 
-startBot();
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+createBot();
