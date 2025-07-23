@@ -1,4 +1,6 @@
 const mineflayer = require('mineflayer');
+const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
+const Vec3 = require('vec3');
 const { setTimeout } = require('timers');
 
 let reconnecting = false;
@@ -9,6 +11,8 @@ function createBot() {
     username: 'DrakonTide',
     version: '1.16.5',
   });
+
+  bot.loadPlugin(pathfinder);
 
   bot.once('spawn', async () => {
     console.log('✅ Logged in');
@@ -41,10 +45,9 @@ function createBot() {
         bot.chat('/warp spider');
         console.log('💬 Sent /warp spider');
 
-        // Wait 8 seconds for warp
         setTimeout(() => {
           goToAndSpam(bot);
-        }, 8000);
+        }, 8000); // Wait 8s after warp
       }, 2000);
     });
   });
@@ -65,32 +68,31 @@ function createBot() {
   });
 }
 
-// 🤖 Go to position and start spamming right-click
+// ➤ Move to location and spam right-click
 function goToAndSpam(bot) {
-  const targetPos = { x: -331.5, y: 81, z: -228.5 };
-  const lookAtPos = { x: -144.5, y: 81, z: -228.5 };
+  const targetPos = new Vec3(-331, 81, -228);
+  const lookAtPos = new Vec3(-144.5, 81, -228.5);
 
-  // Look at horizontal target (same y to prevent vertical motion)
-  bot.lookAt({ x: lookAtPos.x, y: bot.entity.position.y, z: lookAtPos.z }, true, () => {
+  // Lock look direction
+  bot.lookAt(new Vec3(lookAtPos.x, bot.entity.position.y, lookAtPos.z), true, () => {
     console.log('🎯 Locked look direction');
 
-    // Move to position
-    bot.pathfinder.setGoal(new mineflayer.pathfinder.goals.GoalBlock(
-      targetPos.x, targetPos.y, targetPos.z
-    ));
+    const mcData = require('minecraft-data')(bot.version);
+    const defaultMove = new Movements(bot, mcData);
+    bot.pathfinder.setMovements(defaultMove);
+    bot.pathfinder.setGoal(new goals.GoalBlock(targetPos.x, targetPos.y, targetPos.z));
 
-    const waitUntilArrival = setInterval(() => {
+    const arrivalCheck = setInterval(() => {
       const dist = bot.entity.position.distanceTo(targetPos);
       if (dist < 1) {
-        clearInterval(waitUntilArrival);
+        clearInterval(arrivalCheck);
         bot.clearControlStates();
         console.log('📍 Reached target location');
 
-        // Select 1st hotbar slot
         bot.setQuickBarSlot(0);
         console.log('🎒 Holding item in hotbar slot 1');
 
-        // Spam right-click every 300ms
+        // Start spamming right-click
         setInterval(() => {
           bot.activateItem();
         }, 300);
@@ -98,7 +100,7 @@ function goToAndSpam(bot) {
     }, 500);
   });
 
-  // Lock camera forever
+  // Lock yaw/pitch permanently
   const yaw = bot.entity.yaw;
   const pitch = bot.entity.pitch;
 
@@ -110,10 +112,6 @@ function goToAndSpam(bot) {
   bot.look = async () => {};
   bot.lookAt = async () => {};
 }
-  
-// Load pathfinder plugin
-const mineflayerPathfinder = require('mineflayer-pathfinder').pathfinder;
-mineflayer.plugins = [mineflayerPathfinder];
 
 // 🚀 Start bot
 createBot();
