@@ -18,7 +18,7 @@ function createBot() {
     bot.chat('/login 3043AA');
 
     await bot.waitForTicks(20);
-    bot.activateItem(); // Right-click to open GUI
+    bot.activateItem(); // Right-click to open menu
 
     bot.once('windowOpen', async (window) => {
       await bot.waitForTicks(30);
@@ -60,10 +60,17 @@ function createBot() {
 function startFlowerPatrol(bot) {
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
-  movements.maxStepHeight = 1;
+
+  // 🏃 Adjust movement for faster speed and jump boost
+  movements.maxStepHeight = 2.5;
   movements.canDig = false;
   movements.allowSprinting = true;
-  movements.allowParkour = false;
+  movements.allowParkour = true;
+
+  // 🏁 Speed scaling (345% speed = 3.45x vanilla)
+  movements.walkSpeed *= 3.45;
+  movements.sprintSpeed *= 3.45;
+  movements.jumpHeight = 1.25; // Optional: adjust for Jump Boost 4
 
   bot.pathfinder.setMovements(movements);
 
@@ -104,45 +111,28 @@ function startFlowerPatrol(bot) {
     }
   });
 
-  console.log(`🧭 Starting patrol from #${index}:`, waypoints[index]);
-
   function moveToNext() {
     if (index >= waypoints.length) index = 0;
+
     const point = waypoints[index];
-    console.log(`➡️ Moving to waypoint [${index}]: ${point}`);
-
-    bot.pathfinder.setGoal(new goals.GoalNear(point.x, point.y, point.z, 2));
-
-    const timeout = setTimeout(() => {
-      console.log('⏱ Timeout! Moving to next point...');
-      index++;
-      moveToNext();
-    }, 15000); // max 15s per goal
+    bot.pathfinder.setGoal(new goals.GoalNear(point.x, point.y, point.z, 1));
 
     const checkInterval = setInterval(() => {
-      const dist = bot.entity.position.distanceTo(point);
-      if (dist < 2) {
+      if (bot.entity.position.distanceTo(point) < 2) {
         clearInterval(checkInterval);
-        clearTimeout(timeout);
         index++;
-        setTimeout(moveToNext, 300);
+        setTimeout(moveToNext, 200); // Short delay before next point
       }
-    }, 500);
+    }, 250);
   }
 
   moveToNext();
 
-  // Flower shooting (slot 1) every 300ms
+  // 🌸 Flower shooting every 300ms (slot 1)
   setInterval(() => {
     bot.setQuickBarSlot(0);
     bot.activateItem();
   }, 300);
-
-  // Debug: show current position every 5s
-  setInterval(() => {
-    const pos = bot.entity.position;
-    console.log(`📍 Bot position: (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`);
-  }, 5000);
 }
 
 createBot();
