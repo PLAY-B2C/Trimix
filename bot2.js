@@ -42,32 +42,32 @@ function startBot() {
 
 function openTeleportChest() {
   try {
-    bot.setQuickBarSlot(0); // Select 1st hotbar slot
+    bot.setQuickBarSlot(0); // First hotbar slot (item that opens chest)
     setTimeout(() => {
-      bot.activateItem(); // Right-click with item
+      bot.activateItem(); // Right-click to open chest
       console.log(`🧤 Attempted to open chest with held item`);
 
       bot.once('windowOpen', (window) => {
-        console.log(`📦 Chest opened. Preparing to move item from hotbar to slot 21`);
+        console.log(`📦 Chest opened. Preparing to move item from inventory slot 34`);
 
         setTimeout(async () => {
-          const sourceSlot = 7;  // hotbar slot 8 (index 1)
-          const targetSlot = 20; // slot 21 in chest GUI
+          const sourceSlot = 34;  // Inventory row 3, 8th slot
+          const targetSlot = 20;  // Chest slot 21 (index 20)
 
           const sourceItem = bot.inventory.slots[sourceSlot];
           if (!sourceItem) {
-            console.log('❌ No item in hotbar slot 2 to move.');
+            console.log('❌ No item in inventory slot 34 to move.');
             return;
           }
 
           try {
-            await bot.clickWindow(sourceSlot, 0, 0); // Pick up item
-            await bot.clickWindow(targetSlot, 0, 0); // Place it in slot 21
-            console.log(`✅ Moved item from hotbar slot 2 to chest slot 21`);
+            await bot.clickWindow(sourceSlot, 0, 0); // Pick up
+            await bot.clickWindow(targetSlot, 0, 0); // Drop into chest
+            console.log(`✅ Moved item from slot 34 to chest slot 21`);
           } catch (err) {
             console.error('⚠️ Failed to move item:', err.message);
           }
-        }, 300); // wait for chest items to fully load
+        }, 300);
       });
     }, 1500);
   } catch (err) {
