@@ -19,7 +19,6 @@ function startBot() {
   bot.once('spawn', async () => {
     console.log(`✅ ${config.username} spawned.`);
 
-    // Login
     setTimeout(() => {
       bot.chat(`/login ${config.password}`);
       console.log(`🔐 Logged in with /login ${config.password}`);
@@ -46,39 +45,56 @@ function openTeleportChest() {
       console.log(`🧤 Attempted to open chest with held item`);
 
       bot.once('windowOpen', async (window) => {
-        console.log(`📦 Chest opened. Spamming shift-click on slot 21...`);
+        console.log(`📦 Chest opened. Attempting shift-click on slot 82...`);
 
-        const slotToClick = 20;
+        const slotToClick = 82;
+        const slot = window.slots[slotToClick];
 
-        let attempts = 1; // Number of times to shift-click
-        let delay = 300; // ms between clicks
+        if (slot) {
+          try {
+            await bot.clickWindow(slotToClick, 0, 1); // shift-click
+            console.log(`👉 Shift-clicked slot 82`);
 
-        const interval = setInterval(async () => {
-          if (attempts <= 0 || !bot.currentWindow) {
-            clearInterval(interval);
-            console.log(`✅ Finished clicking or window closed.`);
-            return;
+            // Start post-teleport actions after 10 sec
+            setTimeout(startPostTeleportBehavior, 10000);
+          } catch (err) {
+            console.error(`⚠️ Failed to click slot 82:`, err.message);
           }
-
-          const slot = bot.currentWindow.slots[slotToClick];
-          if (slot) {
-            try {
-              await bot.clickWindow(slotToClick, 0, 1); // shift-click
-              console.log(`👉 Shift-clicked slot 21`);
-            } catch (err) {
-              console.error(`⚠️ Failed to click slot 21:`, err.message);
-            }
-          } else {
-            console.log(`❌ Slot 21 is empty or undefined.`);
-          }
-
-          attempts--;
-        }, delay);
+        } else {
+          console.log(`❌ Slot 82 is empty or undefined.`);
+        }
       });
     }, 1500);
   } catch (err) {
     console.error('❌ Error during chest interaction:', err.message);
   }
+}
+
+function startPostTeleportBehavior() {
+  console.log(`🕹️ Starting post-teleport behavior...`);
+
+  bot.setControlState('attack', true); // Hold left click
+
+  // Save current yaw/pitch
+  const { yaw, pitch } = bot.entity;
+
+  // Lock view direction
+  bot.look(yaw, pitch, true);
+
+  // Start strafe loop: 26s left, 26s right
+  function startStrafeLoop() {
+    bot.setControlState('left', true);
+    bot.setControlState('right', false);
+    console.log(`⬅️ Strafing left...`);
+    setTimeout(() => {
+      bot.setControlState('left', false);
+      bot.setControlState('right', true);
+      console.log(`➡️ Strafing right...`);
+      setTimeout(startStrafeLoop, 26000);
+    }, 26000);
+  }
+
+  startStrafeLoop();
 }
 
 startBot();
