@@ -86,18 +86,37 @@ function startPostTeleportBehavior() {
   setTimeout(() => {
     console.log(`🎯 Maintaining current view direction`);
     startLeftClickLoop();
-    console.log(`👊 Simulating left click with swingArm()`);
-
+    startAutoDigLoop(); // ✅ Dig melons directly in front
     loopStrafe();
   }, 10000);
 }
 
+// ✅ Simulate holding left click (swing animation)
 function startLeftClickLoop() {
   setInterval(() => {
     bot.swingArm(); // Simulate left-click
   }, 500);
 }
 
+// ✅ Auto-dig melon blocks in front of bot’s crosshair
+function startAutoDigLoop() {
+  setInterval(() => {
+    const block = bot.blockAtCursor(4); // 4-block range
+    if (block && block.name.includes('melon')) {
+      if (bot.canDigBlock(block)) {
+        bot.dig(block)
+          .then(() => {
+            console.log(`🍉 Dug melon block in front`);
+          })
+          .catch(err => {
+            console.log(`❌ Failed to dig melon: ${err.message}`);
+          });
+      }
+    }
+  }, 1500); // Every 1.5 seconds
+}
+
+// ✅ Strafe left/right forever (35s each)
 function loopStrafe() {
   console.log(`🚶 Starting strafe loop...`);
 
@@ -112,8 +131,8 @@ function loopStrafe() {
   }
 
   function strafeLoop() {
-    strafe('left', 26000, () => {
-      strafe('right', 26000, () => {
+    strafe('left', 35000, () => {
+      strafe('right', 35000, () => {
         strafeLoop(); // Repeat forever
       });
     });
