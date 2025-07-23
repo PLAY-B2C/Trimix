@@ -84,16 +84,18 @@ function openTeleportChest() {
 function startPostTeleportBehavior() {
   console.log(`⏳ Waiting 10 seconds before starting post-teleport behavior...`);
   setTimeout(() => {
-    // Face the same direction (do nothing)
     console.log(`🎯 Maintaining current view direction`);
+    startLeftClickLoop();
+    console.log(`👊 Simulating left click with swingArm()`);
 
-    // Hold left click (attack/dig)
-    bot.setControlState('attack', true);
-    console.log(`👊 Holding down left click (attack)`);
-
-    // Begin left-right strafe loop
     loopStrafe();
   }, 10000);
+}
+
+function startLeftClickLoop() {
+  setInterval(() => {
+    bot.swingArm(); // Simulate left-click
+  }, 500);
 }
 
 function loopStrafe() {
