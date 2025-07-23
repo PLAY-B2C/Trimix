@@ -66,7 +66,6 @@ function openTeleportChest() {
         const maxClicks = 10;
         
         const clickInterval = setInterval(() => {
-          // Exit conditions
           if (clickCount >= maxClicks || !bot.currentWindow) {
             clearInterval(clickInterval);
             if (!bot.currentWindow) console.log('✅ Window closed - teleport successful');
@@ -111,11 +110,7 @@ function startPostTeleportBehavior() {
     clearInterval(warpSpamInterval); // Stop after 10s
     console.log(`🎯 Locking view direction`);
 
-    // Direction locking
-    const lookLock = setInterval(() => {
-      bot.look(bot.entity.yaw, bot.entity.pitch, false);
-    }, 500);
-    activeIntervals.push(lookLock);
+    // Maintain current camera angle (no override)
 
     // Mining behavior
     holdLeftClickDig();
@@ -133,7 +128,12 @@ function holdLeftClickDig() {
     const block = bot.blockAtCursor(4);
     if (block && bot.canDigBlock(block) && !bot.targetDigBlock) {
       bot.dig(block)
-        .catch(err => console.log(`⛏️ Dig error: ${err.message}`));
+        .then(() => {
+          console.log(`✅ Dug: ${block.name}`);
+        })
+        .catch(err => {
+          console.log(`⛏️ Dig error: ${err.message}`);
+        });
     }
   }, 100);
   activeIntervals.push(digInterval);
