@@ -108,28 +108,52 @@ function moveToWithWaypoints(bot) {
 }
 
 function startMobKilling(bot) {
+  const mcData = require('minecraft-data')(bot.version);
+
+  let lastTeleport = 0;
+
   bot.setQuickBarSlot(0);
   console.log('🗡️ Switched to slot 1');
 
-  bot.on('physicsTick', () => {
+  setInterval(() => {
+    const now = Date.now();
     const mobs = bot.nearestEntities((entity) => {
       return entity.type === 'mob' && entity.mobType !== 'Slime';
     });
 
+    let target = null;
     for (const id in mobs) {
       const mob = mobs[id];
       const dist = bot.entity.position.distanceTo(mob.position);
-
-      if (dist <= 4.5) {
-        bot.attack(mob);
-        bot.lookAt(mob.position.offset(0, mob.height / 2, 0), true);
-        console.log(`⚔️ Attacking ${mob.name}`);
-      } else if (dist <= 15) {
-        bot.pathfinder.setGoal(new goals.GoalNear(mob.position.x, mob.position.y, mob.position.z, 1));
+      if (dist <= 15) {
+        target = mob;
         break;
       }
     }
-  });
+
+    if (target) {
+      const dist = bot.entity.position.distanceTo(target.position);
+
+      if (dist > 4.5) {
+        bot.pathfinder.setGoal(new goals.GoalNear(target.position.x, target.position.y, target.position.z, 1));
+      } else {
+        bot.attack(target);
+        bot.lookAt(target.position.offset(0, target.height / 2, 0), true);
+        console.log(`⚔️ Attacking ${target.name}`);
+      }
+    }
+
+    // 🪄 Teleport with shovel every 4 seconds
+    if (now - lastTeleport >= 4000) {
+      lastTeleport = now;
+      bot.setQuickBarSlot(1); // Slot 2
+      bot.activateItem();     // Use shovel
+      console.log('🌀 Teleporting forward');
+      setTimeout(() => {
+        bot.setQuickBarSlot(0); // Back to weapon
+      }, 200);
+    }
+  }, 300);
 }
 
 createBot();
