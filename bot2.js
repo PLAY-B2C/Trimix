@@ -48,21 +48,26 @@ function openTeleportChest() {
       console.log(`🧤 Attempted to open chest with held item`);
 
       bot.once('windowOpen', (window) => {
-        console.log(`📦 Chest opened. Waiting for slots to load...`);
+        console.log(`📦 Chest opened. Preparing to move item from hotbar to slot 21`);
 
         setTimeout(async () => {
-          const targetSlot = window.slots[20]; // slot 21 is index 20
-          if (targetSlot) {
-            try {
-              await bot.clickWindow(20, 0, 0);
-              console.log(`🎯 Item clicked from slot 21`);
-            } catch (err) {
-              console.error('⚠️ Failed to click slot 21:', err.message);
-            }
-          } else {
-            console.log('❌ Slot 21 is still empty or undefined after delay.');
+          const sourceSlot = 1;  // hotbar slot 2 (index 1)
+          const targetSlot = 20; // slot 21 in chest GUI
+
+          const sourceItem = bot.inventory.slots[sourceSlot];
+          if (!sourceItem) {
+            console.log('❌ No item in hotbar slot 2 to move.');
+            return;
           }
-        }, 300); // Wait 300ms for slot contents to load
+
+          try {
+            await bot.clickWindow(sourceSlot, 0, 0); // Pick up item
+            await bot.clickWindow(targetSlot, 0, 0); // Place it in slot 21
+            console.log(`✅ Moved item from hotbar slot 2 to chest slot 21`);
+          } catch (err) {
+            console.error('⚠️ Failed to move item:', err.message);
+          }
+        }, 300); // wait for chest items to fully load
       });
     }, 1500);
   } catch (err) {
