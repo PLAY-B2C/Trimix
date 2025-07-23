@@ -9,11 +9,8 @@ const config = {
 
 let bot;
 let activeIntervals = [];
-let postTeleportStarted = false;
 
 function startBot() {
-  postTeleportStarted = false;
-
   bot = mineflayer.createBot({
     host: config.host,
     username: config.username,
@@ -23,12 +20,22 @@ function startBot() {
   bot.once('spawn', () => {
     console.log(`✅ ${config.username} spawned.`);
 
-    // Login
+    // Login sequence
     setTimeout(() => {
       bot.chat(`/login ${config.password}`);
       console.log(`🔐 Sent login command`);
 
-      setTimeout(openTeleportChest, 2000);
+      // Spam /warp is twice with 2s gap
+      let warpCount = 0;
+      const warpInterval = setInterval(() => {
+        if (warpCount >= 2) return clearInterval(warpInterval);
+        bot.chat(`/warp is`);
+        console.log(`💬 Sent: /warp is`);
+        warpCount++;
+      }, 2000);
+
+      // Try opening chest after login
+      setTimeout(openTeleportChest, 5000);
     }, 1000);
   });
 
@@ -62,7 +69,7 @@ function openTeleportChest() {
 
       bot.once('windowOpen', (window) => {
         clearTimeout(windowOpenTimeout);
-        console.log(`📦 Chest opened (${window.slots.length} slots detected). Starting shift-click sequence...`);
+        console.log(`📦 Chest opened (${window.slots.length} slots). Shift-clicking...`);
         
         const teleportSlot = 20;
         let clickCount = 0;
@@ -71,13 +78,13 @@ function openTeleportChest() {
         const clickInterval = setInterval(() => {
           if (clickCount >= maxClicks || !bot.currentWindow) {
             clearInterval(clickInterval);
-            if (!bot.currentWindow) console.log('✅ Window closed - teleport successful');
+            if (!bot.currentWindow) console.log('✅ Window closed - teleport likely successful');
             startPostTeleportBehavior();
             return;
           }
-
+          
           clickCount++;
-
+          
           bot.clickWindow(teleportSlot, 0, 1)
             .then(() => {
               console.log(`👉 Shift-clicked slot ${teleportSlot + 1} (${clickCount}/${maxClicks})`);
@@ -101,36 +108,16 @@ function openTeleportChest() {
 }
 
 function startPostTeleportBehavior() {
-  if (postTeleportStarted) return;
-  postTeleportStarted = true;
-
   console.log(`⏳ Starting post-teleport routine in 10s...`);
-
-  // Send /warp is exactly 2 times
-  let warpCount = 0;
-  const warpSpamInterval = setInterval(() => {
-    if (warpCount >= 2) {
-      clearInterval(warpSpamInterval);
-      return;
-    }
-    bot.chat('/warp is');
-    console.log('💬 Sent: /warp is');
-    warpCount++;
-  }, 2000);
-
   setTimeout(() => {
-    console.log(`🎯 Locking view to yaw: -90°, pitch: 33°`);
+    console.log(`🎯 Locking view direction once`);
 
-    const yaw = -Math.PI / 2; // -90°
-    const pitch = 33 * Math.PI / 180; // 33°
+    // Yaw -90°, pitch as-is
+    const yaw = -Math.PI / 2;
+    const pitch = bot.entity.pitch;
     bot.look(yaw, pitch, false);
 
-    const lookLock = setInterval(() => {
-      bot.look(yaw, pitch, false);
-    }, 1000);
-    activeIntervals.push(lookLock);
-
-    // Start routines
+    // Begin behaviors
     holdLeftClickDig();
     loopStrafe();
     monitorInventoryFull();
@@ -146,7 +133,9 @@ function holdLeftClickDig() {
           console.log(`✅ Dug: ${block.name}`);
         })
         .catch(err => {
-          console.log(`⛏️ Dig error: ${err.message}`);
+          if (!err.message.includes('aborted')) {
+            console.log(`⛏️ Dig error: ${err.message}`);
+          }
         });
     }
   }, 100);
@@ -162,7 +151,7 @@ function loopStrafe() {
     bot.setControlState('left', movingLeft);
     bot.setControlState('right', !movingLeft);
     console.log(`🚶 Strafing ${movingLeft ? 'left' : 'right'}`);
-  }, 10000);
+  }, 40000); // every 40s
   activeIntervals.push(strafeInterval);
 }
 
