@@ -93,56 +93,56 @@ function startFlowerPatrol(bot) {
     new Vec3(-300, 45, -273)
   ];
 
+  // Start from closest waypoint
   let index = 0;
-  let moving = false;
+  let minDist = Infinity;
+  waypoints.forEach((pt, i) => {
+    const dist = bot.entity.position.distanceTo(pt);
+    if (dist < minDist) {
+      minDist = dist;
+      index = i;
+    }
+  });
+
+  console.log(`🧭 Starting patrol from #${index}:`, waypoints[index]);
 
   function moveToNext() {
-    if (moving) return;
-    moving = true;
-
     if (index >= waypoints.length) index = 0;
     const point = waypoints[index];
-    console.log(`🧭 Moving to ${point.x} ${point.y} ${point.z}`);
-    bot.pathfinder.setGoal(new goals.GoalBlock(point.x, point.y, point.z));
+    console.log(`➡️ Moving to waypoint [${index}]: ${point}`);
 
-    const watchdog = setTimeout(() => {
-      console.log(`⛔ Stuck at ${point.x} ${point.y} ${point.z}, skipping...`);
+    bot.pathfinder.setGoal(new goals.GoalNear(point.x, point.y, point.z, 2));
 
-      // Optional auto-unstuck
-      bot.setControlState('jump', true);
-      bot.look(bot.entity.yaw + Math.PI / 2, 0);
-      setTimeout(() => bot.setControlState('jump', false), 500);
-
-      moving = false;
+    const timeout = setTimeout(() => {
+      console.log('⏱ Timeout! Moving to next point...');
       index++;
-      setTimeout(moveToNext, 500);
-    }, 6000);
+      moveToNext();
+    }, 15000); // max 15s per goal
 
-    const next = () => {
-      clearTimeout(watchdog);
-      moving = false;
-      index++;
-      setTimeout(moveToNext, 300);
-    };
-
-    bot.once('goal_reached', () => {
-      console.log(`✅ Reached ${point.x} ${point.y} ${point.z}`);
-      next();
-    });
-
-    bot.once('goal_timeout', () => {
-      console.log(`⚠️ Timeout at ${point.x} ${point.y} ${point.z}, skipping...`);
-      next();
-    });
+    const checkInterval = setInterval(() => {
+      const dist = bot.entity.position.distanceTo(point);
+      if (dist < 2) {
+        clearInterval(checkInterval);
+        clearTimeout(timeout);
+        index++;
+        setTimeout(moveToNext, 300);
+      }
+    }, 500);
   }
 
   moveToNext();
 
-  // Auto-shoot flower every 300ms (slot 1)
+  // Flower shooting (slot 1) every 300ms
   setInterval(() => {
     bot.setQuickBarSlot(0);
     bot.activateItem();
   }, 300);
+
+  // Debug: show current position every 5s
+  setInterval(() => {
+    const pos = bot.entity.position;
+    console.log(`📍 Bot position: (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`);
+  }, 5000);
 }
 
 createBot();
