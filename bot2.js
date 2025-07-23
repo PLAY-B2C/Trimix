@@ -81,7 +81,6 @@ function openTeleportChest() {
               console.log(`👉 Shift-clicked slot ${teleportSlot + 1} (${clickCount}/${maxClicks})`);
             })
             .catch(err => {
-              // Handle transaction timeout gracefully
               if (err.message.includes("didn't respond to transaction")) {
                 console.log('⚠️ Server ignored click (window likely closed)');
               } else {
@@ -101,9 +100,17 @@ function openTeleportChest() {
 
 function startPostTeleportBehavior() {
   console.log(`⏳ Starting post-teleport routine in 10s...`);
+
+  // Send /warp is every 2 seconds during wait
+  const warpSpamInterval = setInterval(() => {
+    bot.chat('/warp is');
+    console.log('💬 Sent: /warp is');
+  }, 2000);
+
   setTimeout(() => {
+    clearInterval(warpSpamInterval); // Stop after 10s
     console.log(`🎯 Locking view direction`);
-    
+
     // Direction locking
     const lookLock = setInterval(() => {
       bot.look(bot.entity.yaw, bot.entity.pitch, false);
@@ -112,10 +119,10 @@ function startPostTeleportBehavior() {
 
     // Mining behavior
     holdLeftClickDig();
-    
+
     // Movement pattern
     loopStrafe();
-    
+
     // Inventory monitoring
     monitorInventoryFull();
   }, 10000);
