@@ -46,34 +46,21 @@ function openTeleportChest() {
       console.log(`🧤 Attempted to open chest with held item`);
 
       bot.once('windowOpen', async (window) => {
-        console.log(`📦 Chest opened. Spamming shift-click on slot 21...`);
+        console.log(`📦 Chest opened. Trying one shift-click on slot 21...`);
 
         const slotToClick = 20;
 
-        let attempts = 10; // Number of times to shift-click
-        let delay = 300; // ms between clicks
-
-        const interval = setInterval(async () => {
-          if (attempts <= 0 || !bot.currentWindow) {
-            clearInterval(interval);
-            console.log(`✅ Finished clicking or window closed.`);
-            return;
+        const slot = bot.currentWindow.slots[slotToClick];
+        if (slot) {
+          try {
+            await bot.clickWindow(slotToClick, 0, 1); // Single shift-click
+            console.log(`✅ Shift-clicked slot 21 once`);
+          } catch (err) {
+            console.error(`⚠️ Failed to shift-click slot 21:`, err.message);
           }
-
-          const slot = bot.currentWindow.slots[slotToClick];
-          if (slot) {
-            try {
-              await bot.clickWindow(slotToClick, 0, 1); // shift-click
-              console.log(`👉 Shift-clicked slot 21`);
-            } catch (err) {
-              console.error(`⚠️ Failed to click slot 21:`, err.message);
-            }
-          } else {
-            console.log(`❌ Slot 21 is empty or undefined.`);
-          }
-
-          attempts--;
-        }, delay);
+        } else {
+          console.log(`❌ Slot 21 is empty or undefined.`);
+        }
       });
     }, 1500);
   } catch (err) {
