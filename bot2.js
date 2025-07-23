@@ -79,19 +79,23 @@ function postTeleportSteps() {
 
 function startDiggingForever() {
   setInterval(() => {
-    const target = bot.blockAtCursor(4); // Look up to 4 blocks away
+    const target = bot.blockAtCursor(4); // 4 block reach
     if (target) {
       bot.dig(target).then(() => {
         console.log(`✅ Dug: ${target.name}`);
       }).catch(() => {});
     }
-  }, 1500); // Repeat every 1.5s
+  }, 1500); // Every 1.5s
 }
 
 function startStrafingLoop() {
   let strafeLeft = true;
 
+  // Clear any existing movement state
+  bot.clearControlStates();
+
   function strafe() {
+    bot.clearControlStates(); // Clear before switching
     bot.setControlState('left', strafeLeft);
     bot.setControlState('right', !strafeLeft);
     console.log(`🚶 Strafing ${strafeLeft ? 'left' : 'right'}`);
