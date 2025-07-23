@@ -47,9 +47,9 @@ function clearActiveIntervals() {
 
 function openTeleportChest() {
   try {
-    bot.setQuickBarSlot(0); // Select first hotbar slot
+    bot.setQuickBarSlot(0);
     setTimeout(() => {
-      bot.activateItem(); // Right-click with held item
+      bot.activateItem();
       console.log(`🧤 Attempted chest interaction`);
 
       const windowOpenTimeout = setTimeout(() => {
@@ -61,25 +61,35 @@ function openTeleportChest() {
         clearTimeout(windowOpenTimeout);
         console.log(`📦 Chest opened (${window.slots.length} slots detected). Starting shift-click sequence...`);
         
-        // Double chest has 54 slots - teleport item is at slot 20 (21st slot)
-        const teleportSlot = 20; 
+        const teleportSlot = 20;
+        let clickCount = 0;
+        const maxClicks = 10;
+        
         const clickInterval = setInterval(() => {
-          if (!bot.currentWindow) {
-            console.log('✅ Window closed - teleport successful');
+          // Exit conditions
+          if (clickCount >= maxClicks || !bot.currentWindow) {
             clearInterval(clickInterval);
+            if (!bot.currentWindow) console.log('✅ Window closed - teleport successful');
             startPostTeleportBehavior();
             return;
           }
           
-          try {
-            // Shift-click the teleport item
-            bot.clickWindow(teleportSlot, 0, 1); 
-            console.log(`👉 Shift-clicked slot ${teleportSlot + 1}`);
-          } catch (err) {
-            console.log(`⚠️ Click error: ${err.message}`);
-            clearInterval(clickInterval);
-            startPostTeleportBehavior();
-          }
+          clickCount++;
+          
+          bot.clickWindow(teleportSlot, 0, 1)
+            .then(() => {
+              console.log(`👉 Shift-clicked slot ${teleportSlot + 1} (${clickCount}/${maxClicks})`);
+            })
+            .catch(err => {
+              // Handle transaction timeout gracefully
+              if (err.message.includes("didn't respond to transaction")) {
+                console.log('⚠️ Server ignored click (window likely closed)');
+              } else {
+                console.log(`❌ Click error: ${err.message}`);
+              }
+              clearInterval(clickInterval);
+              startPostTeleportBehavior();
+            });
         }, 300);
       });
     }, 1500);
@@ -113,7 +123,7 @@ function startPostTeleportBehavior() {
 
 function holdLeftClickDig() {
   const digInterval = setInterval(() => {
-    const block = bot.blockAtCursor(4); // 4 block reach
+    const block = bot.blockAtCursor(4);
     if (block && bot.canDigBlock(block) && !bot.targetDigBlock) {
       bot.dig(block)
         .catch(err => console.log(`⛏️ Dig error: ${err.message}`));
@@ -131,7 +141,7 @@ function loopStrafe() {
     bot.setControlState('left', movingLeft);
     bot.setControlState('right', !movingLeft);
     console.log(`🚶 Strafing ${movingLeft ? 'left' : 'right'}`);
-  }, 40000); // Switch direction every 40s
+  }, 40000);
   activeIntervals.push(strafeInterval);
 }
 
@@ -139,7 +149,6 @@ function monitorInventoryFull() {
   const invCheck = setInterval(() => {
     if (bot.inventory.emptySlotCount() === 0) {
       console.log("📦 Inventory full!");
-      // Add inventory full handling here
     }
   }, 5000);
   activeIntervals.push(invCheck);
