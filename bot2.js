@@ -4,7 +4,7 @@ const config = {
   host: 'mc.fakepixel.fun',
   username: 'DrakonTide',
   version: '1.16.5',
-  password: '3043AA',
+  password: '3043AA'
 };
 
 let bot;
@@ -16,16 +16,16 @@ function startBot() {
     version: config.version,
   });
 
-  bot.once('spawn', () => {
+  bot.once('spawn', async () => {
     console.log(`✅ ${config.username} spawned.`);
 
-    if (config.password) {
-      setTimeout(() => {
-        bot.chat(`/login ${config.password}`);
-        console.log(`🔐 Logged in with /login ${config.password}`);
-        setTimeout(openTeleportChest, 2000);
-      }, 1000);
-    }
+    // Login
+    setTimeout(() => {
+      bot.chat(`/login ${config.password}`);
+      console.log(`🔐 Logged in with /login ${config.password}`);
+
+      setTimeout(openTeleportChest, 2000);
+    }, 1000);
   });
 
   bot.on('error', err => {
@@ -40,45 +40,34 @@ function startBot() {
 
 function openTeleportChest() {
   try {
-    bot.setQuickBarSlot(0); // Select item in 1st hotbar slot
+    bot.setQuickBarSlot(0); // Select 1st hotbar slot (slot 0 = key 1)
     setTimeout(() => {
-      bot.activateItem(); // Right-click to open chest
+      bot.activateItem(); // Right-click with item
       console.log(`🧤 Attempted to open chest with held item`);
 
       bot.once('windowOpen', async (window) => {
-        console.log(`📦 Chest opened. Looking for item in inventory...`);
+        console.log(`📦 Chest opened. Moving item from hotbar slot 1 to slot 21`);
 
-        // Find any item in inventory
-        const playerInventorySlots = bot.inventory.slots.slice(9, 45);
-        const itemToMove = playerInventorySlots.find(i => i);
+        const fromSlot = 36; // Hotbar slot 1 in inventory
+        const toSlot = 21;
 
-        if (!itemToMove) {
-          console.log('❌ No item found in inventory to move.');
-          return;
-        }
-
-        const sourceSlot = itemToMove.slot;
-        const destSlot = 20; // 0-based index for chest GUI slot 21
-
-        try {
-          await bot.transfer({
-            window: window,
-            itemType: itemToMove.type,
-            metadata: itemToMove.metadata,
-            count: 1,
-            sourceStart: 9,
-            sourceEnd: 44,
-            destStart: 0,
-            destEnd: window.slots.length - 1,
-          });
-          console.log(`✅ Transferred item from inv slot ${sourceSlot} to chest slot 21`);
-        } catch (err) {
-          console.error('⚠️ Failed to transfer item:', err.message);
+        const item = bot.inventory.slots[fromSlot];
+        if (item) {
+          try {
+            await bot.clickWindow(fromSlot, 0, 0);
+            await bot.clickWindow(toSlot, 0, 0);
+            await bot.clickWindow(fromSlot, 0, 0); // Drop leftover if any
+            console.log(`✅ Moved item from hotbar to slot 21`);
+          } catch (err) {
+            console.error(`⚠️ Failed to move item:`, err.message);
+          }
+        } else {
+          console.log('❌ No item in hotbar slot 1 to move.');
         }
       });
     }, 1500);
   } catch (err) {
-    console.error('❌ Error opening chest:', err.message);
+    console.error('❌ Error during chest interaction:', err.message);
   }
 }
 
