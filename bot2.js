@@ -4,9 +4,9 @@ let reconnectTimeout = null;
 
 function createBot() {
   const bot = mineflayer.createBot({
-    host: 'your.server.ip',
+    host: 'mc.fakepixel.fun',
     port: 25565,
-    username: 'YourUsername',
+    username: 'DrakonTide',
     version: '1.16.5',
   });
 
