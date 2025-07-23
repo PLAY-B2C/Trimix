@@ -16,10 +16,9 @@ function startBot() {
     version: config.version,
   });
 
-  bot.once('spawn', () => {
+  bot.once('spawn', async () => {
     console.log(`✅ ${config.username} spawned.`);
 
-    // Login
     setTimeout(() => {
       bot.chat(`/login ${config.password}`);
       console.log(`🔐 Logged in with /login ${config.password}`);
@@ -39,15 +38,14 @@ function startBot() {
 
 function openTeleportChest() {
   try {
-    bot.setQuickBarSlot(0); // Select slot 1
+    bot.setQuickBarSlot(0);
     setTimeout(() => {
-      bot.activateItem(); // Right-click with item
+      bot.activateItem();
       console.log(`🧤 Attempted to open chest with held item`);
 
       bot.once('windowOpen', async (window) => {
         console.log(`📦 Chest opened. Spamming shift-click on slot 21...`);
         const slotToClick = 20;
-
         let attempts = 1;
         let delay = 300;
 
@@ -55,14 +53,14 @@ function openTeleportChest() {
           if (attempts <= 0 || !bot.currentWindow) {
             clearInterval(interval);
             console.log(`✅ Finished clicking or window closed.`);
-            startPostTeleportBehavior(); // Start behavior after teleport
+            startPostTeleportBehavior();
             return;
           }
 
           const slot = bot.currentWindow.slots[slotToClick];
           if (slot) {
             try {
-              await bot.clickWindow(slotToClick, 0, 1); // shift-click
+              await bot.clickWindow(slotToClick, 0, 1);
               console.log(`👉 Shift-clicked slot 21`);
             } catch (err) {
               console.error(`⚠️ Failed to click slot 21:`, err.message);
@@ -91,46 +89,37 @@ function startPostTeleportBehavior() {
 
 function holdLeftClick() {
   setInterval(() => {
-    const block = bot.blockAtCursor(5); // Block bot is currently looking at
+    const block = bot.blockAtCursor(5); // 5 block reach
 
-    if (block) {
-      bot._client.write('block_dig', {
-        status: 0, // START_DESTROY_BLOCK
-        location: block.position,
-        face: 1,
-      });
-
-      bot._client.write('block_dig', {
-        status: 2, // STOP_DESTROY_BLOCK
-        location: block.position,
-        face: 1,
-      });
-
-      bot.swingArm(); // Visual arm swing
-      console.log(`🧱 Breaking block: ${block.name}`);
+    if (block && bot.canDigBlock(block) && !bot.targetDigBlock) {
+      bot.dig(block)
+        .then(() => {
+          console.log(`🧱 Dug: ${block.name} at ${block.position}`);
+        })
+        .catch(err => {
+          console.log(`❌ Dig error: ${err.message}`);
+        });
     }
-  }, 300); // Every 300ms
+  }, 100);
 }
 
 function loopStrafe() {
-  let strafeLeft = true;
+  let left = true;
 
   function strafe() {
-    if (strafeLeft) {
-      bot.setControlState('left', true);
-      bot.setControlState('right', false);
-      console.log('⬅️ Strafing left');
-    } else {
-      bot.setControlState('left', false);
-      bot.setControlState('right', true);
-      console.log('➡️ Strafing right');
-    }
+    bot.setControlState('left', left);
+    bot.setControlState('right', !left);
+    console.log(`🚶 Strafing ${left ? 'left' : 'right'} for 40s...`);
 
-    strafeLeft = !strafeLeft;
-    setTimeout(strafe, 35000); // 35 seconds each side
+    setTimeout(() => {
+      bot.setControlState('left', false);
+      bot.setControlState('right', false);
+      left = !left;
+      strafe();
+    }, 40000); // 40 seconds
   }
 
-  strafe(); // Start loop
+  strafe();
 }
 
 startBot();
