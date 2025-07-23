@@ -113,45 +113,50 @@ function startMobKilling(bot) {
 
   let lastTeleport = 0;
 
-  bot.setQuickBarSlot(0);
-  console.log('🗡️ Switched to slot 1');
+  console.log('🗡️ Starting mob hunt');
 
   setInterval(() => {
     const now = Date.now();
-    const mobs = bot.nearestEntities((entity) => {
-      return entity.type === 'mob' && entity.mobType !== 'Slime';
-    });
 
-    let target = null;
-    for (const id in mobs) {
-      const mob = mobs[id];
-      const dist = bot.entity.position.distanceTo(mob.position);
-      if (dist <= 15) {
-        target = mob;
-        break;
-      }
+    const mobs = Object.values(bot.entities).filter(entity =>
+      entity.type === 'mob' && entity.mobType !== 'Slime'
+    );
+
+    if (mobs.length === 0) return;
+
+    const target = mobs.reduce((a, b) =>
+      bot.entity.position.distanceTo(a.position) < bot.entity.position.distanceTo(b.position) ? a : b
+    );
+
+    const dist = bot.entity.position.distanceTo(target.position);
+
+    // 🌸 Ranged flower shot
+    if (dist <= 30) {
+      bot.lookAt(target.position.offset(0, target.height / 2, 0), true);
+      bot.setQuickBarSlot(0); // flower shooter
+      bot.activateItem(); // shoot flower
+      console.log(`🌸 Shot flower at ${target.name} (${Math.round(dist)} blocks)`);
+      return; // skip melee if handled
     }
 
-    if (target) {
-      const dist = bot.entity.position.distanceTo(target.position);
-
-      if (dist > 4.5) {
-        bot.pathfinder.setGoal(new goals.GoalNear(target.position.x, target.position.y, target.position.z, 1));
-      } else {
-        bot.attack(target);
-        bot.lookAt(target.position.offset(0, target.height / 2, 0), true);
-        console.log(`⚔️ Attacking ${target.name}`);
-      }
+    // ⚔️ Melee fallback
+    if (dist <= 4.5) {
+      bot.setQuickBarSlot(0);
+      bot.attack(target);
+      console.log(`⚔️ Melee attacking ${target.name}`);
+    } else {
+      bot.pathfinder.setGoal(new goals.GoalNear(target.position.x, target.position.y, target.position.z, 1));
+      console.log(`🚶 Approaching ${target.name}`);
     }
 
-    // 🪄 Teleport with shovel every 4 seconds
+    // 🌀 Teleport shovel
     if (now - lastTeleport >= 4000) {
       lastTeleport = now;
-      bot.setQuickBarSlot(1); // Slot 2
-      bot.activateItem();     // Use shovel
+      bot.setQuickBarSlot(1);
+      bot.activateItem();
       console.log('🌀 Teleporting forward');
       setTimeout(() => {
-        bot.setQuickBarSlot(0); // Back to weapon
+        bot.setQuickBarSlot(0);
       }, 200);
     }
   }, 300);
