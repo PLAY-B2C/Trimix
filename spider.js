@@ -1,10 +1,10 @@
 const mineflayer = require('mineflayer');
 const Vec3 = require('vec3');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
+const mcDataLoader = require('minecraft-data');
 
 let reconnecting = false;
-let currentIndex = 0;
-let waypoints = [];
+let lastDeathPos = null;
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -26,10 +26,9 @@ function createBot() {
       await bot.waitForTicks(30);
       const slotIndex = 20;
       const slot = window.slots[slotIndex];
-
       if (slot && slot.name !== 'air') {
         try {
-          await bot.clickWindow(slotIndex, 0, 1); // Shift-click
+          await bot.clickWindow(slotIndex, 0, 1);
         } catch (err) {
           console.log('❌ Click error:', err.message);
         }
@@ -45,9 +44,7 @@ function createBot() {
   });
 
   bot.on('death', () => {
-    console.log('💀 Bot died, restarting patrol from nearest waypoint...');
-    currentIndex = getNearestWaypointIndex(bot.entity.position);
-    setTimeout(() => moveToNext(bot), 3000);
+    lastDeathPos = bot.entity.position.clone();
   });
 
   bot.on('end', () => {
@@ -66,17 +63,18 @@ function createBot() {
 }
 
 function startFlowerPatrol(bot) {
-  const mcData = require('minecraft-data')(bot.version);
+  const mcData = mcDataLoader(bot.version);
   const movements = new Movements(bot, mcData);
-  movements.maxStepHeight = 2.5;
+
+  // Default vanilla settings
   movements.canDig = false;
-  movements.allowSprinting = true;
   movements.allowParkour = true;
+  movements.allowSprinting = false; // no sprint boost
+  movements.maxStepHeight = 2.5;
 
   bot.pathfinder.setMovements(movements);
 
-  // Waypoints for patrol
-  waypoints = [
+  const waypoints = [
     new Vec3(-233, 80, -244),
     new Vec3(-261, 86, -237),
     new Vec3(-281, 95, -233),
@@ -88,8 +86,6 @@ function startFlowerPatrol(bot) {
     new Vec3(-357, 67, -270),
     new Vec3(-333, 60, -276),
     new Vec3(-322, 57, -280),
-
-    // Circular patrol
     new Vec3(-300, 45, -273),
     new Vec3(-291, 45, -278),
     new Vec3(-284, 44, -250),
@@ -104,54 +100,51 @@ function startFlowerPatrol(bot) {
     new Vec3(-300, 45, -273)
   ];
 
-  currentIndex = getNearestWaypointIndex(bot.entity.position);
-  moveToNext(bot);
+  let index = 0;
 
-  // Flower shooting (slot 1) every 300ms
+  if (lastDeathPos) {
+    let nearestDist = Infinity;
+    for (let i = 0; i < waypoints.length; i++) {
+      const dist = lastDeathPos.distanceTo(waypoints[i]);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        index = i;
+      }
+    }
+    lastDeathPos = null;
+  }
+
+  function moveToNext() {
+    if (index >= waypoints.length) index = 0;
+    const point = waypoints[index];
+
+    // Check if chunk is loaded
+    const chunkX = point.x >> 4;
+    const chunkZ = point.z >> 4;
+    const chunk = bot.world.getLoadedChunk(chunkX, chunkZ);
+    if (!chunk) {
+      console.log(`⏳ Waiting for chunk at ${chunkX},${chunkZ}`);
+      setTimeout(moveToNext, 2000);
+      return;
+    }
+
+    bot.pathfinder.setGoal(new goals.GoalNear(point.x, point.y, point.z, 2));
+    const check = setInterval(() => {
+      if (bot.entity.position.distanceTo(point) < 2) {
+        clearInterval(check);
+        index++;
+        setTimeout(moveToNext, 300);
+      }
+    }, 500);
+  }
+
+  moveToNext();
+
+  // Shoot flower every 300ms
   setInterval(() => {
     bot.setQuickBarSlot(0);
     bot.activateItem();
   }, 300);
-}
-
-function moveToNext(bot) {
-  if (currentIndex >= waypoints.length) currentIndex = 0;
-
-  const point = waypoints[currentIndex];
-
-  // Check if chunk is loaded by testing if a block exists
-  const blockCheck = bot.blockAt(point);
-  if (!blockCheck) {
-    console.log(`⏳ Target chunk not loaded yet at ${point.x} ${point.y} ${point.z}, retrying in 2s...`);
-    setTimeout(() => moveToNext(bot), 2000);
-    return;
-  }
-
-  bot.pathfinder.setGoal(new goals.GoalNear(point.x, point.y, point.z, 1));
-
-  const checkInterval = setInterval(() => {
-    if (bot.entity.position.distanceTo(point) < 2) {
-      clearInterval(checkInterval);
-      currentIndex++;
-      setTimeout(() => moveToNext(bot), 200);
-    }
-  }, 300);
-}
-
-function getNearestWaypointIndex(pos) {
-  let nearestIndex = 0;
-  let minDist = Infinity;
-
-  for (let i = 0; i < waypoints.length; i++) {
-    const dist = pos.distanceTo(waypoints[i]);
-    if (dist < minDist) {
-      minDist = dist;
-      nearestIndex = i;
-    }
-  }
-
-  console.log(`📍 Nearest waypoint index: ${nearestIndex}`);
-  return nearestIndex;
 }
 
 createBot();
