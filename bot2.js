@@ -2,6 +2,8 @@ const mineflayer = require('mineflayer');
 const { setTimeout } = require('timers');
 
 let reconnecting = false;
+let lockedYaw = 0;
+let lockedPitch = 0;
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -13,27 +15,22 @@ function createBot() {
   bot.once('spawn', async () => {
     console.log('✅ Logged in, locking view');
 
-    // Log in to the server
     bot.chat('/login 3043AA');
 
-    // Wait 1s then right-click the held item to open a menu
     await bot.waitForTicks(20);
     bot.activateItem();
     console.log('🖱️ Right-clicked item to open menu');
 
-    // Wait for a window (GUI) to open
     bot.once('windowOpen', async (window) => {
       console.log('📦 Window opened');
-
-      // Wait 1.5s for items to fully load
       await bot.waitForTicks(30);
 
-      const slotIndex = 20; // Slot 21 is index 20
+      const slotIndex = 20;
       const slot = window.slots[slotIndex];
 
       if (slot && slot.name !== 'air') {
         try {
-          await bot.clickWindow(slotIndex, 0, 1); // Shift-click the item
+          await bot.clickWindow(slotIndex, 0, 1);
           console.log('✅ Shift-clicked slot 21');
         } catch (err) {
           console.log('❌ Click error:', err.message);
@@ -42,16 +39,19 @@ function createBot() {
         console.log('⚠️ Slot 21 is empty or not loaded');
       }
 
-      // Warp to island after short delay
       setTimeout(() => {
         bot.chat('/warp is');
         bot.chat('/warp is');
         console.log('💬 Sent /warp is x2');
       }, 2000);
 
-      // Start mining and strafing after warp finishes
       setTimeout(() => {
-        console.log('⛏️ Starting dig + strafe loop');
+        // Lock yaw & pitch
+        lockedYaw = bot.entity.yaw;
+        lockedPitch = bot.entity.pitch;
+        console.log('🎯 Locked yaw/pitch:', lockedYaw, lockedPitch);
+
+        preventViewMovement(bot, lockedYaw, lockedPitch);
         breakBlocksConstantly(bot);
         startStrafing(bot);
       }, 10000);
@@ -74,17 +74,43 @@ function createBot() {
   });
 }
 
-// Function to break any block in cursor every tick (no delay)
+// 🔒 Prevent any view movement forever
+function preventViewMovement(bot, yaw, pitch) {
+  bot.on('move', () => {
+    bot.entity.yaw = yaw;
+    bot.entity.pitch = pitch;
+  });
+
+  bot.on('forcedMove', () => {
+    bot.entity.yaw = yaw;
+    bot.entity.pitch = pitch;
+  });
+
+  // Block camera control functions
+  bot.look = async () => {};
+  bot.lookAt = async () => {};
+}
+
+// ⛏️ Constant block breaking without rotating
 function breakBlocksConstantly(bot) {
   bot.on('physicTick', () => {
-    const block = bot.blockAtCursor(4); // Max 4 blocks away
+    const block = bot.blockAtCursor(4);
     if (block) {
-      bot.dig(block, true).catch(() => {}); // Ignore errors
+      bot._client.write('block_dig', {
+        status: 0,
+        location: block.position,
+        face: 1,
+      });
+      bot._client.write('block_dig', {
+        status: 2,
+        location: block.position,
+        face: 1,
+      });
     }
   });
 }
 
-// Function to alternate strafing every 45 seconds
+// ↔️ Left/right strafe loop every 45s
 function startStrafing(bot) {
   let strafeLeft = true;
   bot.setControlState('left', true);
@@ -96,5 +122,5 @@ function startStrafing(bot) {
   }, 45000);
 }
 
-// Start the bot
+// 🚀 Start the bot
 createBot();
