@@ -4,9 +4,9 @@ let reconnecting = false;
 
 function startBot() {
   const bot = mineflayer.createBot({
-    host: 'javelin.aternos.host', // replace with your dyn IP
-    port: 48918,
-    username: 'IamChatGPT',
+    host: 'mc.fakepixel.fun', // replace with your dyn IP
+    port: 25565,
+    username: 'DrakonTide',
     version: '1.16.5',
   });
 
