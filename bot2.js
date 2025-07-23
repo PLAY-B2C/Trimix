@@ -6,7 +6,7 @@ let reconnecting = false;
 function createBot() {
   const bot = mineflayer.createBot({
     host: 'mc.fakepixel.fun',
-    username: 'DeakonTide',
+    username: 'DrakonTide',
     version: '1.16.5',
   });
 
