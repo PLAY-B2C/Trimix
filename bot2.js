@@ -5,8 +5,8 @@ let reconnecting = false;
 
 function createBot() {
   const bot = mineflayer.createBot({
-    host: 'EternxlsSMP.aternos.me',
-    username: 'IamChatGPT',
+    host: 'mc.fakepixel.fun',
+    username: 'DrakonTide',
     version: '1.16.5',
   });
 
