@@ -91,21 +91,29 @@ function preventViewMovement(bot, yaw, pitch) {
   bot.lookAt = async () => {};
 }
 
-// ⛏️ Constant block breaking without rotating
+// ⛏️ Break all 3x2 cobblestone blocks in front of the bot every tick
 function breakBlocksConstantly(bot) {
   bot.on('physicTick', () => {
-    const block = bot.blockAtCursor(4);
-    if (block) {
-      bot._client.write('block_dig', {
-        status: 0,
-        location: block.position,
-        face: 1,
-      });
-      bot._client.write('block_dig', {
-        status: 2,
-        location: block.position,
-        face: 1,
-      });
+    const pos = bot.entity.position.offset(0, 0, 1); // One block forward
+
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 0; dy++) {
+        const targetPos = pos.offset(dx, dy, 0);
+        const block = bot.blockAt(targetPos);
+
+        if (block && block.name !== 'air') {
+          bot._client.write('block_dig', {
+            status: 0,
+            location: block.position,
+            face: 1,
+          });
+          bot._client.write('block_dig', {
+            status: 2,
+            location: block.position,
+            face: 1,
+          });
+        }
+      }
     }
   });
 }
