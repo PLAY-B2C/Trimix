@@ -2,18 +2,14 @@ const mineflayer = require('mineflayer');
 const Vec3 = require('vec3');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 
-const { GoalBlock } = goals;
-
 let reconnecting = false;
 let patrolIndex = 0;
-const homeIndex = 12;
-let rightClickInterval;
+let patrolMode = 'initial';
 
 const loginCommand = '/login 3043AA';
 const warpCommand = '/warp spider';
 
-const waypoints = [
-  // Pre-patrol route (leading to patrol)
+const allWaypoints = [
   new Vec3(-233, 80, -244),
   new Vec3(-261, 86, -237),
   new Vec3(-281, 95, -233),
@@ -25,8 +21,7 @@ const waypoints = [
   new Vec3(-357, 67, -270),
   new Vec3(-333, 60, -276),
   new Vec3(-322, 57, -280),
-  new Vec3(-300, 45, -273), // Index 12: HOME
-  // Patrol loop starts from here
+  new Vec3(-300, 45, -273), // index 11 — this becomes patrol home
   new Vec3(-291, 45, -278),
   new Vec3(-284, 44, -250),
   new Vec3(-271, 44, -238),
@@ -36,7 +31,7 @@ const waypoints = [
   new Vec3(-336, 44, -236),
   new Vec3(-326, 42, -252),
   new Vec3(-313, 43, -234),
-  new Vec3(-288, 44, -259),
+  new Vec3(-288, 44, -259)
 ];
 
 function createBot() {
@@ -54,16 +49,15 @@ function createBot() {
 
     await bot.waitForTicks(20);
     bot.setQuickBarSlot(0);
-    bot.activateItem(); // Open chest GUI
+    bot.activateItem();
 
     bot.once('windowOpen', async (window) => {
       await bot.waitForTicks(30);
-      const slotIndex = 20; // 21st slot = index 20
+      const slotIndex = 20;
       const slot = window.slots[slotIndex];
-
       if (slot && slot.name !== 'air') {
         try {
-          await bot.clickWindow(slotIndex, 0, 1); // Shift-click
+          await bot.clickWindow(slotIndex, 0, 1);
           console.log('🎯 Shift-clicked teleport item.');
         } catch (err) {
           console.log('❌ GUI click error:', err.message);
@@ -73,21 +67,22 @@ function createBot() {
       setTimeout(() => {
         bot.chat(warpCommand);
         setTimeout(() => {
-          startRightClickLoop(bot); // Start spamming right click
           startPatrol(bot);
+          startRightClickLoop(bot); // starts after warp
         }, 8000);
       }, 2000);
     });
   });
 
   bot.on('death', () => {
-    patrolIndex = homeIndex;
-    console.log('☠️ Bot died. Restarting patrol from home...');
+    patrolIndex = 0;
+    patrolMode = 'initial';
+    console.log('☠️ Bot died. Restarting full route...');
     setTimeout(() => {
       bot.chat(warpCommand);
       setTimeout(() => {
-        startRightClickLoop(bot);
         startPatrol(bot);
+        startRightClickLoop(bot);
       }, 8000);
     }, 2000);
   });
@@ -96,7 +91,6 @@ function createBot() {
     if (reconnecting) return;
     reconnecting = true;
     console.log('🔁 Disconnected, retrying in 10s...');
-    clearInterval(rightClickInterval);
     setTimeout(() => {
       reconnecting = false;
       createBot();
@@ -109,10 +103,11 @@ function createBot() {
 }
 
 function startRightClickLoop(bot) {
-  if (rightClickInterval) clearInterval(rightClickInterval);
-  rightClickInterval = setInterval(() => {
-    bot.setQuickBarSlot(0);
-    bot.activateItem(); // Right click every 300ms
+  setInterval(() => {
+    if (bot?.entity?.health > 0) {
+      bot.setQuickBarSlot(0);
+      bot.activateItem();
+    }
   }, 300);
 }
 
@@ -123,32 +118,40 @@ function startPatrol(bot) {
   movements.allowParkour = true;
   bot.pathfinder.setMovements(movements);
 
-  function goToNextWaypoint() {
+  const waypoints =
+    patrolMode === 'initial' ? allWaypoints : allWaypoints.slice(11); // index 11 as "home"
+
+  function goToNext() {
     if (patrolIndex >= waypoints.length) {
-      patrolIndex = homeIndex;
-      console.log('🔁 Patrol loop complete. Restarting from home...');
+      patrolIndex = 0;
+      if (patrolMode === 'initial') {
+        patrolMode = 'loop';
+        console.log('🔁 Switched to patrol loop.');
+      } else {
+        console.log('🔁 Patrol loop restart.');
+      }
     }
 
     const target = waypoints[patrolIndex];
-    console.log(`➡️ Going to waypoint ${patrolIndex}: ${target}`);
-    bot.pathfinder.setGoal(new GoalBlock(target.x, target.y, target.z));
+    bot.pathfinder.setGoal(new goals.GoalNear(target.x, target.y, target.z, 1));
 
-    const timeout = setTimeout(() => {
-      if (bot.entity.position.distanceTo(target) > 2) {
-        console.log(`⚠️ Timeout at waypoint ${patrolIndex}, skipping...`);
+    const checkInterval = setInterval(() => {
+      const dist = bot.entity.position.distanceTo(target);
+      if (dist < 2) {
+        clearInterval(checkInterval);
+        console.log(`✅ Reached waypoint ${patrolIndex}`);
+        patrolIndex++;
+        setTimeout(goToNext, 200);
+      } else if (!bot.pathfinder.isMoving()) {
+        console.log(`⚠️ Stuck at waypoint ${patrolIndex}, skipping...`);
+        clearInterval(checkInterval);
+        patrolIndex++;
+        setTimeout(goToNext, 200);
       }
-      patrolIndex++;
-      goToNextWaypoint();
-    }, 10000); // 10 sec timeout
-
-    bot.once('goal_reached', () => {
-      clearTimeout(timeout);
-      patrolIndex++;
-      goToNextWaypoint();
-    });
+    }, 500);
   }
 
-  goToNextWaypoint();
+  goToNext();
 }
 
 createBot();
