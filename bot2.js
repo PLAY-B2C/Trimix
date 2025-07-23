@@ -48,9 +48,9 @@ function openTeleportChest() {
       bot.once('windowOpen', async (window) => {
         console.log(`📦 Chest opened. Spamming shift-click on slot 21...`);
 
-        const slotToClick = 21;
+        const slotToClick = 20;
 
-        let attempts = 10; // Number of times to shift-click
+        let attempts = 8; // Number of times to shift-click
         let delay = 300; // ms between clicks
 
         const interval = setInterval(async () => {
