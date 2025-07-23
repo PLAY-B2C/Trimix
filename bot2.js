@@ -18,7 +18,6 @@ function startBot() {
 
   bot.once('spawn', () => {
     console.log(`✅ Spawned as ${bot.username}`);
-
     setTimeout(() => {
       bot.chat(`/login ${config.password}`);
       console.log(`🔐 Sent login`);
@@ -52,7 +51,7 @@ function openTeleportChest() {
       clearTimeout(timeout);
       console.log('📦 Menu opened');
 
-      const slot = 20; // 21st slot (index starts from 0)
+      const slot = 20; // 21st slot (0-indexed)
       bot.clickWindow(slot, 0, 1).then(() => {
         console.log(`👉 Shift-clicked slot ${slot + 1}`);
         setTimeout(postTeleportSteps, 2000);
@@ -71,12 +70,22 @@ function postTeleportSteps() {
     console.log('💬 Sent /warp is twice');
 
     setTimeout(() => {
-      console.log('⛏️ Holding left click to dig');
-      bot.setControlState('attack', true); // hold dig
-
-      startStrafingLoop(); // begin strafing
+      console.log('⛏️ Starting infinite dig loop');
+      startDiggingForever();
+      startStrafingLoop();
     }, 8000);
   }, 2000);
+}
+
+function startDiggingForever() {
+  setInterval(() => {
+    const target = bot.blockAtCursor(4); // Look up to 4 blocks away
+    if (target) {
+      bot.dig(target).then(() => {
+        console.log(`✅ Dug: ${target.name}`);
+      }).catch(() => {});
+    }
+  }, 1500); // Repeat every 1.5s
 }
 
 function startStrafingLoop() {
@@ -88,8 +97,7 @@ function startStrafingLoop() {
     console.log(`🚶 Strafing ${strafeLeft ? 'left' : 'right'}`);
 
     strafeLeft = !strafeLeft;
-
-    setTimeout(strafe, 40000); // 40 seconds
+    setTimeout(strafe, 40000); // Switch every 40s
   }
 
   strafe();
