@@ -1,10 +1,8 @@
 const mineflayer = require('mineflayer');
 const Vec3 = require('vec3');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
-const mcDataLoader = require('minecraft-data');
 
 let reconnecting = false;
-let lastDeathPos = null;
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -15,17 +13,24 @@ function createBot() {
 
   bot.loadPlugin(pathfinder);
 
+  const login = () => {
+    setTimeout(() => {
+      bot.chat('/login 3043AA');
+    }, 3000);
+  };
+
   bot.once('spawn', async () => {
     console.log('✅ Logged in');
-    bot.chat('/login 3043AA');
+    login();
 
     await bot.waitForTicks(20);
-    bot.activateItem(); // Right-click to open GUI
+    bot.activateItem();
 
     bot.once('windowOpen', async (window) => {
       await bot.waitForTicks(30);
       const slotIndex = 20;
       const slot = window.slots[slotIndex];
+
       if (slot && slot.name !== 'air') {
         try {
           await bot.clickWindow(slotIndex, 0, 1);
@@ -44,7 +49,16 @@ function createBot() {
   });
 
   bot.on('death', () => {
-    lastDeathPos = bot.entity.position.clone();
+    console.log('💀 Bot died, respawning...');
+    bot.once('spawn', () => {
+      login();
+      setTimeout(() => {
+        bot.chat('/warp spider');
+        setTimeout(() => {
+          startFlowerPatrol(bot);
+        }, 8000);
+      }, 2000);
+    });
   });
 
   bot.on('end', () => {
@@ -63,14 +77,9 @@ function createBot() {
 }
 
 function startFlowerPatrol(bot) {
-  const mcData = mcDataLoader(bot.version);
+  const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
-
   movements.canDig = false;
-  movements.allowParkour = true;
-  movements.allowSprinting = false; // no sprint boost
-  movements.maxStepHeight = 2.5;
-
   bot.pathfinder.setMovements(movements);
 
   const waypoints = [
@@ -101,35 +110,50 @@ function startFlowerPatrol(bot) {
 
   let index = 0;
 
-  if (lastDeathPos) {
-    let nearestDist = Infinity;
+  function findClosestWaypoint() {
+    let closest = 0;
+    let closestDistance = Infinity;
     for (let i = 0; i < waypoints.length; i++) {
-      const dist = lastDeathPos.distanceTo(waypoints[i]);
-      if (dist < nearestDist) {
-        nearestDist = dist;
-        index = i;
+      const dist = bot.entity.position.distanceTo(waypoints[i]);
+      if (dist < closestDistance) {
+        closest = i;
+        closestDistance = dist;
       }
     }
-    lastDeathPos = null;
+    return closest;
   }
+
+  index = findClosestWaypoint();
 
   function moveToNext() {
     if (index >= waypoints.length) index = 0;
-    const point = waypoints[index];
 
-    bot.pathfinder.setGoal(new goals.GoalNear(point.x, point.y, point.z, 2));
-    const check = setInterval(() => {
-      if (bot.entity.position.distanceTo(point) < 2) {
-        clearInterval(check);
+    const target = waypoints[index];
+    console.log(`🚶 Moving to waypoint #${index + 1}: ${target}`);
+
+    bot.pathfinder.setGoal(new goals.GoalNear(target.x, target.y, target.z, 1));
+
+    const startTime = Date.now();
+
+    const interval = setInterval(() => {
+      const dist = bot.entity.position.distanceTo(target);
+      const timePassed = Date.now() - startTime;
+
+      if (dist < 2) {
+        clearInterval(interval);
         index++;
-        setTimeout(moveToNext, 300);
+        setTimeout(moveToNext, 200);
+      } else if (timePassed > 10000) {
+        console.log(`⚠️ Timeout reaching waypoint #${index + 1}, skipping.`);
+        clearInterval(interval);
+        index++;
+        setTimeout(moveToNext, 200);
       }
-    }, 500);
+    }, 300);
   }
 
   moveToNext();
 
-  // Shoot flower every 300ms
   setInterval(() => {
     bot.setQuickBarSlot(0);
     bot.activateItem();
