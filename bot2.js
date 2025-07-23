@@ -13,19 +13,17 @@ function startBot() {
   bot = mineflayer.createBot({
     host: config.host,
     username: config.username,
-    version: config.version
+    version: config.version,
   });
 
-  bot.once('spawn', () => {
+  bot.once('spawn', async () => {
     console.log(`✅ ${config.username} spawned.`);
 
     setTimeout(() => {
       bot.chat(`/login ${config.password}`);
       console.log(`🔐 Logged in with /login ${config.password}`);
 
-      setTimeout(() => {
-        openTeleportChest();
-      }, 2000);
+      setTimeout(openTeleportChest, 2000);
     }, 1000);
   });
 
@@ -51,13 +49,15 @@ function openTeleportChest() {
 
         const slotToClick = 20;
         let attempts = 1;
-        const delay = 300;
+        let delay = 300;
 
         const interval = setInterval(async () => {
           if (attempts <= 0 || !bot.currentWindow) {
             clearInterval(interval);
             console.log(`✅ Finished clicking or window closed.`);
-            bot.closeWindow(bot.currentWindow);
+            if (bot.currentWindow) {
+              bot.closeWindow(bot.currentWindow);
+            }
             beginBreakingRoutine();
             return;
           }
@@ -84,19 +84,21 @@ function openTeleportChest() {
 }
 
 function beginBreakingRoutine() {
-  console.log('🕒 Waiting 10 seconds before starting breaking...');
-  setTimeout(() => {
-    holdLeftClick();
-    startStrafing();
-    monitorInventory();
-  }, 10000);
-}
-
-function holdLeftClick() {
+  console.log('🪓 Starting breaking routine...');
   bot.setControlState('attack', true);
-  console.log('🪓 Holding left click to break blocks...');
+
+  // Check inventory
+  setInterval(() => {
+    const full = bot.inventory.items().length >= bot.inventory.slots.length - 10;
+    if (full) {
+      console.log('📦 Inventory full!');
+    }
+  }, 5000);
+
+  startStrafing();
 }
 
+// 🚶 Alternate strafing left and right every 40s
 function startStrafing() {
   let movingLeft = true;
 
@@ -115,15 +117,6 @@ function startStrafing() {
   }
 
   strafe();
-}
-
-function monitorInventory() {
-  setInterval(() => {
-    const full = bot.inventory.items().length >= bot.inventory.slots.length - 9;
-    if (full) {
-      console.log('📦 Inventory is full!');
-    }
-  }, 5000);
 }
 
 startBot();
