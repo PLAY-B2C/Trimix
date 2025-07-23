@@ -16,7 +16,7 @@ function startBot() {
     version: config.version,
   });
 
-  bot.once('spawn', async () => {
+  bot.once('spawn', () => {
     console.log(`✅ ${config.username} spawned.`);
 
     setTimeout(() => {
@@ -39,15 +39,17 @@ function startBot() {
 
 function openTeleportChest() {
   try {
-    bot.setQuickBarSlot(0); // Select slot 1
+    bot.setQuickBarSlot(0); // select first slot
+
     setTimeout(() => {
-      bot.activateItem(); // Right-click with item
+      bot.activateItem(); // right-click
       console.log(`🧤 Attempted to open chest with held item`);
 
-      bot.once('windowOpen', async (window) => {
+      bot.once('windowOpen', (window) => {
         console.log(`📦 Chest opened. Spamming shift-click on slot 21...`);
 
         const slotToClick = 20;
+
         let attempts = 1;
         let delay = 300;
 
@@ -55,17 +57,16 @@ function openTeleportChest() {
           if (attempts <= 0 || !bot.currentWindow) {
             clearInterval(interval);
             console.log(`✅ Finished clicking or window closed.`);
-            if (bot.currentWindow) {
-              bot.closeWindow(bot.currentWindow);
-            }
-            beginBreakingRoutine();
+
+            // Begin routine after teleport
+            setTimeout(beginBreakingRoutine, 10000);
             return;
           }
 
           const slot = bot.currentWindow.slots[slotToClick];
           if (slot) {
             try {
-              await bot.clickWindow(slotToClick, 0, 1); // shift-click
+              await bot.clickWindow(slotToClick, 0, 1);
               console.log(`👉 Shift-clicked slot 21`);
             } catch (err) {
               console.error(`⚠️ Failed to click slot 21:`, err.message);
@@ -77,6 +78,12 @@ function openTeleportChest() {
           attempts--;
         }, delay);
       });
+
+      setTimeout(() => {
+        if (bot.currentWindow) {
+          bot.closeWindow(bot.currentWindow);
+        }
+      }, 6000);
     }, 1500);
   } catch (err) {
     console.error('❌ Error during chest interaction:', err.message);
@@ -85,9 +92,13 @@ function openTeleportChest() {
 
 function beginBreakingRoutine() {
   console.log('🪓 Starting breaking routine...');
-  bot.setControlState('attack', true);
 
-  // Check inventory
+  // Arm swing every 100ms = left click
+  setInterval(() => {
+    bot.swingArm('right', false);
+  }, 100);
+
+  // Check inventory fullness
   setInterval(() => {
     const full = bot.inventory.items().length >= bot.inventory.slots.length - 10;
     if (full) {
@@ -98,25 +109,24 @@ function beginBreakingRoutine() {
   startStrafing();
 }
 
-// 🚶 Alternate strafing left and right every 40s
+let strafeDir = 'left';
+
+function strafe(direction) {
+  bot.setControlState('left', direction === 'left');
+  bot.setControlState('right', direction === 'right');
+}
+
 function startStrafing() {
-  let movingLeft = true;
+  strafe(strafeDir);
 
-  function strafe() {
-    bot.setControlState('left', movingLeft);
-    bot.setControlState('right', !movingLeft);
+  setInterval(() => {
+    // Switch direction every 40 sec
+    bot.setControlState('left', false);
+    bot.setControlState('right', false);
 
-    console.log(`🚶 Strafing ${movingLeft ? 'left' : 'right'} for 40s...`);
-
-    setTimeout(() => {
-      bot.setControlState('left', false);
-      bot.setControlState('right', false);
-      movingLeft = !movingLeft;
-      strafe();
-    }, 40000);
-  }
-
-  strafe();
+    strafeDir = strafeDir === 'left' ? 'right' : 'left';
+    strafe(strafeDir);
+  }, 40000);
 }
 
 startBot();
