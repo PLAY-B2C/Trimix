@@ -51,7 +51,7 @@ function openTeleportChest() {
         console.log(`📦 Chest opened. Preparing to move item from hotbar to slot 21`);
 
         setTimeout(async () => {
-          const sourceSlot = 1;  // hotbar slot 2 (index 1)
+          const sourceSlot = 7;  // hotbar slot 8 (index 1)
           const targetSlot = 20; // slot 21 in chest GUI
 
           const sourceItem = bot.inventory.slots[sourceSlot];
