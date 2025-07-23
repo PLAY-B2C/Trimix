@@ -9,14 +9,29 @@ const loginCommand = '/login 3043AA';
 const warpCommand = '/warp spider';
 
 const waypoints = [
-  new Vec3(-233, 80, -244), new Vec3(-261, 86, -237), new Vec3(-281, 95, -233),
-  new Vec3(-292, 95, -211), new Vec3(-315, 96, -191), new Vec3(-331, 81, -228),
-  new Vec3(-347, 79, -236), new Vec3(-360, 72, -256), new Vec3(-357, 67, -270),
-  new Vec3(-333, 60, -276), new Vec3(-322, 57, -280), new Vec3(-300, 45, -273),
-  new Vec3(-291, 45, -278), new Vec3(-284, 44, -250), new Vec3(-271, 44, -238),
-  new Vec3(-273, 44, -224), new Vec3(-292, 43, -228), new Vec3(-326, 44, -224),
-  new Vec3(-336, 44, -236), new Vec3(-326, 42, -252), new Vec3(-313, 43, -234),
-  new Vec3(-288, 44, -259), new Vec3(-300, 45, -273)
+  new Vec3(-233, 80, -244),
+  new Vec3(-261, 86, -237),
+  new Vec3(-281, 95, -233),
+  new Vec3(-292, 95, -211),
+  new Vec3(-315, 96, -191),
+  new Vec3(-331, 81, -228),
+  new Vec3(-347, 79, -236),
+  new Vec3(-360, 72, -256),
+  new Vec3(-357, 67, -270),
+  new Vec3(-333, 60, -276),
+  new Vec3(-322, 57, -280),
+  new Vec3(-300, 45, -273),
+  new Vec3(-291, 45, -278),
+  new Vec3(-284, 44, -250),
+  new Vec3(-271, 44, -238),
+  new Vec3(-273, 44, -224),
+  new Vec3(-292, 43, -228),
+  new Vec3(-326, 44, -224),
+  new Vec3(-336, 44, -236),
+  new Vec3(-326, 42, -252),
+  new Vec3(-313, 43, -234),
+  new Vec3(-288, 44, -259),
+  new Vec3(-300, 45, -273)
 ];
 
 function createBot() {
@@ -32,15 +47,16 @@ function createBot() {
     console.log('✅ Logged in');
     bot.chat(loginCommand);
 
-    // Wait and right-click to open teleport chest GUI
+    // Wait and open chest GUI
     await bot.waitForTicks(20);
     bot.setQuickBarSlot(0);
     bot.activateItem();
 
     bot.once('windowOpen', async (window) => {
       await bot.waitForTicks(30);
-      const slotIndex = 20; // 21st slot
+      const slotIndex = 20;
       const slot = window.slots[slotIndex];
+
       if (slot && slot.name !== 'air') {
         try {
           await bot.clickWindow(slotIndex, 0, 1);
@@ -53,17 +69,14 @@ function createBot() {
       // Warp and start patrol
       setTimeout(() => {
         bot.chat(warpCommand);
-        setTimeout(() => {
-          patrolIndex = 0;
-          startPatrol(bot);
-        }, 8000);
+        setTimeout(() => startPatrol(bot), 8000);
       }, 2000);
     });
   });
 
   bot.on('death', () => {
-    console.log('☠️ Bot died. Restarting patrol...');
     patrolIndex = 0;
+    console.log('☠️ Bot died. Restarting from first waypoint...');
     setTimeout(() => {
       bot.chat(warpCommand);
       setTimeout(() => startPatrol(bot), 8000);
@@ -73,7 +86,7 @@ function createBot() {
   bot.on('end', () => {
     if (reconnecting) return;
     reconnecting = true;
-    console.log('🔁 Disconnected. Reconnecting in 10s...');
+    console.log('🔁 Disconnected, retrying in 10s...');
     setTimeout(() => {
       reconnecting = false;
       createBot();
@@ -92,26 +105,30 @@ function startPatrol(bot) {
   movements.allowParkour = true;
   bot.pathfinder.setMovements(movements);
 
+  // ✅ Start right-click loop every 300ms
+  setInterval(() => {
+    try {
+      bot.setQuickBarSlot(0);
+      bot.activateItem();
+    } catch (e) {
+      console.log('⚠️ Right-click error:', e.message);
+    }
+  }, 300);
+
   function patrolNext() {
     if (patrolIndex >= waypoints.length) patrolIndex = 0;
+
     const target = waypoints[patrolIndex];
     bot.pathfinder.setGoal(new goals.GoalNear(target.x, target.y, target.z, 1));
 
     const checkInterval = setInterval(() => {
       const dist = bot.entity.position.distanceTo(target);
-
-      // If close enough to waypoint, trigger right-click and move on
       if (dist < 2) {
         clearInterval(checkInterval);
-        bot.setQuickBarSlot(0);
-        bot.activateItem(); // Right-click
         patrolIndex++;
         setTimeout(patrolNext, 200);
-      }
-
-      // If stuck (not moving), skip to next
-      else if (!bot.pathfinder.isMoving()) {
-        console.log(`⚠️ Stuck at waypoint ${patrolIndex}. Skipping...`);
+      } else if (!bot.pathfinder.isMoving()) {
+        console.log(`⚠️ Stuck at waypoint ${patrolIndex}, skipping to next...`);
         clearInterval(checkInterval);
         patrolIndex++;
         setTimeout(patrolNext, 200);
