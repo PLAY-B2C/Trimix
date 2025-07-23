@@ -66,7 +66,6 @@ function startFlowerPatrol(bot) {
   const mcData = mcDataLoader(bot.version);
   const movements = new Movements(bot, mcData);
 
-  // Default vanilla settings
   movements.canDig = false;
   movements.allowParkour = true;
   movements.allowSprinting = false; // no sprint boost
@@ -117,16 +116,6 @@ function startFlowerPatrol(bot) {
   function moveToNext() {
     if (index >= waypoints.length) index = 0;
     const point = waypoints[index];
-
-    // Check if chunk is loaded
-    const chunkX = point.x >> 4;
-    const chunkZ = point.z >> 4;
-    const chunk = bot.world.getLoadedChunk(chunkX, chunkZ);
-    if (!chunk) {
-      console.log(`⏳ Waiting for chunk at ${chunkX},${chunkZ}`);
-      setTimeout(moveToNext, 2000);
-      return;
-    }
 
     bot.pathfinder.setGoal(new goals.GoalNear(point.x, point.y, point.z, 2));
     const check = setInterval(() => {
