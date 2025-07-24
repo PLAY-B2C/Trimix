@@ -40,7 +40,7 @@ function createBot() {
 
     setTimeout(() => {
       bot.setQuickBarSlot(0);
-      bot.activateItem();
+      bot.activateItem(); // open GUI
     }, 4000);
 
     bot.once('windowOpen', async (window) => {
@@ -64,7 +64,7 @@ function createBot() {
       }, 2000);
     });
 
-    startRightClickLoop(bot);
+    startRightClickLoop(bot); // ✅ Starts loop after spawn
   });
 
   bot.on('death', () => {
@@ -99,7 +99,7 @@ function startRightClickLoop(bot) {
     if (!bot?.entity || bot.entity.health <= 0) return;
     try {
       bot.setQuickBarSlot(0);
-      bot.swingArm('right'); // actual right-click action
+      bot.activateItem(); // ✅ Correct right-click
     } catch (err) {
       console.log('⚠️ Right click failed:', err.message);
     }
