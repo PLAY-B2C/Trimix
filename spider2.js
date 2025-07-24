@@ -36,24 +36,44 @@ function createBot() {
 
   bot.once('spawn', async () => {
     console.log('✅ Logged in');
+
     setTimeout(() => bot.chat(loginCommand), 2000);
 
-    setTimeout(() => {
-      bot.setQuickBarSlot(0);
-      bot.activateItem();
+    // Wait for login before activating item
+    setTimeout(async () => {
+      try {
+        bot.setQuickBarSlot(0);
+        bot.look(0, 0); // Face forward
+        await bot.waitForTicks(5);
+        bot.activateItem(); // Open GUI from held item
+        console.log('📦 Attempted to open chest GUI via right-click item');
+      } catch (err) {
+        console.log('❌ Failed to activate item:', err.message);
+      }
     }, 4000);
 
     bot.once('windowOpen', async (window) => {
       await bot.waitForTicks(30);
-      const slotIndex = 20;
+
+      const chestSlots = window.slots.slice(0, window.inventoryStart); // chest slots only
+      chestSlots.forEach((slot, index) => {
+        if (slot && slot.name !== 'air') {
+          console.log(`🔹 Chest Slot ${index}: ${slot.name}`);
+        }
+      });
+
+      const slotIndex = 20; // 21st visible chest slot
       const slot = window.slots[slotIndex];
+
       if (slot && slot.name !== 'air') {
         try {
-          await bot.clickWindow(slotIndex, 0, 1);
-          console.log('🎯 Shift-clicked teleport item.');
+          await bot.clickWindow(slotIndex, 0, 1); // shift-click
+          console.log(`🎯 Shift-clicked slot ${slotIndex} (${slot.name})`);
         } catch (err) {
-          console.log('❌ GUI click error:', err.message);
+          console.log('❌ Shift-click error:', err.message);
         }
+      } else {
+        console.log(`⚠️ Slot ${slotIndex} is empty or not loaded.`);
       }
 
       setTimeout(() => {
@@ -99,7 +119,7 @@ function startRightClickLoop(bot) {
     if (!bot?.entity || bot.entity.health <= 0) return;
     try {
       bot.setQuickBarSlot(0);
-      bot.swingArm('right'); // actual right-click action
+      bot.activateItem(); // ✅ Correct right-click behavior
     } catch (err) {
       console.log('⚠️ Right click failed:', err.message);
     }
