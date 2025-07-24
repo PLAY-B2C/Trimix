@@ -100,7 +100,7 @@ setInterval(() => {
 if (!bot?.entity || bot.entity.health <= 0) return;
 try {
 bot.setQuickBarSlot(0);
-bot.swingArm('right_click'); // actual right-click action
+bot.activateItem(); // actual right-click action
 } catch (err) {
 console.log('⚠️ Right click failed:', err.message);
 }
