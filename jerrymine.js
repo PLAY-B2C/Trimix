@@ -1,96 +1,113 @@
 const mineflayer = require('mineflayer');
-const { pathfinder, Movements, goals: { GoalBlock } } = require('mineflayer-pathfinder');
-const Vec3 = require('vec3');
+const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
+const { Vec3 } = require('vec3');
 
-function createBot() {
-  const bot = mineflayer.createBot({
-    host: 'mc.fakepixel.fun',
-    username: 'DrakonTide',
-  });
+const bot = mineflayer.createBot({
+  host: 'mc.fakepixel.fun',
+  username: 'DrakonTide',
+  version: '1.16.5'
+});
 
-  bot.loadPlugin(pathfinder);
+const loginCommand = '/login 3043AA';
+const waypoint1 = new Vec3(1, 76, 58);
+const waypoint2 = new Vec3(40, 76, 55);
+let state = 'start';
 
-  bot.once('spawn', async () => {
-    console.log('✅ Bot spawned');
-    bot.chat('/login 3043AA');
+bot.loadPlugin(pathfinder);
 
-    await bot.waitForTicks(20);
+bot.once('spawn', async () => {
+  console.log('✅ Bot spawned');
+  bot.chat(loginCommand);
 
-    // Right-click with first hotbar item to open GUI
-    await bot.equip(bot.inventory.slots[36], 'hand'); // slot 0 = index 36
-    bot.activateItem();
+  setTimeout(() => {
+    bot.setQuickBarSlot(0); // Select item in hotbar slot 0
+    bot.activateItem();     // Right-click
+  }, 4000);
+});
 
-    bot.once('windowOpen', async (window) => {
-      console.log('📦 Opened GUI');
+bot.once('windowOpen', async (window) => {
+  console.log('📦 Opened first GUI');
+  try {
+    await bot.clickWindow(20, 0, 1); // Shift-click 21st slot
+    console.log('✅ Clicked slot 21');
+    setTimeout(() => {
+      bot.setQuickBarSlot(8); // 9th hotbar slot
+      bot.activateItem(); // Right-click with item in slot 8
+    }, 2000);
+  } catch (err) {
+    console.error('❌ Failed slot 21 click:', err.message);
+  }
+});
 
-      try {
-        await bot.clickWindow(20, 0, 1); // Shift-click slot 21
-        console.log('✅ Clicked GUI slot 21');
+bot.on('windowOpen', async (window) => {
+  if (state === 'start') {
+    state = 'second_gui';
+    try {
+      await bot.clickWindow(38, 0, 1); // Shift-click 39th slot
+      console.log('✅ Clicked slot 39');
+      startPath();
+    } catch (err) {
+      console.error('❌ Failed slot 39 click:', err.message);
+    }
+  }
+});
 
-        await bot.waitForTicks(10);
+function startPath() {
+  const mcData = require('minecraft-data')(bot.version);
+  const movements = new Movements(bot, mcData);
+  bot.pathfinder.setMovements(movements);
 
-        await bot.clickWindow(38, 0, 1); // Shift-click slot 39
-        console.log('✅ Clicked GUI slot 39');
-
-        await bot.waitForTicks(40); // 2 seconds
-
-        const item = bot.inventory.slots[44]; // slot 9 = index 44
-        if (item) {
-          await bot.equip(item, 'hand');
-          console.log('🧊 Holding item in slot 9');
-        } else {
-          console.log('⚠️ No item in slot 9');
-        }
-
-        goToIceMine(bot);
-
-      } catch (err) {
-        console.log('❌ GUI error:', err.message);
-      }
+  goToWaypoint(waypoint1, () => {
+    goToWaypoint(waypoint2, () => {
+      console.log('📍 Arrived at ice mine. Starting scan...');
+      equipPickaxe();
+      startMiningLoop();
     });
-  });
-
-  bot.on('error', err => console.log('❌ Error:', err.message));
-  bot.on('end', () => {
-    console.log('🔁 Disconnected. Reconnecting in 10s...');
-    setTimeout(createBot, 10000);
   });
 }
 
-createBot();
-
-function goToIceMine(bot) {
-  const mcData = require('minecraft-data')(bot.version);
-  const movements = new Movements(bot, mcData);
-
-  movements.canDig = false;
-  movements.allowParkour = true;
-  movements.allow1by1towers = false;
-
-  bot.pathfinder.setMovements(movements);
-
-  const waypoints = [
-    new Vec3(1, 76, 58),
-    new Vec3(40, 76, 55),
-  ];
-
-  let index = 0;
-
-  function walkNext() {
-    if (index >= waypoints.length) {
-      console.log('🏁 Arrived at ice mine.');
-      return;
+function goToWaypoint(pos, cb) {
+  bot.pathfinder.setGoal(new goals.GoalBlock(pos.x, pos.y, pos.z));
+  const check = setInterval(() => {
+    if (bot.entity.position.distanceTo(pos) < 2) {
+      clearInterval(check);
+      cb();
     }
+  }, 1000);
+}
 
-    const target = waypoints[index++];
-    console.log(`➡️ Walking to`, target);
-    bot.pathfinder.setGoal(new GoalBlock(target.x, target.y, target.z));
-
-    bot.once('goal_reached', () => {
-      console.log('✅ Reached', target);
-      setTimeout(walkNext, 300);
-    });
+function equipPickaxe() {
+  const pick = bot.inventory.items().find(i => i.name.includes('pickaxe'));
+  if (pick) {
+    bot.equip(pick, 'hand').then(() => {
+      console.log('⛏ Pickaxe equipped');
+    }).catch(console.error);
+  } else {
+    console.log('❌ No pickaxe found in inventory');
   }
+}
 
-  walkNext();
+function startMiningLoop() {
+  setInterval(() => {
+    const block = bot.blockAt(bot.entity.position.offset(0, 0, 1));
+    if (block && block.name.includes('ice')) {
+      bot.dig(block).then(() => {
+        console.log(`🧊 Mined: ${block.name}`);
+      }).catch(console.error);
+    } else {
+      // Look left or right to find ice
+      scanNearbyForIce();
+    }
+  }, 3000);
+}
+
+function scanNearbyForIce() {
+  const nearby = bot.findBlock({
+    matching: block => block.name.includes('ice'),
+    maxDistance: 6
+  });
+  if (nearby) {
+    bot.pathfinder.setGoal(new goals.GoalBlock(nearby.position.x, nearby.position.y, nearby.position.z));
+    console.log(`🔍 Moving to ice at ${nearby.position}`);
+  }
 }
