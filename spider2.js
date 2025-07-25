@@ -9,25 +9,25 @@ let patrolMode = 'initial';
 const loginCommand = '/login 3043AA';
 const warpCommand = '/warp spider';
 
-const allWaypoints = [
+const allWaypoints = [  
   new Vec3(-233, 80, -244),
   new Vec3(-233, 80, -244),
-new Vec3(-261, 86, -237),
-new Vec3(-281, 95, -233),
-new Vec3(-292, 95, -211),
-new Vec3(-315, 96, -191),
-new Vec3(-331, 81, -228),
-new Vec3(-302, 67, -273),
-new Vec3(-299, 67, -284), // index 11 — becomes patrol home
-new Vec3(-282, 65, -295),
-new Vec3(-258, 61, -273),
-new Vec3(-282, 65, -295),
+  new Vec3(-261, 86, -237),
+  new Vec3(-281, 95, -233),
+  new Vec3(-292, 95, -211),
+  new Vec3(-315, 96, -191),
+  new Vec3(-331, 81, -228),
+  new Vec3(-302, 67, -273),
+  new Vec3(-299, 67, -284), // index 11 — becomes patrol home
+  new Vec3(-282, 65, -295),
+  new Vec3(-258, 61, -273),
+  new Vec3(-282, 65, -295),
 ];
 
 function createBot() {
   const bot = mineflayer.createBot({
     host: 'mc.fakepixel.fun',
-    username: 'JamaaLcaliph',
+    username: 'DrakonTide',
     version: '1.16.5',
     keepAlive: true,
     connectTimeout: 60000,
@@ -95,12 +95,13 @@ function createBot() {
   });
 }
 
+// ✅ ONLY THIS FUNCTION IS FIXED
 function startRightClickLoop(bot) {
   setInterval(() => {
     if (!bot?.entity || bot.entity.health <= 0) return;
     try {
       bot.setQuickBarSlot(0);
-      bot.swingArm('right'); // actual right-click action
+      bot.activateItem(); // ✅ Correct right-click action (use item)
     } catch (err) {
       console.log('⚠️ Right click failed:', err.message);
     }
