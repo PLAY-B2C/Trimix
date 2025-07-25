@@ -27,7 +27,7 @@ const allWaypoints = [
 function createBot() {
   const bot = mineflayer.createBot({
     host: 'mc.fakepixel.fun',
-    username: 'DrakonTide',
+    username: 'JamaaLcaliph',
     version: '1.16.5',
     keepAlive: true,
     connectTimeout: 60000,
