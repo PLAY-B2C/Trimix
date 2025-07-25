@@ -26,7 +26,7 @@ function createBot() {
       const slot1 = window1.slots[slotIndex1];
       if (slot1 && slot1.name !== 'air') {
         try {
-          await bot.clickWindow(slotIndex1, 0, 1); // shift-click
+          await bot.clickWindow(slotIndex1, 0, 1);
           console.log('🎯 Shift-clicked slot 20 from GUI 1');
         } catch (err) {
           console.log('❌ GUI 1 click error:', err.message);
@@ -85,11 +85,11 @@ function goToIceArea(bot) {
   movements.canDig = false;
 
   bot.pathfinder.setMovements(movements);
-  const goal = new goals.GoalBlock(49, 81, 24);
+  const goal = new goals.GoalBlock(40, 76, 55);
   bot.pathfinder.setGoal(goal);
 
   const checkArrival = setInterval(() => {
-    const dist = bot.entity.position.distanceTo(new Vec3(40, 76, 56));
+    const dist = bot.entity.position.distanceTo(new Vec3(40, 76, 55));
     if (dist < 2) {
       clearInterval(checkArrival);
       console.log('✅ Arrived at ice mining area');
@@ -111,24 +111,26 @@ function startScanForIce(bot) {
 
     for (let yaw = 0; yaw < maxYaw; yaw += step) {
       try {
-        await bot.look(yaw, 0, true); // keep pitch flat
+        await bot.look(yaw, 0, true); // flat pitch
       } catch {}
       await bot.waitForTicks(5);
 
       const iceBlock = bot.findBlock({
-        matching: (block) => block.name === 'ice',
+        matching: (block) =>
+          block.name === 'ice' &&
+          block.position.y <= bot.entity.position.y + 1, // ignore above-head ice
         maxDistance: 10,
       });
 
       if (iceBlock) {
-        console.log('🧊 Found ice at', iceBlock.position);
+        console.log('🧊 Found reachable ice at', iceBlock.position);
         goMineBlock(bot, iceBlock.position);
         scanning = false;
         return;
       }
     }
 
-    console.log('🔄 No ice found, retrying in 3s...');
+    console.log('🔄 No valid ice found, retrying in 3s...');
     scanning = false;
     setTimeout(rotateAndFindIce, 3000);
   }
@@ -140,23 +142,46 @@ function goMineBlock(bot, position) {
   const { goals } = require('mineflayer-pathfinder');
   bot.pathfinder.setGoal(new goals.GoalBlock(position.x, position.y, position.z));
 
+  let lastPos = bot.entity.position.clone();
+  let stuckTime = 0;
+
+  const stuckCheck = setInterval(() => {
+    const distMoved = bot.entity.position.distanceTo(lastPos);
+    lastPos = bot.entity.position.clone();
+
+    if (distMoved < 0.2) {
+      stuckTime += 1;
+    } else {
+      stuckTime = 0;
+    }
+
+    if (stuckTime >= 5) {
+      console.log('⚠️ Bot is stuck! Aborting and scanning again...');
+      clearInterval(stuckCheck);
+      bot.pathfinder.setGoal(null);
+      startScanForIce(bot);
+    }
+  }, 1000);
+
   const checkReach = setInterval(() => {
     const dist = bot.entity.position.distanceTo(position);
     if (dist < 3) {
       clearInterval(checkReach);
+      clearInterval(stuckCheck);
+
       const block = bot.blockAt(position);
       if (block && block.name === 'ice') {
         bot.dig(block, true)
           .then(() => {
             console.log('⛏️ Mined ice block.');
-            startScanForIce(bot); // resume scanning
+            startScanForIce(bot);
           })
           .catch((err) => {
-            console.log('⚠️ Mining error:', err.message);
+            console.log('⚠️ Digging error:', err.message);
             startScanForIce(bot);
           });
       } else {
-        console.log('❌ Ice block no longer valid.');
+        console.log('❌ Block is gone or invalid.');
         startScanForIce(bot);
       }
     }
