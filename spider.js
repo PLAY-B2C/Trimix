@@ -105,12 +105,13 @@ function createBot() {
   });
 }
 
+// ✅ Fixed this function to actually right-click
 function startRightClickLoop(bot) {
   setInterval(() => {
     if (!bot?.entity || bot.entity.health <= 0) return;
     try {
       bot.setQuickBarSlot(0);
-      bot.swingArm('right'); // actual right-click action
+      bot.activateItem(); // ✅ Correct right-click action
     } catch (err) {
       console.log('⚠️ Right click failed:', err.message);
     }
