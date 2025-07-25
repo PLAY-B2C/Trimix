@@ -9,7 +9,7 @@ let patrolMode = 'initial';
 const loginCommand = '/login 3043AA';
 const warpCommand = '/warp spider';
 
-const allWaypoints = [  
+const allWaypoints = [ 
   new Vec3(-233, 80, -244),
   new Vec3(-233, 80, -244),
   new Vec3(-261, 86, -237),
