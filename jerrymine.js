@@ -89,7 +89,7 @@ function goToIceArea(bot) {
   bot.pathfinder.setGoal(goal);
 
   const checkArrival = setInterval(() => {
-    const dist = bot.entity.position.distanceTo(new Vec3(49, 81, 24));
+    const dist = bot.entity.position.distanceTo(new Vec3(40, 76, 56));
     if (dist < 2) {
       clearInterval(checkArrival);
       console.log('✅ Arrived at ice mining area');
