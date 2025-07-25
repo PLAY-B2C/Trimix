@@ -4,9 +4,9 @@ const Vec3 = require('vec3');
 
 function createBot() {
   const bot = mineflayer.createBot({
-    host: 'EternxlsSMP.aternos.me',
-    port: 48918,
-    username: 'IamChatGPT',
+    host: 'mc.fskepixel.fun',
+    port: 25565,
+    username: 'DrakonTide',
   });
 
   bot.loadPlugin(pathfinder);
@@ -16,7 +16,7 @@ function createBot() {
     bot.chat('/login 3043AA');
 
     setTimeout(() => {
-      goToIceArea(bot);
+      interactWithGUI(bot);
     }, 3000);
   });
 
@@ -31,6 +31,52 @@ function createBot() {
 }
 
 createBot();
+
+async function interactWithGUI(bot) {
+  try {
+    // Step 1: Right-click with item in hotbar slot 0
+    await bot.equip(bot.inventory.slots[36], 'hand'); // Slot 0
+    bot.activateItem();
+    console.log('📦 Opened GUI (slot 0)');
+    
+    bot.once('windowOpen', async (window) => {
+      try {
+        await bot.waitForTicks(5);
+        await bot.shiftClick(20); // 21st slot
+        console.log('🖱️ Shift-clicked 21st slot');
+        await bot.waitForTicks(40); // ~2 seconds delay
+
+        // Step 2: Hold item in slot 8 (9th hotbar)
+        await bot.equip(bot.inventory.slots[44], 'hand');
+        console.log('🧊 Holding item in slot 9');
+
+        // Step 3: Right-click with slot 9
+        bot.activateItem();
+        console.log('📦 Opened GUI (slot 9)');
+
+        bot.once('windowOpen', async (window2) => {
+          try {
+            await bot.waitForTicks(5);
+            await bot.shiftClick(38); // 39th slot
+            console.log('🖱️ Shift-clicked 39th slot');
+
+            setTimeout(() => {
+              goToIceArea(bot);
+            }, 2000);
+          } catch (err) {
+            console.log('❌ Failed in 2nd GUI:', err.message);
+          }
+        });
+
+      } catch (err) {
+        console.log('❌ GUI step 1 failed:', err.message);
+      }
+    });
+
+  } catch (err) {
+    console.log('❌ GUI interaction error:', err.message);
+  }
+}
 
 function goToIceArea(bot) {
   const mcData = require('minecraft-data')(bot.version);
@@ -117,7 +163,6 @@ function scanAndMineNearbyIce(bot) {
     if (block && block.name.includes('ice')) {
       await bot.lookAt(block.position.offset(0.5, 0.5, 0.5));
 
-      // Equip pickaxe if found
       const pickaxe = bot.inventory.items().find(i => i.name.includes('pickaxe'));
       if (pickaxe) {
         try {
