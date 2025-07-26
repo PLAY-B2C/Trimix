@@ -27,39 +27,38 @@ function createBot() {
   bot.once('spawn', async () => {
     console.log('✅ Logged in');
 
-    // Step 1: Login
-    setTimeout(() => bot.chat(loginCommand), 2000);
+    // Wait 2 sec before login
+    await bot.waitForTicks(40);
+    bot.chat(loginCommand);
 
-    // Step 2: Look upward and activate slot 0 to avoid opening chests accidentally
-    setTimeout(() => {
-      bot.setQuickBarSlot(0);
-      bot.look(bot.entity.yaw, -0.5, true, () => {
-        bot.activateItem();
-      });
-    }, 4000);
+    // Wait 2 more seconds before right-clicking
+    await bot.waitForTicks(40);
+    bot.setQuickBarSlot(0);
+    bot.activateItem(); // Open teleport GUI (chest likely)
 
-    // Step 3: Wait for GUI and shift-click slot 20 (21st item)
     bot.once('windowOpen', async (window) => {
       await bot.waitForTicks(30);
-      const slot = window.slots[20]; // 21st slot (index 20)
+      const slotIndex = 20;
+      const slot = window.slots[slotIndex];
+
       if (slot && slot.name !== 'air') {
         try {
-          await bot.clickWindow(20, 0, 1); // mode 1 = shift-click
+          await bot.clickWindow(slotIndex, 0, 1); // shift-click to teleport
           console.log('🎯 Shift-clicked teleport item.');
         } catch (err) {
           console.log('❌ GUI click error:', err.message);
         }
       }
 
-      // Step 4: Warp command
+      // Warp command after 2 sec
       setTimeout(() => {
         bot.chat(warpCommand);
         setTimeout(() => startPatrol(bot), 8000);
       }, 2000);
     });
 
-    startRightClickLoop(bot);  // Keep right-clicking always
-    startCombatLoop(bot);      // Attack Glacite mobs
+    startRightClickLoop(bot);
+    startCombatLoop(bot);
   });
 
   bot.on('death', () => {
@@ -89,7 +88,7 @@ function createBot() {
 
 function startRightClickLoop(bot) {
   setInterval(() => {
-    if (!bot.entity || bot.entity.health <= 0) return;
+    if (!bot.entity || bot.entity.health <= 0 || bot.currentWindow) return;
     try {
       bot.setQuickBarSlot(0);
       bot.activateItem();
@@ -107,7 +106,9 @@ function startPatrol(bot) {
   bot.pathfinder.setMovements(movements);
 
   function goToNextWaypoint() {
-    if (patrolIndex >= initialWaypoints.length) patrolIndex = initialWaypoints.length - 1;
+    if (patrolIndex >= initialWaypoints.length) {
+      patrolIndex = initialWaypoints.length - 1;
+    }
 
     const target = initialWaypoints[patrolIndex];
     if (!target) return;
@@ -175,7 +176,7 @@ function startCombatLoop(bot) {
     );
 
     if (mob) {
-      bot.lookAt(mob.position.offset(0, mob.height * 0.9, 0), true, () => {
+      bot.lookAt(mob.position.offset(0, mob.height, 0), true, () => {
         if (bot.canSeeEntity(mob)) {
           bot.attack(mob);
         }
