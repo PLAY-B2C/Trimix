@@ -23,7 +23,7 @@ const botConfig = {
     new Vec3(70, 198, -88),
     new Vec3(-17, 177, -55),
     new Vec3(-53, 165, -40),
-    new Vec3(-54, 168, -23),
+    new Vec3(-54, 168, -22),
     new Vec3(-53, 147, -12),
     new Vec3(-51, 137, 17),
     new Vec3(-28, 131, 31),
