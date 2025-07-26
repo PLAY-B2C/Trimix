@@ -10,7 +10,11 @@ let reachedGlacite = false;
 const loginCommand = '/login 3043AA';
 const warpCommand = '/warp dwarven';
 const glaciteCenter = new Vec3(0, 128, 160);
-const initialWaypoints = [new Vec3(66, 200, -104), glaciteCenter];
+const initialWaypoints = [
+  new Vec3(66, 200, -104),
+  new Vec3(-55, 168, -26),
+  glaciteCenter
+];
 const targetMobNames = ['Glacite', 'Glacite Protector'];
 
 function createBot() {
@@ -27,44 +31,42 @@ function createBot() {
   bot.once('spawn', async () => {
     console.log('✅ Logged in');
 
-    // Wait 2 sec before login
-    await bot.waitForTicks(40);
-    bot.chat(loginCommand);
+    // Delay to allow login
+    setTimeout(() => {
+      bot.chat(loginCommand);
 
-    // Wait 2 more seconds before right-clicking
-    await bot.waitForTicks(40);
-    bot.setQuickBarSlot(0);
-    bot.activateItem(); // Open teleport GUI (chest likely)
+      setTimeout(() => {
+        bot.setQuickBarSlot(0);
+        bot.activateItem(); // open GUI from hotbar slot
+      }, 2000);
+    }, 2000);
 
     bot.once('windowOpen', async (window) => {
       await bot.waitForTicks(30);
-      const slotIndex = 20;
-      const slot = window.slots[slotIndex];
+      const slot = window.slots[20]; // 21st slot = index 20
 
       if (slot && slot.name !== 'air') {
         try {
-          await bot.clickWindow(slotIndex, 0, 1); // shift-click to teleport
+          await bot.clickWindow(20, 0, 1); // Shift-click teleport item
           console.log('🎯 Shift-clicked teleport item.');
         } catch (err) {
           console.log('❌ GUI click error:', err.message);
         }
       }
 
-      // Warp command after 2 sec
       setTimeout(() => {
         bot.chat(warpCommand);
         setTimeout(() => startPatrol(bot), 8000);
       }, 2000);
     });
 
-    startRightClickLoop(bot);
     startCombatLoop(bot);
   });
 
   bot.on('death', () => {
     patrolIndex = 0;
     reachedGlacite = false;
-    console.log('☠️ Bot died. Restarting full route...');
+    console.log('☠️ Bot died. Restarting...');
     setTimeout(() => {
       bot.chat(warpCommand);
       setTimeout(() => startPatrol(bot), 8000);
@@ -88,7 +90,7 @@ function createBot() {
 
 function startRightClickLoop(bot) {
   setInterval(() => {
-    if (!bot.entity || bot.entity.health <= 0 || bot.currentWindow) return;
+    if (!bot?.entity || bot.entity.health <= 0 || !reachedGlacite) return;
     try {
       bot.setQuickBarSlot(0);
       bot.activateItem();
@@ -122,6 +124,7 @@ function startPatrol(bot) {
         console.log(`✅ Reached waypoint ${patrolIndex}`);
         if (patrolIndex === initialWaypoints.length - 1) {
           reachedGlacite = true;
+          startRightClickLoop(bot);
           startRandomWander(bot);
         } else {
           patrolIndex++;
@@ -140,7 +143,7 @@ function startPatrol(bot) {
 }
 
 function startRandomWander(bot) {
-  console.log('🌟 Reached Glacite. Starting random patrol...');
+  console.log('🌟 Reached Glacite. Wandering and engaging mobs...');
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
   bot.pathfinder.setMovements(movements);
