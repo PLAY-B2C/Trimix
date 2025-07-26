@@ -12,7 +12,7 @@ const warpCommand = '/warp dwarven';
 const glaciteCenter = new Vec3(0, 128, 160);
 const initialWaypoints = [
   new Vec3(66, 200, -104),
-  glaciteCenter // Final waypoint
+  glaciteCenter
 ];
 
 function createBot() {
@@ -28,31 +28,39 @@ function createBot() {
 
   bot.once('spawn', async () => {
     console.log('✅ Logged in');
+    const mcData = require('minecraft-data')(bot.version);
+    const movements = new Movements(bot, mcData);
+    bot.pathfinder.setMovements(movements);
+
+    // Step 1: Login
     setTimeout(() => bot.chat(loginCommand), 2000);
 
+    // Step 2: Right-click slot 0 to open teleport menu
     setTimeout(() => {
       bot.setQuickBarSlot(0);
       bot.activateItem();
     }, 4000);
 
+    // Step 3: Shift-click slot 20 to teleport
     bot.once('windowOpen', async (window) => {
       await bot.waitForTicks(30);
       const slotIndex = 20;
-      const slot = window.slots[slotIndex];
-      if (slot && slot.name !== 'air') {
-        try {
-          await bot.clickWindow(slotIndex, 0, 1);
-          console.log('🎯 Shift-clicked teleport item.');
-        } catch (err) {
-          console.log('❌ GUI click error:', err.message);
+      if (window.slots.length > slotIndex) {
+        const slot = window.slots[slotIndex];
+        if (slot && slot.name !== 'air') {
+          try {
+            await bot.clickWindow(slotIndex, 0, 1);
+            console.log('🎯 Shift-clicked teleport item.');
+          } catch (err) {
+            console.log('❌ GUI click error:', err.message);
+          }
         }
       }
 
+      // Step 4: Warp
       setTimeout(() => {
         bot.chat(warpCommand);
-        setTimeout(() => {
-          startPatrol(bot);
-        }, 8000);
+        setTimeout(() => startPatrol(bot), 8000);
       }, 2000);
     });
 
@@ -65,9 +73,7 @@ function createBot() {
     console.log('☠️ Bot died. Restarting full route...');
     setTimeout(() => {
       bot.chat(warpCommand);
-      setTimeout(() => {
-        startPatrol(bot);
-      }, 8000);
+      setTimeout(() => startPatrol(bot), 8000);
     }, 2000);
   });
 
@@ -113,7 +119,8 @@ function startPatrol(bot) {
     const target = initialWaypoints[patrolIndex];
     if (!target) return;
 
-    bot.pathfinder.setGoal(new goals.GoalNear(target.x, target.y, target.z, 1));
+    const safeY = bot.blockAt(target)?.position.y || target.y;
+    bot.pathfinder.setGoal(new goals.GoalNear(target.x, safeY, target.z, 1));
 
     const interval = setInterval(() => {
       const dist = bot.entity.position.distanceTo(target);
@@ -148,18 +155,20 @@ function startRandomWander(bot) {
   bot.pathfinder.setMovements(movements);
 
   function wanderOnce() {
-    const offsetX = Math.floor(Math.random() * 24) - 12;
-    const offsetZ = Math.floor(Math.random() * 24) - 12;
-
+    const offsetX = Math.floor(Math.random() * 25) - 12;
+    const offsetZ = Math.floor(Math.random() * 25) - 12;
     const dest = glaciteCenter.offset(offsetX, 0, offsetZ);
 
-    bot.pathfinder.setGoal(new goals.GoalNear(dest.x, dest.y, dest.z, 1));
+    const groundBlock = bot.blockAt(dest);
+    const safeY = groundBlock ? groundBlock.position.y : glaciteCenter.y;
+
+    bot.pathfinder.setGoal(new goals.GoalNear(dest.x, safeY, dest.z, 1));
 
     const interval = setInterval(() => {
       const dist = bot.entity.position.distanceTo(dest);
       if (dist < 2 || !bot.pathfinder.isMoving()) {
         clearInterval(interval);
-        setTimeout(wanderOnce, 2000 + Math.random() * 3000); // wait 2–5 sec then wander again
+        setTimeout(wanderOnce, 2000 + Math.random() * 3000);
       }
     }, 500);
   }
