@@ -107,11 +107,23 @@ function startPatrol(bot) {
     }
 
     const target = botConfig.waypoints[patrolIndex];
-    bot.pathfinder.setGoal(new GoalNear(target.x, target.y, target.z, 1));
+
+    // Adjust Y if the target is floating
+    let goalY = target.y;
+    const blockBelow = bot.blockAt(target.offset(0, -1, 0));
+    if (!blockBelow || blockBelow.name === 'air') {
+      goalY = target.y - 3;
+    }
+
+    bot.pathfinder.setGoal(new GoalNear(target.x, goalY, target.z, 1));
 
     const interval = setInterval(() => {
-      const dist = bot.entity.position.distanceTo(target);
-      if (dist < 2) {
+      const distXZ = Math.sqrt(
+        Math.pow(bot.entity.position.x - target.x, 2) +
+        Math.pow(bot.entity.position.z - target.z, 2)
+      );
+
+      if (distXZ < 2) {
         clearInterval(interval);
         console.log(`📍 Reached waypoint ${patrolIndex}`);
         if (patrolIndex === botConfig.waypoints.length - 1) {
