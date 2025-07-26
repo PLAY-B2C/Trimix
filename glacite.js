@@ -17,7 +17,7 @@ const botConfig = {
   loginCommand: '/login 3043AA',
   warpCommand: '/warp dwarven',
   glaciteCenter: new Vec3(0, 128, 160),
-  roamRadius: 15,
+  roamRadius: 8,
   waypoints: [
     new Vec3(66, 200, -104),
     new Vec3(70, 198, -88),
