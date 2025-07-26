@@ -12,7 +12,7 @@ const warpCommand = '/warp dwarven';
 const glaciteCenter = new Vec3(0, 128, 160);
 const initialWaypoints = [
   new Vec3(66, 200, -104),
-  new Vec3(-55, 168, -26),
+  new Vec3(140, 187, 14),
   glaciteCenter
 ];
 const targetMobNames = ['Glacite', 'Glacite Protector'];
