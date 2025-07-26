@@ -25,10 +25,13 @@ const botConfig = {
 
 let patrolIndex = 0;
 let reachedGlacite = false;
-let bot;
+let wanderTimer = null;
+let combatTimer = null;
+let rightClickTimer = null;
+let idleBehaviorTimer = null;
 
 function createBot() {
-  bot = mineflayer.createBot({
+  const bot = mineflayer.createBot({
     host: botConfig.host,
     username: botConfig.username,
     version: botConfig.version,
@@ -38,152 +41,172 @@ function createBot() {
 
   bot.loadPlugin(pathfinder);
 
-  bot.once('spawn', async () => {
-    console.log('✅ Spawned');
-    await bot.waitForTicks(40);
-    bot.chat(botConfig.loginCommand);
-    await bot.waitForTicks(40);
-    bot.setQuickBarSlot(0);
-    bot.activateItem();
-
-    bot.once('windowOpen', async (window) => {
-      await bot.waitForTicks(20);
-      if (window.slots[20]) {
-        await bot.clickWindow(20, 0, 1); // Shift click
-      }
-      setTimeout(() => {
-        bot.chat(botConfig.warpCommand);
-        setTimeout(() => startPatrol(), 8000);
-      }, 2000);
-    });
-  });
-
-  bot.on('end', () => {
-    console.log('🔁 Bot disconnected. Reconnecting...');
-    setTimeout(createBot, 10000);
+  bot.once('spawn', () => {
+    console.log('✅ Spawned. Logging in...');
+    setTimeout(() => {
+      bot.chat(botConfig.loginCommand);
+      setTimeout(() => openTeleportGUI(bot), 2000);
+    }, 2000);
   });
 
   bot.on('death', () => {
-    console.log('☠️ Bot died. Restarting patrol...');
+    console.log('☠️ Bot died. Resetting...');
     patrolIndex = 0;
     reachedGlacite = false;
-    bot.chat(botConfig.warpCommand);
-    setTimeout(() => startPatrol(), 8000);
+    clearAllTimers();
+    setTimeout(() => {
+      bot.chat(botConfig.warpCommand);
+      setTimeout(() => startPatrol(bot), 8000);
+    }, 2000);
+  });
+
+  bot.on('end', () => {
+    console.log('🔁 Disconnected. Reconnecting in 10s...');
+    clearAllTimers();
+    setTimeout(createBot, 10000);
   });
 
   bot.on('error', err => {
     console.log('❌ Error:', err.message);
   });
-}
 
-function startPatrol() {
-  const mcData = require('minecraft-data')(bot.version);
-  const movements = new Movements(bot, mcData);
-  movements.allowParkour = true;
-  movements.canDig = false;
-  bot.pathfinder.setMovements(movements);
+  function clearAllTimers() {
+    clearTimeout(wanderTimer);
+    clearInterval(combatTimer);
+    clearInterval(rightClickTimer);
+    clearInterval(idleBehaviorTimer);
+  }
 
-  const goToNext = () => {
-    const target = botConfig.waypoints[patrolIndex];
-    bot.pathfinder.setGoal(new GoalNear(target.x, target.y, target.z, 1));
+  function openTeleportGUI(bot) {
+    bot.setQuickBarSlot(0);
+    bot.activateItem();
 
-    const interval = setInterval(() => {
-      if (bot.entity.position.distanceTo(target) < 2) {
-        clearInterval(interval);
-        console.log(`📍 Reached waypoint ${patrolIndex}`);
-        if (patrolIndex === botConfig.waypoints.length - 1) {
-          reachedGlacite = true;
-          startGlaciteBehavior();
-        } else {
-          patrolIndex++;
-          setTimeout(goToNext, 600);
+    bot.once('windowOpen', async window => {
+      await bot.waitForTicks(20);
+      const slot = window.slots[20];
+      if (slot && slot.name !== 'air') {
+        try {
+          await bot.clickWindow(20, 0, 1);
+          console.log('🎯 Clicked teleport item.');
+        } catch (err) {
+          console.log('❌ GUI click error:', err.message);
         }
-      } else if (!bot.pathfinder.isMoving()) {
-        console.log(`⚠️ Stuck. Skipping waypoint ${patrolIndex}`);
-        clearInterval(interval);
-        patrolIndex++;
-        setTimeout(goToNext, 600);
+      }
+
+      setTimeout(() => {
+        bot.chat(botConfig.warpCommand);
+        setTimeout(() => startPatrol(bot), 8000);
+      }, 2000);
+    });
+  }
+
+  function startPatrol(bot) {
+    const mcData = require('minecraft-data')(bot.version);
+    const movements = new Movements(bot, mcData);
+    movements.allowParkour = true;
+    movements.canDig = false;
+    movements.scafoldingBlocks = [];
+    bot.pathfinder.setMovements(movements);
+
+    function moveToNext() {
+      if (patrolIndex >= botConfig.waypoints.length) {
+        patrolIndex = botConfig.waypoints.length - 1;
+      }
+
+      const target = botConfig.waypoints[patrolIndex];
+      bot.pathfinder.setGoal(new GoalNear(target.x, target.y, target.z, 1));
+
+      const interval = setInterval(() => {
+        const dist = bot.entity.position.distanceTo(target);
+        if (dist < 2) {
+          clearInterval(interval);
+          console.log(`📍 Reached waypoint ${patrolIndex}`);
+          if (patrolIndex === botConfig.waypoints.length - 1) {
+            reachedGlacite = true;
+            console.log('🌟 Reached Glacite. Engaging...');
+            startCombatLoop(bot);
+            startRightClickLoop(bot);
+            startIdleBehavior(bot);
+          } else {
+            patrolIndex++;
+            setTimeout(moveToNext, 600);
+          }
+        } else if (!bot.pathfinder.isMoving()) {
+          console.log(`⚠️ Stuck at waypoint ${patrolIndex}, skipping...`);
+          clearInterval(interval);
+          patrolIndex++;
+          setTimeout(moveToNext, 600);
+        }
+      }, 400);
+    }
+
+    moveToNext();
+  }
+
+  function startRightClickLoop(bot) {
+    rightClickTimer = setInterval(() => {
+      if (reachedGlacite && bot.entity?.health > 0) {
+        const target = bot.nearestEntity(e => e.type === 'mob' && e.name && e.type !== 'player');
+        if (target) {
+          try {
+            bot.setQuickBarSlot(0);
+            bot.activateItem(); // Right-click
+          } catch (err) {
+            console.log('⚠️ Right click failed:', err.message);
+          }
+        }
+      }
+    }, 300);
+  }
+
+  function startCombatLoop(bot) {
+    combatTimer = setInterval(() => {
+      if (!reachedGlacite || bot.entity?.health <= 0) return;
+
+      const target = bot.nearestEntity(e => e.type === 'mob' && e.name && e.type !== 'player');
+
+      if (target) {
+        if (wanderTimer) clearTimeout(wanderTimer);
+        bot.pathfinder.setGoal(null); // Stand still
+
+        bot.lookAt(target.position.offset(0, target.height, 0), true, () => {
+          if (bot.canSeeEntity(target)) {
+            try {
+              bot.setQuickBarSlot(0);
+              bot.attack(target); // Left-click
+              bot.activateItem(); // Right-click
+            } catch (err) {
+              console.log('⚠️ Attack failed:', err.message);
+            }
+          }
+        });
       }
     }, 400);
-  };
-
-  goToNext();
-}
-
-function startGlaciteBehavior() {
-  console.log('🌟 Reached Glacite Area');
-  startRightClickLoop();
-  startModeLoop();
-  startPlayerReaction();
-}
-
-function startRightClickLoop() {
-  setInterval(() => {
-    if (reachedGlacite && bot.health > 0) {
-      try {
-        bot.setQuickBarSlot(0);
-        bot.activateItem();
-      } catch (err) {
-        console.log('⚠️ Right-click failed:', err.message);
-      }
-    }
-  }, 300);
-}
-
-function startModeLoop() {
-  setInterval(() => {
-    if (!reachedGlacite || bot.health <= 0) return;
-
-    const mob = bot.nearestEntity(e => e.type === 'mob' && e.username == null);
-    if (mob) {
-      attackEntity(mob);
-    } else {
-      randomWander();
-    }
-  }, 700);
-}
-
-function attackEntity(entity) {
-  try {
-    bot.lookAt(entity.position.offset(0, entity.height, 0));
-    bot.attack(entity);
-  } catch (err) {
-    console.log('⚠️ Attack failed:', err.message);
   }
-}
 
-function randomWander() {
-  const dx = Math.floor(Math.random() * 25) - 12;
-  const dz = Math.floor(Math.random() * 25) - 12;
-  const pos = botConfig.glaciteCenter.offset(dx, 0, dz);
-  const y = bot.blockAt(pos)?.position.y || botConfig.glaciteCenter.y;
-  bot.pathfinder.setGoal(new GoalNear(pos.x, y, pos.z, 1));
-}
+  function startIdleBehavior(bot) {
+    idleBehaviorTimer = setInterval(() => {
+      if (!reachedGlacite || bot.entity?.health <= 0) return;
 
-function startPlayerReaction() {
-  setInterval(() => {
-    const player = bot.nearestEntity(e => e.type === 'player' && e.username !== bot.username);
-    if (!player || Math.random() > 0.2) return;
+      const target = bot.nearestEntity(e => e.type === 'mob' && e.name && e.type !== 'player');
 
-    try {
-      bot.lookAt(player.position.offset(0, 1.5, 0), true);
-      const sneakTimes = Math.floor(Math.random() * 4) + 3;
+      if (!target) {
+        bot.pathfinder.setGoal(null); // Stand still
 
-      let count = 0;
-      const interval = setInterval(() => {
-        if (count >= sneakTimes) {
-          bot.setControlState('sneak', false);
-          clearInterval(interval);
-        } else {
+        const rand = Math.random();
+        if (rand < 0.6) {
+          // Sneak (60% chance)
           bot.setControlState('sneak', true);
-          setTimeout(() => bot.setControlState('sneak', false), 100);
-          count++;
+          setTimeout(() => bot.setControlState('sneak', false), 400 + Math.random() * 600);
+        } else if (rand < 0.75) {
+          // Jump (15% chance)
+          bot.setControlState('jump', true);
+          setTimeout(() => bot.setControlState('jump', false), 300);
         }
-      }, 150);
-    } catch (err) {
-      console.log('⚠️ Player sneak failed:', err.message);
-    }
-  }, 3000);
+        // Else do nothing
+      }
+    }, 1500);
+  }
 }
 
 createBot();
