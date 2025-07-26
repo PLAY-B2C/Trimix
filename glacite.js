@@ -35,7 +35,6 @@ const botConfig = {
 let patrolIndex = 0;
 let reachedGlacite = false;
 let roamTimer = null;
-let clickLoopRunning = false;
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -48,6 +47,7 @@ function createBot() {
 
   bot.once('spawn', () => {
     console.log('✅ Spawned');
+    patrolIndex = 0;
     setTimeout(() => {
       bot.chat(botConfig.loginCommand);
       setTimeout(() => openTeleportGUI(bot), 2000);
@@ -59,7 +59,6 @@ function createBot() {
     patrolIndex = 0;
     reachedGlacite = false;
     clearTimeout(roamTimer);
-    clickLoopRunning = false;
     setTimeout(() => {
       bot.chat(botConfig.warpCommand);
       setTimeout(() => startPatrol(bot), 8000);
@@ -99,10 +98,13 @@ function createBot() {
   function startPatrol(bot) {
     const mcData = require('minecraft-data')(bot.version);
     const movements = new Movements(bot, mcData);
-    movements.maxJumpHeight = 2.5;
+    movements.maxDropDown = 10; // 🔽 Allow falling down 10 blocks
     movements.allowParkour = true;
     movements.canDig = false;
     bot.pathfinder.setMovements(movements);
+
+    let retryCount = 0;
+    const maxRetries = 3;
 
     function moveToNext() {
       if (patrolIndex >= botConfig.waypoints.length)
@@ -118,6 +120,7 @@ function createBot() {
         );
         if (distXZ < 2) {
           clearInterval(interval);
+          retryCount = 0;
           console.log(`📍 Reached waypoint ${patrolIndex}`);
           if (patrolIndex === botConfig.waypoints.length - 1) {
             reachedGlacite = true;
@@ -128,21 +131,61 @@ function createBot() {
             setTimeout(moveToNext, 600);
           }
         } else if (!bot.pathfinder.isMoving()) {
-          console.log(`⚠️ Stuck at waypoint ${patrolIndex}. Skipping...`);
           clearInterval(interval);
-          patrolIndex++;
-          setTimeout(moveToNext, 600);
+          retryCount++;
+          if (retryCount <= maxRetries) {
+            console.log(`🔁 Retry ${retryCount}/${maxRetries} for waypoint ${patrolIndex}`);
+            setTimeout(moveToNext, 800);
+          } else {
+            console.log(`⚠️ Stuck at waypoint ${patrolIndex}. Finding next nearest...`);
+            patrolIndex = getNextNearestWaypointIndex(patrolIndex + 1);
+            retryCount = 0;
+            setTimeout(moveToNext, 800);
+          }
         }
       }, 500);
+    }
+
+    function getNextNearestWaypointIndex(minIndex = 0) {
+      const pos = bot.entity.position;
+      let nearestIndex = minIndex;
+      let minDist = Infinity;
+      for (let i = minIndex; i < botConfig.waypoints.length; i++) {
+        const wp = botConfig.waypoints[i];
+        const dist = pos.distanceTo(wp);
+        if (dist < minDist) {
+          minDist = dist;
+          nearestIndex = i;
+        }
+      }
+      return nearestIndex;
     }
 
     moveToNext();
   }
 
   function startRoam(bot) {
-    const roam = () => {
+    const clickLoop = () => {
       if (!reachedGlacite) return;
 
+      const nearbyPlayer = Object.values(bot.players).find(p => {
+        if (!p.entity) return false;
+        return p.entity.position.distanceTo(bot.entity.position) <= 6;
+      });
+
+      if (nearbyPlayer) {
+        console.log('⛔ Player nearby. Pausing right-click...');
+        setTimeout(clickLoop, 1000);
+        return;
+      }
+
+      bot.setQuickBarSlot(0);
+      bot.activateItem();
+      setTimeout(clickLoop, 200);
+    };
+
+    const roam = () => {
+      if (!reachedGlacite) return;
       const offsetX = Math.floor(Math.random() * botConfig.roamRadius * 2) - botConfig.roamRadius;
       const offsetZ = Math.floor(Math.random() * botConfig.roamRadius * 2) - botConfig.roamRadius;
       const target = botConfig.glaciteCenter.offset(offsetX, 0, offsetZ);
@@ -152,20 +195,12 @@ function createBot() {
       roamTimer = setTimeout(roam, 5000 + Math.random() * 3000);
     };
 
-    const clickLoop = () => {
-      if (reachedGlacite) {
-        bot.setQuickBarSlot(0);
-        bot.activateItem();
-        setTimeout(clickLoop, 200); // Adjust delay as needed
-      }
-    };
-
-    // Chat mention triggers reconnect only after reaching Glacite
+    // Reconnect on mention in 5 seconds
     bot.on('message', (jsonMsg) => {
       const msg = jsonMsg.toString().toLowerCase();
       if (reachedGlacite && msg.includes('drakontide')) {
-        console.log('📢 Mention detected. Reconnecting...');
-        bot.quit();
+        console.log('📢 Mention detected. Disconnecting in 5s...');
+        setTimeout(() => bot.quit(), 5000);
       }
     });
 
