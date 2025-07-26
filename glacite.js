@@ -96,7 +96,7 @@ function startPatrol(bot) {
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
 
-  // 👟 Apply Jump Boost IV logic
+  // ✅ Apply Jump Boost IV logic
   movements.maxJumpHeight = 2.5;
   movements.allowParkour = true;
   movements.canDig = false;
@@ -111,18 +111,9 @@ function startPatrol(bot) {
     }
 
     const target = botConfig.waypoints[patrolIndex];
-    let goalY = target.y;
 
-    try {
-      const blockBelow = bot.blockAt(target.offset(0, -1, 0));
-      if (!blockBelow || blockBelow.name === 'air') {
-        goalY = target.y - 3;
-      }
-    } catch (e) {
-      console.log(`⚠️ Failed to check block below waypoint ${patrolIndex}:`, e.message);
-    }
-
-    bot.pathfinder.setGoal(new GoalNear(target.x, goalY, target.z, 1));
+    // 🚀 Force move regardless of air below (bot is immune to fall damage)
+    bot.pathfinder.setGoal(new GoalNear(target.x, target.y - 3, target.z, 1));
 
     const interval = setInterval(() => {
       const distXZ = Math.sqrt(
@@ -161,7 +152,9 @@ function startRandomWander(bot) {
   const wander = () => {
     if (!reachedGlacite) return;
 
-    const mobsNearby = bot.nearestEntity(e => e.type === 'mob' && e.name && e.type !== 'player');
+    const mobsNearby = bot.nearestEntity(e =>
+      e.type === 'mob' && e.name !== 'bat' && e.type !== 'player'
+    );
     if (mobsNearby) return;
 
     const offsetX = Math.floor(Math.random() * 25) - 12;
@@ -181,7 +174,9 @@ function startRightClickLoop(bot) {
 
   rightClickTimer = setInterval(() => {
     if (reachedGlacite && bot.entity?.health > 0) {
-      const mobsNearby = bot.nearestEntity(e => e.type === 'mob' && e.name && e.type !== 'player');
+      const mobsNearby = bot.nearestEntity(e =>
+        e.type === 'mob' && e.name !== 'bat' && e.type !== 'player'
+      );
       if (mobsNearby) {
         try {
           bot.setQuickBarSlot(0);
@@ -200,7 +195,9 @@ function startCombatLoop(bot) {
   combatTimer = setInterval(() => {
     if (!reachedGlacite || bot.entity?.health <= 0) return;
 
-    const target = bot.nearestEntity(e => e.type === 'mob' && e.name && e.type !== 'player');
+    const target = bot.nearestEntity(e =>
+      e.type === 'mob' && e.name !== 'bat' && e.type !== 'player'
+    );
 
     if (target) {
       if (wanderTimer) clearTimeout(wanderTimer);
