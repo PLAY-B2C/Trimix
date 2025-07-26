@@ -41,7 +41,7 @@ function createBot() {
       const slot = window.slots[slotIndex];
       if (slot && slot.name !== 'air') {
         try {
-          await bot.clickWindow(slotIndex, 0, 1); // Shift-click to move item
+          await bot.clickWindow(slotIndex, 0, 1);
           console.log('🎯 Shift-clicked teleport item.');
         } catch (err) {
           console.log('❌ GUI click error:', err.message);
