@@ -3,7 +3,6 @@ const Vec3 = require('vec3');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const { GoalNear } = goals;
 
-// Suppress deprecation warning
 const originalWarn = console.warn;
 console.warn = (msg, ...args) => {
   if (typeof msg === 'string' && msg.includes('objectType is deprecated')) return;
@@ -51,7 +50,7 @@ function createBot() {
     patrolIndex = 0;
     setTimeout(() => {
       bot.chat(botConfig.loginCommand);
-      setTimeout(() => openTeleportGUI(bot), 2000);
+      setTimeout(() => openTeleportGUI(bot), 1000); // 1s after login
     }, 2000);
   });
 
@@ -91,16 +90,16 @@ function createBot() {
   function openTeleportGUI(bot) {
     let guiHandled = false;
 
-    bot.setQuickBarSlot(0);
-    bot.activateItem();
+    bot.setQuickBarSlot(0); // Select slot 0
+    bot.activateItem();     // Right-click with item
 
     bot.once('windowOpen', async window => {
       try {
-        await bot.waitForTicks(20);
+        await bot.waitForTicks(10);
         const slot = window.slots[20];
         if (slot && slot.name !== 'air') {
-          await bot.clickWindow(20, 0, 1);
-          console.log('🎯 Clicked teleport item.');
+          await bot.clickWindow(20, 0, 1); // shift-click slot 20
+          console.log('🎯 Shift-clicked teleport item.');
           guiHandled = true;
         }
       } catch (err) {
