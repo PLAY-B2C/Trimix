@@ -41,11 +41,10 @@ function createBot() {
       const slot = window.slots[slotIndex];
       if (slot && slot.name !== 'air') {
         try {
-          await bot.clickWindow(slotIndex, 0, 1);
+          await bot.clickWindow(slotIndex, 0, 1); // Shift-click to move item
           console.log('🎯 Shift-clicked teleport item.');
         } catch (err) {
           console.log('❌ GUI click error:', err.message);
-        }
         }
       }
 
@@ -89,7 +88,7 @@ function startRightClickLoop(bot) {
     if (!bot?.entity || bot.entity.health <= 0) return;
     try {
       bot.setQuickBarSlot(0);
-      bot.activateItem();
+      bot.activateItem(); // Right-click
     } catch (err) {
       console.log('⚠️ Right click failed:', err.message);
     }
