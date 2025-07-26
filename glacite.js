@@ -140,14 +140,21 @@ function startRoam(bot) {
     const target = botConfig.glaciteCenter.offset(offsetX, 0, offsetZ);
     const y = bot.blockAt(target)?.position.y || botConfig.glaciteCenter.y;
 
-    bot.setQuickBarSlot(0);
-    bot.activateItem(); // Start right-clicking
-
     bot.pathfinder.setGoal(new GoalNear(target.x, y, target.z, 1));
     roamTimer = setTimeout(roam, 5000 + Math.random() * 3000);
   };
 
+  // Continuous right-click spam loop
+  const clickLoop = () => {
+    if (reachedGlacite) {
+      bot.setQuickBarSlot(0);
+      bot.activateItem();
+      setTimeout(clickLoop, 200); // Adjust delay as needed
+    }
+  };
+
   roam();
+  clickLoop();
 }
 
 createBot();
