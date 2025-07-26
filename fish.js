@@ -15,23 +15,22 @@ function createBot() {
     console.log('✅ Bot spawned');
     bot.chat('/login 3043AA');
 
-    // Step 2: Right click while holding hotbar slot 0
-    await bot.waitForTicks(5);
-    bot.setQuickBarSlot(0); // hotbar index 0 = 1st slot
-    await bot.waitForTicks(5);
-    bot.activateItem(); // right-click
-    console.log('🖱️ Right-clicked with item in slot 1');
+    setTimeout(() => {
+      bot.setQuickBarSlot(0);
+      bot.activateItem();
+    }, 4000);
 
-    // Step 3: Shift-click item to slot 21 (index 20)
-    await bot.waitForTicks(10);
-    const window = bot.currentWindow;
-    const slot20 = window?.slots[36]; // slot 36 = hotbar index 0 in inventory
-    if (slot20) {
-      await bot.clickWindow(36, 0, true); // shift-click from hotbar to slot 21
-      console.log('📦 Shift-clicked item to slot 21');
-    } else {
-      console.log('⚠️ No item in slot 1 to shift-click');
-    }
+    bot.once('windowOpen', async (window) => {
+      await bot.waitForTicks(30);
+      const slotIndex = 20;
+      const slot = window.slots[slotIndex];
+      if (slot && slot.name !== 'air') {
+        try {
+          await bot.clickWindow(slotIndex, 0, 1);
+          console.log('🎯 Shift-clicked teleport item.');
+        } catch (err) {
+          console.log('❌ GUI click error:', err.message);
+        }
 
     // Step 4: Wait 1 second
     setTimeout(async () => {
