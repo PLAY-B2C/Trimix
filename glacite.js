@@ -19,7 +19,7 @@ const botConfig = {
     new Vec3(-54, 168, -23),
     new Vec3(-53, 147, -12),
     new Vec3(-7, 128, -59),
-    new Vec3(0, 128, 160),
+    new Vec3(0, 128, 160)
   ]
 };
 
@@ -32,7 +32,7 @@ function createBot() {
     username: botConfig.username,
     version: botConfig.version,
     keepAlive: true,
-    connectTimeout: 60000,
+    connectTimeout: 60000
   });
 
   bot.loadPlugin(pathfinder);
@@ -41,12 +41,12 @@ function createBot() {
     console.log('✅ Spawned. Logging in...');
     setTimeout(() => {
       bot.chat(botConfig.loginCommand);
-      setTimeout(() => useTeleportGUI(bot), 2000);
+      setTimeout(() => openTeleportGUI(bot), 2000);
     }, 2000);
   });
 
   bot.on('death', () => {
-    console.log('☠️ Bot died. Restarting patrol...');
+    console.log('☠️ Bot died. Resetting...');
     patrolIndex = 0;
     reachedGlacite = false;
     setTimeout(() => {
@@ -65,17 +65,17 @@ function createBot() {
   });
 }
 
-function useTeleportGUI(bot) {
+function openTeleportGUI(bot) {
   bot.setQuickBarSlot(0);
-  bot.activateItem();
+  bot.activateItem(); // Open GUI
 
   bot.once('windowOpen', async window => {
-    await bot.waitForTicks(30);
-    const slot = window.slots[20]; // 21st slot (index 20)
+    await bot.waitForTicks(20);
+    const slot = window.slots[20]; // 21st slot
 
     if (slot && slot.name !== 'air') {
       try {
-        await bot.clickWindow(20, 0, 1); // shift-click
+        await bot.clickWindow(20, 0, 1); // Shift-click
         console.log('🎯 Clicked teleport item.');
       } catch (err) {
         console.log('❌ GUI click error:', err.message);
@@ -96,7 +96,7 @@ function startPatrol(bot) {
   movements.canDig = false;
   bot.pathfinder.setMovements(movements);
 
-  const moveToNext = () => {
+  function moveToNext() {
     if (patrolIndex >= botConfig.waypoints.length) {
       patrolIndex = botConfig.waypoints.length - 1;
     }
@@ -111,22 +111,22 @@ function startPatrol(bot) {
         console.log(`📍 Reached waypoint ${patrolIndex}`);
         if (patrolIndex === botConfig.waypoints.length - 1) {
           reachedGlacite = true;
-          console.log('🌟 Arrived at Glacite. Starting engagement...');
+          console.log('🌟 Reached Glacite. Engaging...');
           startRandomWander(bot);
           startRightClickLoop(bot);
           startCombatLoop(bot);
         } else {
           patrolIndex++;
-          setTimeout(moveToNext, 500);
+          setTimeout(moveToNext, 600);
         }
       } else if (!bot.pathfinder.isMoving()) {
         console.log(`⚠️ Stuck at waypoint ${patrolIndex}, skipping...`);
         clearInterval(interval);
         patrolIndex++;
-        setTimeout(moveToNext, 500);
+        setTimeout(moveToNext, 600);
       }
-    }, 500);
-  };
+    }, 400);
+  }
 
   moveToNext();
 }
@@ -139,7 +139,6 @@ function startRandomWander(bot) {
     const y = bot.blockAt(target)?.position.y || botConfig.glaciteCenter.y;
 
     bot.pathfinder.setGoal(new GoalNear(target.x, y, target.z, 1));
-
     setTimeout(wander, 5000 + Math.random() * 3000);
   };
 
