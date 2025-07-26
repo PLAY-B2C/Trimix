@@ -15,7 +15,7 @@ const botConfig = {
     new Vec3(70, 198, -88),
     new Vec3(-17, 177, -55),
     new Vec3(-53, 165, -40),
-    new Vec3(-54, 168, -22),
+    new Vec3(-54, 168, -23),
     new Vec3(-53, 147, -12),
     new Vec3(-51, 137, 17),
     new Vec3(-7, 128, -59),
@@ -25,7 +25,6 @@ const botConfig = {
 
 let patrolIndex = 0;
 let reachedGlacite = false;
-
 let wanderTimer = null;
 let combatTimer = null;
 let rightClickTimer = null;
@@ -95,10 +94,14 @@ function openTeleportGUI(bot) {
 function startPatrol(bot) {
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
+
+  // 👟 Apply Jump Boost IV logic
+  movements.maxJumpHeight = 2.5;
   movements.allowParkour = true;
   movements.canDig = false;
   movements.allow1by1towers = true;
   movements.scafoldingBlocks = [];
+
   bot.pathfinder.setMovements(movements);
 
   function moveToNext() {
@@ -107,12 +110,15 @@ function startPatrol(bot) {
     }
 
     const target = botConfig.waypoints[patrolIndex];
-
-    // Adjust Y if the target is floating
     let goalY = target.y;
-    const blockBelow = bot.blockAt(target.offset(0, -1, 0));
-    if (!blockBelow || blockBelow.name === 'air') {
-      goalY = target.y - 3;
+
+    try {
+      const blockBelow = bot.blockAt(target.offset(0, -1, 0));
+      if (!blockBelow || blockBelow.name === 'air') {
+        goalY = target.y - 3;
+      }
+    } catch (e) {
+      console.log(`⚠️ Failed to check block below waypoint ${patrolIndex}:`, e.message);
     }
 
     bot.pathfinder.setGoal(new GoalNear(target.x, goalY, target.z, 1));
@@ -137,12 +143,12 @@ function startPatrol(bot) {
           setTimeout(moveToNext, 600);
         }
       } else if (!bot.pathfinder.isMoving()) {
-        console.log(`⚠️ Stuck or not moving at waypoint ${patrolIndex}, forcing next...`);
+        console.log(`⚠️ Stuck at waypoint ${patrolIndex}. Skipping...`);
         clearInterval(interval);
         patrolIndex++;
         setTimeout(moveToNext, 600);
       }
-    }, 400);
+    }, 500);
   }
 
   moveToNext();
