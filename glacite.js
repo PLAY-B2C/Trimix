@@ -32,8 +32,8 @@ function createBot() {
     host: botConfig.host,
     username: botConfig.username,
     version: botConfig.version,
-    keepAlive: true,
-    connectTimeout: 60000
+    connectTimeout: 60000,
+    keepAlive: true
   });
 
   bot.loadPlugin(pathfinder);
@@ -47,7 +47,7 @@ function createBot() {
   });
 
   bot.on('death', () => {
-    console.log('☠️ Bot died. Resetting...');
+    console.log('☠️ Bot died. Respawning...');
     patrolIndex = 0;
     reachedGlacite = false;
     setTimeout(() => {
@@ -68,12 +68,10 @@ function createBot() {
 
 function openTeleportGUI(bot) {
   bot.setQuickBarSlot(0);
-  bot.activateItem(); // Open GUI
-
+  bot.activateItem(); // Right-click
   bot.once('windowOpen', async window => {
     await bot.waitForTicks(20);
-    const slot = window.slots[20]; // 21st slot
-
+    const slot = window.slots[20]; // 21st slot = index 20
     if (slot && slot.name !== 'air') {
       try {
         await bot.clickWindow(20, 0, 1); // Shift-click
@@ -82,7 +80,6 @@ function openTeleportGUI(bot) {
         console.log('❌ GUI click error:', err.message);
       }
     }
-
     setTimeout(() => {
       bot.chat(botConfig.warpCommand);
       setTimeout(() => startPatrol(bot), 8000);
@@ -94,13 +91,16 @@ function startPatrol(bot) {
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
   movements.allowParkour = true;
+  movements.allow1by1towers = false;
   movements.canDig = false;
+  movements.scafoldingBlocks = [];
+
+  // Allow falling by setting max drop height high
+  movements.maxDropDown = 100;
   bot.pathfinder.setMovements(movements);
 
-  function moveToNext() {
-    if (patrolIndex >= botConfig.waypoints.length) {
-      patrolIndex = botConfig.waypoints.length - 1;
-    }
+  const moveToNext = () => {
+    if (patrolIndex >= botConfig.waypoints.length) patrolIndex = botConfig.waypoints.length - 1;
 
     const target = botConfig.waypoints[patrolIndex];
     bot.pathfinder.setGoal(new GoalNear(target.x, target.y, target.z, 1));
@@ -112,22 +112,22 @@ function startPatrol(bot) {
         console.log(`📍 Reached waypoint ${patrolIndex}`);
         if (patrolIndex === botConfig.waypoints.length - 1) {
           reachedGlacite = true;
-          console.log('🌟 Reached Glacite. Engaging...');
+          console.log('🌟 At Glacite. Starting farming...');
           startRandomWander(bot);
           startRightClickLoop(bot);
           startCombatLoop(bot);
         } else {
           patrolIndex++;
-          setTimeout(moveToNext, 600);
+          setTimeout(moveToNext, 800);
         }
       } else if (!bot.pathfinder.isMoving()) {
         console.log(`⚠️ Stuck at waypoint ${patrolIndex}, skipping...`);
         clearInterval(interval);
         patrolIndex++;
-        setTimeout(moveToNext, 600);
+        setTimeout(moveToNext, 800);
       }
-    }, 400);
-  }
+    }, 500);
+  };
 
   moveToNext();
 }
@@ -138,11 +138,9 @@ function startRandomWander(bot) {
     const offsetZ = Math.floor(Math.random() * 25) - 12;
     const target = botConfig.glaciteCenter.offset(offsetX, 0, offsetZ);
     const y = bot.blockAt(target)?.position.y || botConfig.glaciteCenter.y;
-
     bot.pathfinder.setGoal(new GoalNear(target.x, y, target.z, 1));
     setTimeout(wander, 5000 + Math.random() * 3000);
   };
-
   wander();
 }
 
