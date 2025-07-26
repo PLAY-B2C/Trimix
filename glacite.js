@@ -48,9 +48,11 @@ function createBot() {
   bot.once('spawn', () => {
     console.log('✅ Spawned');
     patrolIndex = 0;
+    reachedGlacite = false;
+
     setTimeout(() => {
       bot.chat(botConfig.loginCommand);
-      setTimeout(() => openTeleportGUI(bot), 1000); // 1s after login
+      setTimeout(() => openTeleportGUI(bot), 1000); // Wait 1s after login
     }, 2000);
   });
 
@@ -82,45 +84,35 @@ function createBot() {
     console.log('📩 Chat:', msg);
 
     if (reachedGlacite && msg.includes('drakontide')) {
-      console.log('📢 Mention detected. Disconnecting in 5s...');
+      console.log('📢 Name mentioned! Disconnecting in 5s...');
       setTimeout(() => bot.quit(), 5000);
     }
   });
 
   function openTeleportGUI(bot) {
-    let guiHandled = false;
+    bot.setQuickBarSlot(0);
+    bot.activateItem(); // Right-click with slot 0
 
-    bot.setQuickBarSlot(0); // Select slot 0
-    bot.activateItem();     // Right-click with item
-
-    bot.once('windowOpen', async window => {
+    bot.once('windowOpen', async (window) => {
       try {
         await bot.waitForTicks(10);
         const slot = window.slots[20];
         if (slot && slot.name !== 'air') {
-          await bot.clickWindow(20, 0, 1); // shift-click slot 20
-          console.log('🎯 Shift-clicked teleport item.');
-          guiHandled = true;
+          await bot.clickWindow(20, 0, 1); // Shift-click slot 20
+          console.log('🎯 Shift-clicked slot 20.');
+
+          setTimeout(() => {
+            bot.chat(botConfig.warpCommand); // /warp dwarven
+            console.log('🚀 Warping to dwarven...');
+            setTimeout(() => startPatrol(bot), 8000);
+          }, 1000); // Wait 1s after shift-click
+        } else {
+          console.log('⚠️ Slot 20 empty or not found.');
         }
       } catch (err) {
         console.log('❌ GUI click error:', err.message);
       }
-
-      setTimeout(() => {
-        if (!guiHandled) console.log('⏱️ GUI not handled, forcing warp...');
-        bot.chat(botConfig.warpCommand);
-        setTimeout(() => startPatrol(bot), 8000);
-      }, 2000);
     });
-
-    // Fallback if window never opens
-    setTimeout(() => {
-      if (!guiHandled) {
-        console.log('⚠️ GUI never opened, using fallback.');
-        bot.chat(botConfig.warpCommand);
-        setTimeout(() => startPatrol(bot), 8000);
-      }
-    }, 8000);
   }
 
   function startPatrol(bot) {
@@ -165,7 +157,7 @@ function createBot() {
             console.log(`🔁 Retry ${retryCount}/${maxRetries} for waypoint ${patrolIndex}`);
             setTimeout(moveToNext, 800);
           } else {
-            console.log(`⚠️ Stuck at waypoint ${patrolIndex}. Finding next nearest...`);
+            console.log(`⚠️ Stuck at waypoint ${patrolIndex}. Skipping to next nearest.`);
             patrolIndex = getNextNearestWaypointIndex(patrolIndex + 1);
             retryCount = 0;
             setTimeout(moveToNext, 800);
@@ -212,7 +204,6 @@ function createBot() {
 
     const offsetX = Math.floor(Math.random() * botConfig.roamRadius * 2) - botConfig.roamRadius;
     const offsetZ = Math.floor(Math.random() * botConfig.roamRadius * 2) - botConfig.roamRadius;
-
     const target = botConfig.glaciteCenter.offset(offsetX, 0, offsetZ);
     const block = bot.blockAt(target);
     const y = block ? block.position.y : botConfig.glaciteCenter.y;
