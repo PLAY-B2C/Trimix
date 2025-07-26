@@ -13,7 +13,7 @@ const botConfig = {
   targetMobNames: ['Glacite', 'Glacite Protector'],
   waypoints: [
     new Vec3(66, 200, -104),
-    new Vec3(172, 198, -89),
+    new Vec3(70, 198, -88),
     new Vec3(-17, 177, -55),
     new Vec3(-53, 165, -40),
     new Vec3(-54, 168, -23),
