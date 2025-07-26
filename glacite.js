@@ -1,6 +1,7 @@
 const mineflayer = require('mineflayer');
 const Vec3 = require('vec3');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
+const { GoalNear } = goals;
 
 let reconnecting = false;
 let patrolIndex = 0;
@@ -8,12 +9,9 @@ let reachedGlacite = false;
 
 const loginCommand = '/login 3043AA';
 const warpCommand = '/warp dwarven';
-
 const glaciteCenter = new Vec3(0, 128, 160);
-const initialWaypoints = [
-  new Vec3(66, 200, -104),
-  glaciteCenter
-];
+const initialWaypoints = [new Vec3(66, 200, -104), glaciteCenter];
+const targetMobNames = ['Glacite', 'Glacite Protector']; // Customize as needed
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -30,25 +28,23 @@ function createBot() {
     console.log('✅ Logged in');
     setTimeout(() => bot.chat(loginCommand), 2000);
 
+    // Use teleport item
     setTimeout(() => {
       bot.setQuickBarSlot(0);
-      bot.activateItem();
+      bot.activateItem(); // open GUI
     }, 4000);
 
     bot.once('windowOpen', async (window) => {
       await bot.waitForTicks(30);
-      const slotIndex = 20;
-      const slot = window.slots[slotIndex];
+      const slot = window.slots[20]; // 21st slot
       if (slot && slot.name !== 'air') {
         try {
-          await bot.clickWindow(slotIndex, 0, 1);
+          await bot.clickWindow(20, 0, 1); // shift-click
           console.log('🎯 Shift-clicked teleport item.');
         } catch (err) {
           console.log('❌ GUI click error:', err.message);
         }
       }
-
-      // Step 4: Warp
       setTimeout(() => {
         bot.chat(warpCommand);
         setTimeout(() => startPatrol(bot), 8000);
@@ -56,6 +52,7 @@ function createBot() {
     });
 
     startRightClickLoop(bot);
+    startCombatLoop(bot);
   });
 
   bot.on('death', () => {
@@ -88,7 +85,7 @@ function startRightClickLoop(bot) {
     if (!bot?.entity || bot.entity.health <= 0) return;
     try {
       bot.setQuickBarSlot(0);
-      bot.activateItem(); // Right-click
+      bot.activateItem();
     } catch (err) {
       console.log('⚠️ Right click failed:', err.message);
     }
@@ -110,12 +107,10 @@ function startPatrol(bot) {
     const target = initialWaypoints[patrolIndex];
     if (!target) return;
 
-    const safeY = bot.blockAt(target)?.position.y || target.y;
-    bot.pathfinder.setGoal(new goals.GoalNear(target.x, safeY, target.z, 1));
+    bot.pathfinder.setGoal(new GoalNear(target.x, target.y, target.z, 1));
 
     const interval = setInterval(() => {
       const dist = bot.entity.position.distanceTo(target);
-
       if (dist < 2) {
         clearInterval(interval);
         console.log(`✅ Reached waypoint ${patrolIndex}`);
@@ -124,13 +119,13 @@ function startPatrol(bot) {
           startRandomWander(bot);
         } else {
           patrolIndex++;
-          setTimeout(goToNextWaypoint, 200);
+          setTimeout(goToNextWaypoint, 300);
         }
       } else if (!bot.pathfinder.isMoving()) {
         console.log(`⚠️ Stuck at waypoint ${patrolIndex}, skipping...`);
         clearInterval(interval);
         patrolIndex++;
-        setTimeout(goToNextWaypoint, 200);
+        setTimeout(goToNextWaypoint, 300);
       }
     }, 500);
   }
@@ -140,7 +135,6 @@ function startPatrol(bot) {
 
 function startRandomWander(bot) {
   console.log('🌟 Reached Glacite. Starting random patrol...');
-
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
   bot.pathfinder.setMovements(movements);
@@ -149,11 +143,9 @@ function startRandomWander(bot) {
     const offsetX = Math.floor(Math.random() * 25) - 12;
     const offsetZ = Math.floor(Math.random() * 25) - 12;
     const dest = glaciteCenter.offset(offsetX, 0, offsetZ);
+    const groundY = bot.blockAt(dest)?.position.y || glaciteCenter.y;
 
-    const groundBlock = bot.blockAt(dest);
-    const safeY = groundBlock ? groundBlock.position.y : glaciteCenter.y;
-
-    bot.pathfinder.setGoal(new goals.GoalNear(dest.x, safeY, dest.z, 1));
+    bot.pathfinder.setGoal(new GoalNear(dest.x, groundY, dest.z, 1));
 
     const interval = setInterval(() => {
       const dist = bot.entity.position.distanceTo(dest);
@@ -165,6 +157,26 @@ function startRandomWander(bot) {
   }
 
   wanderOnce();
+}
+
+function startCombatLoop(bot) {
+  setInterval(() => {
+    if (!reachedGlacite || !bot.entity || bot.entity.health <= 0) return;
+
+    const mob = bot.nearestEntity(e =>
+      e.type === 'mob' &&
+      e.name &&
+      targetMobNames.some(name => e.name.toLowerCase().includes(name.toLowerCase()))
+    );
+
+    if (mob) {
+      bot.lookAt(mob.position.offset(0, mob.height, 0), true, () => {
+        if (bot.canSeeEntity(mob)) {
+          bot.attack(mob);
+        }
+      });
+    }
+  }, 250);
 }
 
 createBot();
