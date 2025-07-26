@@ -7,7 +7,7 @@ let patrolIndex = 0;
 let reachedGlacite = false;
 
 const loginCommand = '/login 3043AA';
-const warpCommand = '/warp spider';
+const warpCommand = '/warp dwarven';
 
 const glaciteCenter = new Vec3(0, 128, 160);
 const initialWaypoints = [
