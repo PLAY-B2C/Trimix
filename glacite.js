@@ -3,7 +3,7 @@ const Vec3 = require('vec3');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const { GoalNear } = goals;
 
-// 🔇 Suppress deprecation warning for objectType
+// Suppress deprecation warning
 const originalWarn = console.warn;
 console.warn = (msg, ...args) => {
   if (typeof msg === 'string' && msg.includes('objectType is deprecated')) return;
@@ -35,6 +35,7 @@ const botConfig = {
 let patrolIndex = 0;
 let reachedGlacite = false;
 let roamTimer = null;
+let clickLoopActive = false;
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -59,6 +60,7 @@ function createBot() {
     patrolIndex = 0;
     reachedGlacite = false;
     clearTimeout(roamTimer);
+    clickLoopActive = false;
     setTimeout(() => {
       bot.chat(botConfig.warpCommand);
       setTimeout(() => startPatrol(bot), 8000);
@@ -67,6 +69,8 @@ function createBot() {
 
   bot.on('end', () => {
     console.log('🔁 Disconnected. Reconnecting in 10s...');
+    clearTimeout(roamTimer);
+    clickLoopActive = false;
     setTimeout(createBot, 10000);
   });
 
@@ -74,31 +78,56 @@ function createBot() {
     console.log('❌ Error:', err.message);
   });
 
+  bot.on('message', (jsonMsg) => {
+    const msg = jsonMsg.toString().toLowerCase();
+    console.log('📩 Chat:', msg);
+
+    if (reachedGlacite && msg.includes('drakontide')) {
+      console.log('📢 Mention detected. Disconnecting in 5s...');
+      setTimeout(() => bot.quit(), 5000);
+    }
+  });
+
   function openTeleportGUI(bot) {
+    let guiHandled = false;
+
     bot.setQuickBarSlot(0);
     bot.activateItem();
+
     bot.once('windowOpen', async window => {
-      await bot.waitForTicks(20);
-      const slot = window.slots[20];
-      if (slot && slot.name !== 'air') {
-        try {
+      try {
+        await bot.waitForTicks(20);
+        const slot = window.slots[20];
+        if (slot && slot.name !== 'air') {
           await bot.clickWindow(20, 0, 1);
           console.log('🎯 Clicked teleport item.');
-        } catch (err) {
-          console.log('❌ GUI click error:', err.message);
+          guiHandled = true;
         }
+      } catch (err) {
+        console.log('❌ GUI click error:', err.message);
       }
+
       setTimeout(() => {
+        if (!guiHandled) console.log('⏱️ GUI not handled, forcing warp...');
         bot.chat(botConfig.warpCommand);
         setTimeout(() => startPatrol(bot), 8000);
       }, 2000);
     });
+
+    // Fallback if window never opens
+    setTimeout(() => {
+      if (!guiHandled) {
+        console.log('⚠️ GUI never opened, using fallback.');
+        bot.chat(botConfig.warpCommand);
+        setTimeout(() => startPatrol(bot), 8000);
+      }
+    }, 8000);
   }
 
   function startPatrol(bot) {
     const mcData = require('minecraft-data')(bot.version);
     const movements = new Movements(bot, mcData);
-    movements.maxDropDown = 10; // 🔽 Allow falling down 10 blocks
+    movements.maxDropDown = 10;
     movements.allowParkour = true;
     movements.canDig = false;
     bot.pathfinder.setMovements(movements);
@@ -165,35 +194,32 @@ function createBot() {
   }
 
   function startRoam(bot) {
-    const clickLoop = () => {
-      if (!reachedGlacite) return;
-      bot.setQuickBarSlot(0);
-      bot.activateItem();
-      setTimeout(clickLoop, 200); // Constant right-clicking
-    };
+    if (!clickLoopActive) {
+      clickLoopActive = true;
+      clickLoop(bot);
+    }
+    roam(bot);
+  }
 
-    const roam = () => {
-      if (!reachedGlacite) return;
-      const offsetX = Math.floor(Math.random() * botConfig.roamRadius * 2) - botConfig.roamRadius;
-      const offsetZ = Math.floor(Math.random() * botConfig.roamRadius * 2) - botConfig.roamRadius;
-      const target = botConfig.glaciteCenter.offset(offsetX, 0, offsetZ);
-      const y = bot.blockAt(target)?.position.y || botConfig.glaciteCenter.y;
+  function clickLoop(bot) {
+    if (!reachedGlacite || !bot.entity) return;
+    bot.setQuickBarSlot(0);
+    bot.activateItem();
+    setTimeout(() => clickLoop(bot), 200);
+  }
 
-      bot.pathfinder.setGoal(new GoalNear(target.x, y, target.z, 1));
-      roamTimer = setTimeout(roam, 5000 + Math.random() * 3000);
-    };
+  function roam(bot) {
+    if (!reachedGlacite) return;
 
-    // Reconnect on mention after 5s
-    bot.on('message', (jsonMsg) => {
-      const msg = jsonMsg.toString().toLowerCase();
-      if (reachedGlacite && msg.includes('drakontide')) {
-        console.log('📢 Mention detected. Disconnecting in 5s...');
-        setTimeout(() => bot.quit(), 5000);
-      }
-    });
+    const offsetX = Math.floor(Math.random() * botConfig.roamRadius * 2) - botConfig.roamRadius;
+    const offsetZ = Math.floor(Math.random() * botConfig.roamRadius * 2) - botConfig.roamRadius;
 
-    roam();
-    clickLoop();
+    const target = botConfig.glaciteCenter.offset(offsetX, 0, offsetZ);
+    const block = bot.blockAt(target);
+    const y = block ? block.position.y : botConfig.glaciteCenter.y;
+
+    bot.pathfinder.setGoal(new GoalNear(target.x, y, target.z, 1));
+    roamTimer = setTimeout(() => roam(bot), 5000 + Math.random() * 3000);
   }
 }
 
