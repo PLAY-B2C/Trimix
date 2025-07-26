@@ -3,6 +3,13 @@ const Vec3 = require('vec3');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const { GoalNear } = goals;
 
+// 🔇 Suppress deprecation warning for objectType
+const originalWarn = console.warn;
+console.warn = (msg, ...args) => {
+  if (typeof msg === 'string' && msg.includes('objectType is deprecated')) return;
+  originalWarn(msg, ...args);
+};
+
 const botConfig = {
   host: 'mc.fakepixel.fun',
   username: 'DrakonTide',
@@ -153,7 +160,7 @@ function createBot() {
       }
     };
 
-    // Start listening for chat mentions
+    // Chat mention triggers reconnect only after reaching Glacite
     bot.on('message', (jsonMsg) => {
       const msg = jsonMsg.toString().toLowerCase();
       if (reachedGlacite && msg.includes('drakontide')) {
