@@ -34,9 +34,7 @@ function createBot() {
   const bot = mineflayer.createBot({
     host: botConfig.host,
     username: botConfig.username,
-    version: botConfig.version,
-    keepAlive: true,
-    connectTimeout: 60000
+    version: botConfig.version
   });
 
   bot.loadPlugin(pathfinder);
@@ -127,6 +125,7 @@ function createBot() {
             startCombatLoop(bot);
             startRightClickLoop(bot);
             startIdleBehavior(bot);
+            startIdleHeadMovement(bot); // NEW!
           } else {
             patrolIndex++;
             setTimeout(moveToNext, 600);
@@ -166,22 +165,26 @@ function createBot() {
       const target = bot.nearestEntity(e => e.type === 'mob' && e.name && e.type !== 'player');
 
       if (target) {
-        if (wanderTimer) clearTimeout(wanderTimer);
-        bot.pathfinder.setGoal(null); // Stand still
+        const offsetX = Math.floor(Math.random() * 30) - 15;
+        const offsetZ = Math.floor(Math.random() * 30) - 15;
+        const moveTo = botConfig.glaciteCenter.offset(offsetX, 0, offsetZ);
+        const y = bot.blockAt(moveTo)?.position.y || botConfig.glaciteCenter.y;
+        bot.pathfinder.setGoal(new GoalNear(moveTo.x, y, moveTo.z, 1));
 
-        bot.lookAt(target.position.offset(0, target.height, 0), true, () => {
+        lookAtSmooth(bot, target.position.offset(0, target.height, 0), 400);
+        setTimeout(() => {
           if (bot.canSeeEntity(target)) {
             try {
               bot.setQuickBarSlot(0);
-              bot.attack(target); // Left-click
-              bot.activateItem(); // Right-click
+              bot.attack(target);
+              bot.activateItem();
             } catch (err) {
               console.log('⚠️ Attack failed:', err.message);
             }
           }
-        });
+        }, 450 + Math.random() * 200);
       }
-    }, 400);
+    }, 800);
   }
 
   function startIdleBehavior(bot) {
@@ -189,23 +192,59 @@ function createBot() {
       if (!reachedGlacite || bot.entity?.health <= 0) return;
 
       const target = bot.nearestEntity(e => e.type === 'mob' && e.name && e.type !== 'player');
-
       if (!target) {
         bot.pathfinder.setGoal(null); // Stand still
 
         const rand = Math.random();
         if (rand < 0.6) {
-          // Sneak (60% chance)
           bot.setControlState('sneak', true);
           setTimeout(() => bot.setControlState('sneak', false), 400 + Math.random() * 600);
         } else if (rand < 0.75) {
-          // Jump (15% chance)
           bot.setControlState('jump', true);
           setTimeout(() => bot.setControlState('jump', false), 300);
         }
-        // Else do nothing
       }
     }, 1500);
+  }
+
+  function startIdleHeadMovement(bot) {
+    setInterval(() => {
+      if (!reachedGlacite) return;
+      const target = bot.nearestEntity(e => e.type === 'mob' && e.name && e.type !== 'player');
+      if (!target && bot.entity?.health > 0) {
+        const yaw = bot.entity.yaw + (Math.random() - 0.5) * 0.6;
+        const pitch = bot.entity.pitch + (Math.random() - 0.5) * 0.4;
+        bot.look(yaw, pitch, false);
+      }
+    }, 1200);
+  }
+
+  async function lookAtSmooth(bot, targetPos, duration = 500) {
+    const yawStart = bot.entity.yaw;
+    const pitchStart = bot.entity.pitch;
+
+    const dx = targetPos.x - bot.entity.position.x;
+    const dy = targetPos.y - (bot.entity.position.y + bot.entity.height);
+    const dz = targetPos.z - bot.entity.position.z;
+
+    const yawEnd = Math.atan2(-dx, -dz);
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    const pitchEnd = Math.atan2(dy, dist);
+
+    const steps = Math.floor(duration / 50);
+    let step = 0;
+
+    const interval = setInterval(() => {
+      step++;
+      const t = step / steps;
+
+      const yaw = yawStart + (yawEnd - yawStart) * t;
+      const pitch = pitchStart + (pitchEnd - pitchStart) * t;
+
+      bot.look(yaw, pitch, false);
+
+      if (step >= steps) clearInterval(interval);
+    }, 50);
   }
 }
 
