@@ -3,10 +3,8 @@ const Vec3 = require('vec3');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const { GoalNear } = goals;
 
-const originalWarn = console.warn;
 console.warn = (msg, ...args) => {
   if (typeof msg === 'string' && msg.includes('objectType is deprecated')) return;
-  originalWarn(msg, ...args);
 };
 
 const botConfig = {
@@ -46,18 +44,15 @@ function createBot() {
   bot.loadPlugin(pathfinder);
 
   bot.once('spawn', () => {
-    console.log('✅ Spawned');
     patrolIndex = 0;
     reachedGlacite = false;
-
     setTimeout(() => {
       bot.chat(botConfig.loginCommand);
-      setTimeout(() => openTeleportGUI(bot), 1000); // Wait 1s after login
+      setTimeout(() => openTeleportGUI(bot), 1000);
     }, 2000);
   });
 
   bot.on('death', () => {
-    console.log('☠️ Bot died. Restarting patrol...');
     patrolIndex = 0;
     reachedGlacite = false;
     clearTimeout(roamTimer);
@@ -69,49 +64,40 @@ function createBot() {
   });
 
   bot.on('end', () => {
-    console.log('🔁 Disconnected. Reconnecting in 10s...');
     clearTimeout(roamTimer);
     clickLoopActive = false;
     setTimeout(createBot, 10000);
   });
 
-  bot.on('error', err => {
-    console.log('❌ Error:', err.message);
-  });
+  bot.on('error', err => {});
 
   bot.on('message', (jsonMsg) => {
     const msg = jsonMsg.toString().toLowerCase();
-    console.log('📩 Chat:', msg);
-
     if (reachedGlacite && msg.includes('drakontide')) {
-      console.log('📢 Name mentioned! Disconnecting in 5s...');
-      setTimeout(() => bot.quit(), 5000);
+      reachedGlacite = false;
+      patrolIndex = 0;
+      clearTimeout(roamTimer);
+      clickLoopActive = false;
+      setTimeout(() => startPatrol(bot), 2000);
     }
   });
 
   function openTeleportGUI(bot) {
     bot.setQuickBarSlot(0);
-    bot.activateItem(); // Right-click with slot 0
+    bot.activateItem();
 
     bot.once('windowOpen', async (window) => {
       try {
-        await bot.waitForTicks(10);
+        await bot.waitForTicks(20);
         const slot = window.slots[20];
         if (slot && slot.name !== 'air') {
-          await bot.clickWindow(20, 0, 1); // Shift-click slot 20
-          console.log('🎯 Shift-clicked slot 20.');
-
+          await bot.clickWindow(20, 0, 1);
           setTimeout(() => {
-            bot.chat(botConfig.warpCommand); // /warp dwarven
-            console.log('🚀 Warping to dwarven...');
+            bot.chat(botConfig.warpCommand);
             setTimeout(() => startPatrol(bot), 8000);
-          }, 1000); // Wait 1s after shift-click
-        } else {
-          console.log('⚠️ Slot 20 empty or not found.');
+          }, 1000);
         }
-      } catch (err) {
-        console.log('❌ GUI click error:', err.message);
-      }
+      } catch (err) {}
     });
   }
 
@@ -141,10 +127,8 @@ function createBot() {
         if (distXZ < 2) {
           clearInterval(interval);
           retryCount = 0;
-          console.log(`📍 Reached waypoint ${patrolIndex}`);
           if (patrolIndex === botConfig.waypoints.length - 1) {
             reachedGlacite = true;
-            console.log('🌟 Reached Glacite. Starting roam mode...');
             startRoam(bot);
           } else {
             patrolIndex++;
@@ -154,10 +138,8 @@ function createBot() {
           clearInterval(interval);
           retryCount++;
           if (retryCount <= maxRetries) {
-            console.log(`🔁 Retry ${retryCount}/${maxRetries} for waypoint ${patrolIndex}`);
             setTimeout(moveToNext, 800);
           } else {
-            console.log(`⚠️ Stuck at waypoint ${patrolIndex}. Skipping to next nearest.`);
             patrolIndex = getNextNearestWaypointIndex(patrolIndex + 1);
             retryCount = 0;
             setTimeout(moveToNext, 800);
@@ -201,6 +183,7 @@ function createBot() {
 
   function roam(bot) {
     if (!reachedGlacite) return;
+    if (roamTimer) clearTimeout(roamTimer);
 
     const offsetX = Math.floor(Math.random() * botConfig.roamRadius * 2) - botConfig.roamRadius;
     const offsetZ = Math.floor(Math.random() * botConfig.roamRadius * 2) - botConfig.roamRadius;
