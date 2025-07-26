@@ -18,6 +18,7 @@ const botConfig = {
     new Vec3(-53, 165, -40),
     new Vec3(-54, 168, -23),
     new Vec3(-53, 147, -12),
+    new Vec3(-43, 135, 19),
     new Vec3(-7, 128, -59),
     new Vec3(0, 128, 160)
   ]
