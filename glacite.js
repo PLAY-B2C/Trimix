@@ -3,6 +3,13 @@ const Vec3 = require('vec3');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const { GoalNear } = goals;
 
+// 🔇 Suppress deprecation warning for objectType
+const originalWarn = console.warn;
+console.warn = (msg, ...args) => {
+  if (typeof msg === 'string' && msg.includes('objectType is deprecated')) return;
+  originalWarn(msg, ...args);
+};
+
 const botConfig = {
   host: 'mc.fakepixel.fun',
   username: 'DrakonTide',
@@ -41,21 +48,6 @@ function createBot() {
   bot.once('spawn', () => {
     console.log('✅ Spawned');
     patrolIndex = 0;
-
-    // 🔁 Keep the connection alive indefinitely
-    setInterval(() => {
-      try {
-        if (bot._client?.state === 'play') {
-          bot._client.write('keep_alive', {
-            keepAliveId: BigInt(Date.now())
-          });
-        }
-      } catch (err) {
-        console.warn('⚠️ Failed to send keep-alive:', err.message);
-      }
-    }, 10000);
-
-    // Login + GUI warp
     setTimeout(() => {
       bot.chat(botConfig.loginCommand);
       setTimeout(() => openTeleportGUI(bot), 2000);
@@ -79,13 +71,7 @@ function createBot() {
   });
 
   bot.on('error', err => {
-    if (err.message.includes('timed out')) {
-      console.log('⚠️ Timeout detected. Reconnecting in 5s...');
-      bot.quit();
-      setTimeout(createBot, 5000);
-    } else {
-      console.log('❌ Error:', err.message);
-    }
+    console.log('❌ Error:', err.message);
   });
 
   function openTeleportGUI(bot) {
@@ -112,10 +98,13 @@ function createBot() {
   function startPatrol(bot) {
     const mcData = require('minecraft-data')(bot.version);
     const movements = new Movements(bot, mcData);
-    movements.maxDropDown = 10;
+    movements.maxDropDown = 10; // 🔽 Allow falling down 10 blocks
     movements.allowParkour = true;
     movements.canDig = false;
     bot.pathfinder.setMovements(movements);
+
+    let retryCount = 0;
+    const maxRetries = 3;
 
     function moveToNext() {
       if (patrolIndex >= botConfig.waypoints.length)
@@ -131,6 +120,7 @@ function createBot() {
         );
         if (distXZ < 2) {
           clearInterval(interval);
+          retryCount = 0;
           console.log(`📍 Reached waypoint ${patrolIndex}`);
           if (patrolIndex === botConfig.waypoints.length - 1) {
             reachedGlacite = true;
@@ -142,9 +132,16 @@ function createBot() {
           }
         } else if (!bot.pathfinder.isMoving()) {
           clearInterval(interval);
-          console.log(`⚠️ Stuck at waypoint ${patrolIndex}. Finding next nearest...`);
-          patrolIndex = getNextNearestWaypointIndex(patrolIndex + 1);
-          setTimeout(moveToNext, 800);
+          retryCount++;
+          if (retryCount <= maxRetries) {
+            console.log(`🔁 Retry ${retryCount}/${maxRetries} for waypoint ${patrolIndex}`);
+            setTimeout(moveToNext, 800);
+          } else {
+            console.log(`⚠️ Stuck at waypoint ${patrolIndex}. Finding next nearest...`);
+            patrolIndex = getNextNearestWaypointIndex(patrolIndex + 1);
+            retryCount = 0;
+            setTimeout(moveToNext, 800);
+          }
         }
       }, 500);
     }
@@ -172,7 +169,7 @@ function createBot() {
       if (!reachedGlacite) return;
       bot.setQuickBarSlot(0);
       bot.activateItem();
-      setTimeout(clickLoop, 200);
+      setTimeout(clickLoop, 200); // Constant right-clicking
     };
 
     const roam = () => {
@@ -185,6 +182,15 @@ function createBot() {
       bot.pathfinder.setGoal(new GoalNear(target.x, y, target.z, 1));
       roamTimer = setTimeout(roam, 5000 + Math.random() * 3000);
     };
+
+    // Reconnect on mention after 5s
+    bot.on('message', (jsonMsg) => {
+      const msg = jsonMsg.toString().toLowerCase();
+      if (reachedGlacite && msg.includes('drakontide')) {
+        console.log('📢 Mention detected. Disconnecting in 5s...');
+        setTimeout(() => bot.quit(), 5000);
+      }
+    });
 
     roam();
     clickLoop();
