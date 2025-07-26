@@ -28,6 +28,8 @@ const botConfig = {
 let patrolIndex = 0;
 let reachedGlacite = false;
 let roamTimer = null;
+let clickLoopInterval = null;
+let isRightClicking = true;
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -46,11 +48,20 @@ function createBot() {
     }, 2000);
   });
 
+  bot.on('chat', (username, message) => {
+    if (username !== bot.username && message.toLowerCase().includes('drakontide')) {
+      console.log('🔌 Mentioned in chat! Reconnecting...');
+      bot.quit();
+      setTimeout(createBot, 5000);
+    }
+  });
+
   bot.on('death', () => {
     console.log('☠️ Bot died. Restarting patrol...');
     patrolIndex = 0;
     reachedGlacite = false;
     clearTimeout(roamTimer);
+    clearInterval(clickLoopInterval);
     setTimeout(() => {
       bot.chat(botConfig.warpCommand);
       setTimeout(() => startPatrol(bot), 8000);
@@ -64,6 +75,24 @@ function createBot() {
 
   bot.on('error', err => {
     console.log('❌ Error:', err.message);
+  });
+
+  // Monitor nearby players
+  bot.on('physicsTick', () => {
+    if (!reachedGlacite) return;
+    const nearbyPlayer = bot.nearestEntity(entity =>
+      entity.type === 'player' &&
+      entity.username !== bot.username &&
+      bot.entity.position.distanceTo(entity.position) <= 10
+    );
+
+    if (nearbyPlayer && isRightClicking) {
+      console.log('👥 Player nearby, pausing right-click');
+      isRightClicking = false;
+    } else if (!nearbyPlayer && !isRightClicking) {
+      console.log('✅ Player left, resuming right-click');
+      isRightClicking = true;
+    }
   });
 }
 
@@ -144,17 +173,15 @@ function startRoam(bot) {
     roamTimer = setTimeout(roam, 5000 + Math.random() * 3000);
   };
 
-  // Continuous right-click spam loop
-  const clickLoop = () => {
-    if (reachedGlacite) {
+  // Start right-click spam loop
+  clickLoopInterval = setInterval(() => {
+    if (reachedGlacite && isRightClicking) {
       bot.setQuickBarSlot(0);
       bot.activateItem();
-      setTimeout(clickLoop, 200); // Adjust delay as needed
     }
-  };
+  }, 200);
 
   roam();
-  clickLoop();
 }
 
 createBot();
