@@ -13,6 +13,9 @@ const glaciteCenter = new Vec3(0, 128, 160);
 const initialWaypoints = [
   new Vec3(66, 200, -104),
   new Vec3(140, 187, 14),
+  new Vec3(110, 154, 42),
+  new Vec3(63, 133, 33),
+  new Vec3(6, 128, 55),
   glaciteCenter
 ];
 const targetMobNames = ['Glacite', 'Glacite Protector'];
