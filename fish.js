@@ -15,45 +15,50 @@ function createBot() {
     console.log('✅ Bot spawned');
     bot.chat('/login 3043AA');
 
+    // Wait 4 seconds, then right-click with hotbar slot 0
     setTimeout(() => {
       bot.setQuickBarSlot(0);
       bot.activateItem();
     }, 4000);
+  });
 
-    bot.once('windowOpen', async (window) => {
-      await bot.waitForTicks(30);
-      const slotIndex = 20;
-      const slot = window.slots[slotIndex];
-      if (slot && slot.name !== 'air') {
-        try {
-          await bot.clickWindow(slotIndex, 0, 1);
-          console.log('🎯 Shift-clicked teleport item.');
-        } catch (err) {
-          console.log('❌ GUI click error:', err.message);
-        }
+  bot.once('windowOpen', async (window) => {
+    await bot.waitForTicks(30);
 
-    // Step 4: Wait 1 second
-    setTimeout(async () => {
-      bot.chat('/warp crimson');
-      console.log('🌋 Warping to crimson...');
-      await bot.waitForTicks(40);
+    const slotIndex = 20;
+    const slot = window.slots[slotIndex];
 
-      const mcData = require('minecraft-data')(bot.version);
-      const movements = new Movements(bot, mcData);
-      bot.pathfinder.setMovements(movements);
+    if (slot && slot.name !== 'air') {
+      try {
+        await bot.clickWindow(slotIndex, 0, 1); // shift-click
+        console.log('🎯 Shift-clicked teleport item.');
+      } catch (err) {
+        console.log('❌ GUI click error:', err.message);
+      }
 
-      // Step 5: Go to first lava block
-      await moveAndUse(bot, new Vec3(-139, 12, Math.floor(bot.entity.position.z)));
+      // Step 4: Wait 1 second
+      setTimeout(async () => {
+        bot.chat('/warp crimson');
+        console.log('🌋 Warping to crimson...');
+        await bot.waitForTicks(40); // ~2s
 
-      // Step 6: Go to second lava block
-      await moveAndUse(bot, new Vec3(-158, 36, Math.floor(bot.entity.position.z)));
+        const mcData = require('minecraft-data')(bot.version);
+        const movements = new Movements(bot, mcData);
+        bot.pathfinder.setMovements(movements);
 
-      // Step 7: Equip fishing rod and start fishing
-      bot.setQuickBarSlot(2); // hotbar index 2 = 3rd slot
-      console.log('🎣 Equipped fishing rod');
-      await bot.waitForTicks(10);
-      startFishing(bot);
-    }, 1000);
+        // Step 5: Go to first lava block
+        await moveAndUse(bot, new Vec3(-139, 12, Math.floor(bot.entity.position.z)));
+
+        // Step 6: Go to second lava block
+        await moveAndUse(bot, new Vec3(-158, 36, Math.floor(bot.entity.position.z)));
+
+        // Step 7: Equip fishing rod and start fishing
+        bot.setQuickBarSlot(2); // hotbar index 2 = 3rd slot
+        console.log('🎣 Equipped fishing rod');
+        await bot.waitForTicks(10);
+        startFishing(bot);
+      }, 1000);
+    }
   });
 
   bot.on('error', (err) => console.log('❌ Bot error:', err.message));
