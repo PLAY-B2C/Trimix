@@ -28,21 +28,18 @@ let patrolIndex = 0;
 let reachedGlacite = false;
 let wanderTimer = null;
 let combatTimer = null;
-let rightClickTimer = null;
 
 function createBot() {
   const bot = mineflayer.createBot({
     host: botConfig.host,
     username: botConfig.username,
-    version: botConfig.version,
-    keepAlive: true,
-    connectTimeout: 60000
+    version: botConfig.version
   });
 
   bot.loadPlugin(pathfinder);
 
   bot.once('spawn', () => {
-    console.log('✅ Spawned. Logging in...');
+    console.log('✅ Spawned');
     setTimeout(() => {
       bot.chat(botConfig.loginCommand);
       setTimeout(() => openTeleportGUI(bot), 2000);
@@ -92,11 +89,14 @@ function openTeleportGUI(bot) {
   });
 }
 
+function isValidMob(e) {
+  return e.type === 'mob' && e.name?.toLowerCase() !== 'bat' && e.type !== 'player';
+}
+
 function startPatrol(bot) {
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
 
-  // ✅ Apply Jump Boost IV logic
   movements.maxJumpHeight = 2.5;
   movements.allowParkour = true;
   movements.canDig = false;
@@ -106,13 +106,11 @@ function startPatrol(bot) {
   bot.pathfinder.setMovements(movements);
 
   function moveToNext() {
-    if (patrolIndex >= botConfig.waypoints.length) {
-      patrolIndex = botConfig.waypoints.length - 1;
-    }
+    if (patrolIndex >= botConfig.waypoints.length) patrolIndex = botConfig.waypoints.length - 1;
 
     const target = botConfig.waypoints[patrolIndex];
 
-    // 🚀 Force move regardless of air below (bot is immune to fall damage)
+    // Force move even if target is in the air
     bot.pathfinder.setGoal(new GoalNear(target.x, target.y - 3, target.z, 1));
 
     const interval = setInterval(() => {
@@ -128,7 +126,6 @@ function startPatrol(bot) {
           reachedGlacite = true;
           console.log('🌟 Reached Glacite. Engaging...');
           startRandomWander(bot);
-          startRightClickLoop(bot);
           startCombatLoop(bot);
         } else {
           patrolIndex++;
@@ -152,9 +149,7 @@ function startRandomWander(bot) {
   const wander = () => {
     if (!reachedGlacite) return;
 
-    const mobsNearby = bot.nearestEntity(e =>
-      e.type === 'mob' && e.name !== 'bat' && e.type !== 'player'
-    );
+    const mobsNearby = bot.nearestEntity(isValidMob);
     if (mobsNearby) return;
 
     const offsetX = Math.floor(Math.random() * 25) - 12;
@@ -169,48 +164,26 @@ function startRandomWander(bot) {
   wander();
 }
 
-function startRightClickLoop(bot) {
-  if (rightClickTimer) clearInterval(rightClickTimer);
-
-  rightClickTimer = setInterval(() => {
-    if (reachedGlacite && bot.entity?.health > 0) {
-      const mobsNearby = bot.nearestEntity(e =>
-        e.type === 'mob' && e.name !== 'bat' && e.type !== 'player'
-      );
-      if (mobsNearby) {
-        try {
-          bot.setQuickBarSlot(0);
-          bot.activateItem();
-        } catch (err) {
-          console.log('⚠️ Right click failed:', err.message);
-        }
-      }
-    }
-  }, 300);
-}
-
 function startCombatLoop(bot) {
   if (combatTimer) clearInterval(combatTimer);
 
   combatTimer = setInterval(() => {
     if (!reachedGlacite || bot.entity?.health <= 0) return;
 
-    const target = bot.nearestEntity(e =>
-      e.type === 'mob' && e.name !== 'bat' && e.type !== 'player'
-    );
+    const target = bot.nearestEntity(isValidMob);
 
     if (target) {
       if (wanderTimer) clearTimeout(wanderTimer);
       bot.pathfinder.setGoal(null);
 
-      bot.lookAt(target.position.offset(0, target.height, 0), true, () => {
+      bot.lookAt(target.position.offset(0, target.height / 2, 0), true, async () => {
         if (bot.canSeeEntity(target)) {
           try {
             bot.setQuickBarSlot(0);
-            bot.attack(target);
-            bot.activateItem();
+            bot.attack(target);       // left click
+            bot.activateItem();       // right click
           } catch (err) {
-            console.log('⚠️ Attack failed:', err.message);
+            console.log('⚠️ Attack error:', err.message);
           }
         }
       });
@@ -218,7 +191,7 @@ function startCombatLoop(bot) {
       bot.pathfinder.setGoal(null);
       startRandomWander(bot);
     }
-  }, 400);
+  }, 300); // Fast spam
 }
 
 createBot();
