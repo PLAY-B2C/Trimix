@@ -44,36 +44,49 @@ function createBot() {
   bot.loadPlugin(pathfinder);
 
   bot.once('spawn', () => {
+    console.log('✅ Bot spawned.');
     patrolIndex = 0;
     reachedGlacite = false;
+
     setTimeout(() => {
       bot.chat(botConfig.loginCommand);
+      console.log('🔐 Sent login command.');
       setTimeout(() => openTeleportGUI(bot), 1000);
     }, 2000);
   });
 
   bot.on('death', () => {
+    console.log('💀 Bot died. Restarting...');
     patrolIndex = 0;
     reachedGlacite = false;
     clearTimeout(roamTimer);
     clickLoopActive = false;
     setTimeout(() => {
       bot.chat(botConfig.warpCommand);
+      console.log('🌀 Sent warp command after death.');
       setTimeout(() => startPatrol(bot), 8000);
     }, 2000);
   });
 
   bot.on('end', () => {
+    console.log('🔌 Bot disconnected. Reconnecting in 10s...');
     clearTimeout(roamTimer);
     clickLoopActive = false;
     setTimeout(createBot, 10000);
   });
 
-  bot.on('error', err => {});
+  bot.on('error', err => {
+    console.log('❌ Error:', err.message);
+  });
 
   bot.on('message', (jsonMsg) => {
-    const msg = jsonMsg.toString().toLowerCase();
-    if (reachedGlacite && msg.includes('drakontide')) {
+    const msg = jsonMsg.toString();
+    if (msg.startsWith("[")) {
+      console.log('💬 Chat log:', msg);
+    }
+
+    if (reachedGlacite && msg.toLowerCase().includes('drakontide')) {
+      console.log('📢 Name mentioned in chat. Restarting patrol...');
       reachedGlacite = false;
       patrolIndex = 0;
       clearTimeout(roamTimer);
@@ -85,6 +98,7 @@ function createBot() {
   function openTeleportGUI(bot) {
     bot.setQuickBarSlot(0);
     bot.activateItem();
+    console.log('🎯 Right-clicked slot 0 to open GUI.');
 
     bot.once('windowOpen', async (window) => {
       try {
@@ -92,12 +106,18 @@ function createBot() {
         const slot = window.slots[20];
         if (slot && slot.name !== 'air') {
           await bot.clickWindow(20, 0, 1);
+          console.log('📦 Shift-clicked slot 20.');
           setTimeout(() => {
             bot.chat(botConfig.warpCommand);
+            console.log('🛫 Sent warp command to dwarven.');
             setTimeout(() => startPatrol(bot), 8000);
-          }, 1000);
+          }, 2000); // ⏱️ Wait 2 seconds after shift-click
+        } else {
+          console.log('⚠️ Slot 20 was empty or missing.');
         }
-      } catch (err) {}
+      } catch (err) {
+        console.log('❌ GUI click error:', err.message);
+      }
     });
   }
 
@@ -108,6 +128,7 @@ function createBot() {
     movements.allowParkour = true;
     movements.canDig = false;
     bot.pathfinder.setMovements(movements);
+    console.log('🚶 Starting patrol...');
 
     let retryCount = 0;
     const maxRetries = 3;
@@ -127,8 +148,10 @@ function createBot() {
         if (distXZ < 2) {
           clearInterval(interval);
           retryCount = 0;
+          console.log(`📍 Reached waypoint ${patrolIndex}`);
           if (patrolIndex === botConfig.waypoints.length - 1) {
             reachedGlacite = true;
+            console.log('🏁 Reached Glacite. Entering roam mode...');
             startRoam(bot);
           } else {
             patrolIndex++;
@@ -138,8 +161,10 @@ function createBot() {
           clearInterval(interval);
           retryCount++;
           if (retryCount <= maxRetries) {
+            console.log(`🔁 Retry ${retryCount}/${maxRetries} for waypoint ${patrolIndex}`);
             setTimeout(moveToNext, 800);
           } else {
+            console.log(`⚠️ Stuck. Skipping to nearest from index ${patrolIndex + 1}`);
             patrolIndex = getNextNearestWaypointIndex(patrolIndex + 1);
             retryCount = 0;
             setTimeout(moveToNext, 800);
