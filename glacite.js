@@ -167,21 +167,9 @@ function createBot() {
   function startRoam(bot) {
     const clickLoop = () => {
       if (!reachedGlacite) return;
-
-      const nearbyPlayer = Object.values(bot.players).find(p => {
-        if (!p.entity) return false;
-        return p.entity.position.distanceTo(bot.entity.position) <= 6;
-      });
-
-      if (nearbyPlayer) {
-        console.log('⛔ Player nearby. Pausing right-click...');
-        setTimeout(clickLoop, 1000);
-        return;
-      }
-
       bot.setQuickBarSlot(0);
       bot.activateItem();
-      setTimeout(clickLoop, 200);
+      setTimeout(clickLoop, 200); // Constant right-clicking
     };
 
     const roam = () => {
@@ -195,7 +183,7 @@ function createBot() {
       roamTimer = setTimeout(roam, 5000 + Math.random() * 3000);
     };
 
-    // Reconnect on mention in 5 seconds
+    // Reconnect on mention after 5s
     bot.on('message', (jsonMsg) => {
       const msg = jsonMsg.toString().toLowerCase();
       if (reachedGlacite && msg.includes('drakontide')) {
