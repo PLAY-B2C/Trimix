@@ -97,6 +97,7 @@ function startPatrol(bot) {
   const movements = new Movements(bot, mcData);
   movements.allowParkour = true;
   movements.canDig = false;
+  movements.allow1by1towers = true;
   movements.scafoldingBlocks = [];
   bot.pathfinder.setMovements(movements);
 
@@ -124,7 +125,7 @@ function startPatrol(bot) {
           setTimeout(moveToNext, 600);
         }
       } else if (!bot.pathfinder.isMoving()) {
-        console.log(`⚠️ Stuck at waypoint ${patrolIndex}, skipping...`);
+        console.log(`⚠️ Stuck or not moving at waypoint ${patrolIndex}, forcing next...`);
         clearInterval(interval);
         patrolIndex++;
         setTimeout(moveToNext, 600);
