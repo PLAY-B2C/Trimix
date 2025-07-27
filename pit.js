@@ -15,10 +15,10 @@ bot.once('spawn', () => {
       bot.activateItem();
       bot.once('windowOpen', async (window) => {
         try {
-          await bot.waitForTicks(40);
+          await bot.waitForTicks(40); // wait longer for items to load
           const slot = window.slots[22];
           if (slot && slot.name !== 'air') {
-            await bot.clickWindow(22, 0, 1);
+            await bot.clickWindow(22, 0, 1); // shift-click
             console.log('🖱️ Shift-clicked slot 22');
           } else {
             console.log('⚠️ Slot 22 is empty or not ready');
@@ -64,11 +64,21 @@ function startCombat() {
 
     const player = bot.nearestEntity(e => e.type === 'player' && e.username !== bot.username);
     if (player) {
+      const dist = bot.entity.position.distanceTo(player.position);
       bot.lookAt(player.position.offset(0, player.height, 0));
-      bot.attack(player);
-      console.log(`⚔️ Attacking player: ${player.username}`);
+
+      if (dist > 3) {
+        bot.setControlState('forward', true);
+        console.log(`🏃 Running toward ${player.username} (dist: ${dist.toFixed(1)})`);
+      } else {
+        bot.setControlState('forward', true); // keep moving while fighting
+        bot.attack(player);
+        console.log(`⚔️ Attacking player: ${player.username}`);
+      }
+    } else {
+      bot.setControlState('forward', false);
     }
-  }, 1000); // check every second
+  }, 500);
 }
 
 bot.on('error', err => console.log('❌ Error:', err.message));
