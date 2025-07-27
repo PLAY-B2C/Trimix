@@ -11,8 +11,8 @@ const bot = mineflayer.createBot({
 bot.loadPlugin(pathfinder);
 
 let combatEnabled = false;
-let walkingHighY = false;
-let forwardInterval = null;
+let inRunMode = false;
+let lastAttackTime = Date.now();
 
 bot.once('spawn', () => {
   console.log('✅ Spawned');
@@ -44,7 +44,8 @@ bot.once('spawn', () => {
 
         setTimeout(() => {
           combatEnabled = true;
-          startCombat();
+          startModes();
+          monitorInactivity();
         }, 2000);
       });
     }, 1000);
@@ -52,9 +53,9 @@ bot.once('spawn', () => {
 });
 
 bot.on('death', () => {
-  console.log('☠️ Died. Restarting logic...');
+  console.log('☠️ Died. Waiting 5 seconds then resuming...');
   combatEnabled = false;
-  stopWalkingForward();
+  stopWalking();
   setTimeout(() => {
     combatEnabled = true;
   }, 5000);
@@ -65,26 +66,27 @@ bot.on('end', () => {
   setTimeout(() => require('child_process').fork(__filename), 10000);
 });
 
-function startCombat() {
+function startModes() {
   setInterval(() => {
-    const y = bot.entity.position.y;
-
     if (!combatEnabled) return;
 
+    const y = bot.entity.position.y;
+
+    // Run Mode
     if (y >= 85) {
-      if (!walkingHighY) {
-        console.log(`🚫 Y=${y.toFixed(1)} ≥ 85. Walking forward...`);
-        walkingHighY = true;
-        startWalkingForward();
+      if (!inRunMode) {
+        console.log(`🏃 Switched to RUN MODE (Y=${y.toFixed(1)} ≥ 85)`);
+        inRunMode = true;
+        startWalking();
       }
       return;
     }
 
-    // If Y < 85, stop forward walking
-    if (walkingHighY) {
-      console.log(`✅ Y=${y.toFixed(1)} < 85. Resuming combat.`);
-      walkingHighY = false;
-      stopWalkingForward();
+    // Attack Mode
+    if (inRunMode) {
+      console.log(`⚔️ Switched to ATTACK MODE (Y=${y.toFixed(1)} < 85)`);
+      inRunMode = false;
+      stopWalking();
     }
 
     const player = bot.nearestEntity(e => e.type === 'player' && e.username !== bot.username);
@@ -94,10 +96,11 @@ function startCombat() {
 
       if (dist > 3) {
         bot.pathfinder.setGoal(new GoalNear(player.position.x, player.position.y, player.position.z, 1));
-        console.log(`🏃 Chasing player: ${player.username} (dist: ${dist.toFixed(1)})`);
+        console.log(`🚶 Chasing player: ${player.username} (dist: ${dist.toFixed(1)})`);
       } else {
         bot.pathfinder.setGoal(null);
         bot.attack(player);
+        lastAttackTime = Date.now();
         console.log(`⚔️ Attacking player: ${player.username}`);
       }
     } else {
@@ -106,11 +109,22 @@ function startCombat() {
   }, 1000);
 }
 
-function startWalkingForward() {
+function monitorInactivity() {
+  setInterval(() => {
+    const now = Date.now();
+    if (now - lastAttackTime >= 60 * 1000) {
+      console.log('⌛ No combat for 60s. Typing /respawn');
+      bot.chat('/respawn');
+      lastAttackTime = now;
+    }
+  }, 5000); // Check every 5 seconds
+}
+
+function startWalking() {
   bot.setControlState('forward', true);
 }
 
-function stopWalkingForward() {
+function stopWalking() {
   bot.setControlState('forward', false);
 }
 
