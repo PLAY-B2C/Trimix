@@ -50,9 +50,13 @@ bot.on('physicTick', () => {
       mode = 'attack';
     }
 
-    const target = bot.nearestEntity(
-      e => e.type === 'player' && e.username !== bot.username
-    );
+    const target = bot.nearestEntity(e => {
+      return (
+        e.type === 'player' &&
+        e.username !== bot.username &&
+        e.position.y - bot.entity.position.y <= 10 // Player must not be >10 blocks above
+      );
+    });
 
     if (target) {
       bot.lookAt(target.position.offset(0, target.height, 0), true);
