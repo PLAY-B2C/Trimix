@@ -15,10 +15,10 @@ bot.once('spawn', () => {
       bot.activateItem();
       bot.once('windowOpen', async (window) => {
         try {
-          await bot.waitForTicks(40); // wait longer for items to load
+          await bot.waitForTicks(40);
           const slot = window.slots[22];
           if (slot && slot.name !== 'air') {
-            await bot.clickWindow(22, 0, 1); // shift-click
+            await bot.clickWindow(22, 0, 1);
             console.log('🖱️ Shift-clicked slot 22');
           } else {
             console.log('⚠️ Slot 22 is empty or not ready');
@@ -46,7 +46,7 @@ bot.on('end', () => {
   setTimeout(() => require('child_process').fork(__filename), 10000);
 });
 
-function walkForward(duration = 5000) {
+function walkForward(duration = 6000) {
   bot.setControlState('forward', true);
   setTimeout(() => {
     bot.setControlState('forward', false);
@@ -55,13 +55,20 @@ function walkForward(duration = 5000) {
 
 function startCombat() {
   setInterval(() => {
+    const y = bot.entity.position.y;
+    if (y >= 85) {
+      console.log(`🚫 Y=${y.toFixed(1)} ≥ 85. Skipping combat, walking forward...`);
+      walkForward(6000);
+      return;
+    }
+
     const player = bot.nearestEntity(e => e.type === 'player' && e.username !== bot.username);
     if (player) {
       bot.lookAt(player.position.offset(0, player.height, 0));
       bot.attack(player);
       console.log(`⚔️ Attacking player: ${player.username}`);
     }
-  }, 500);
+  }, 1000); // check every second
 }
 
 bot.on('error', err => console.log('❌ Error:', err.message));
