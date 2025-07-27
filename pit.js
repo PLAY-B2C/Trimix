@@ -8,7 +8,7 @@ const bot = mineflayer.createBot({
 });
 
 let lastAttackTime = Date.now();
-let lastPosition = null;
+let mode = 'run';
 
 bot.once('spawn', () => {
   console.log('✅ Spawned');
@@ -22,7 +22,7 @@ bot.once('spawn', () => {
           await bot.waitForTicks(40);
           const slot = window.slots[22];
           if (slot && slot.name !== 'air') {
-            await bot.clickWindow(22, 0, 1);
+            await bot.clickWindow(22, 0, 1); // shift-click
             console.log('🖱️ Shift-clicked slot 22');
           } else {
             console.log('⚠️ Slot 22 is empty or not ready');
@@ -30,62 +30,63 @@ bot.once('spawn', () => {
         } catch (err) {
           console.log('❌ GUI click error:', err.message);
         }
-
-        setTimeout(() => {
-          monitorAndAct();
-          setInterval(checkStuck, 5000);
-          setInterval(checkRespawnTimeout, 10000);
-        }, 2000);
       });
     }, 1000);
   }, 2000);
 });
 
-function monitorAndAct() {
-  setInterval(() => {
-    const pos = bot.entity.position;
+bot.on('physicTick', () => {
+  const y = bot.entity.position.y;
 
-    // Run mode (Y >= 85): Go to 0, 84, 0
-    if (pos.y >= 85) {
+  if (y >= 85) {
+    if (mode !== 'run') {
+      console.log('🚶 Switched to run mode');
+      mode = 'run';
+    }
+    runTo(new Vec3(0, 84, 0));
+  } else {
+    if (mode !== 'attack') {
+      console.log('⚔️ Switched to attack mode');
+      mode = 'attack';
+    }
+
+    const target = bot.nearestEntity(
+      e => e.type === 'player' && e.username !== bot.username
+    );
+
+    if (target) {
+      bot.lookAt(target.position.offset(0, target.height, 0), true);
       bot.setControlState('forward', true);
-      const targetVec = new Vec3(0, pos.y, 0);
-      bot.lookAt(targetVec);
-      bot.setControlState('jump', false);
-      return;
-    }
-
-    // Attack mode (Y < 85)
-    const target = bot.nearestEntity(e => e.type === 'player' && e.username !== bot.username);
-    if (target && (bot.entity.onGround || bot.entity.velocity.y <= 0.01)) {
-      bot.lookAt(target.position.offset(0, target.height, 0));
+      bot.setControlState('sprint', true);
+      bot.setControlState('jump', true);
       bot.attack(target);
-      console.log(`⚔️ Attacking player: ${target.username}`);
       lastAttackTime = Date.now();
+      console.log(`⚔️ Attacking ${target.username}`);
+    } else {
+      bot.clearControlStates();
     }
-
-  }, 500);
-}
-
-function checkRespawnTimeout() {
-  if (Date.now() - lastAttackTime > 60000) {
-    console.log('⌛ No attack for 60s. Respawning...');
-    bot.chat('/respawn');
-    lastAttackTime = Date.now();
   }
+});
+
+function runTo(pos) {
+  const dir = pos.minus(bot.entity.position).normalize();
+  const yaw = Math.atan2(-dir.x, -dir.z);
+  bot.look(yaw, 0, true);
+
+  bot.setControlState('forward', true);
+  bot.setControlState('sprint', true);
+  bot.setControlState('jump', true);
 }
 
-function checkStuck() {
-  const pos = bot.entity.position;
-  if (lastPosition && pos.distanceTo(lastPosition) < 0.05) {
-    console.log('⚠️ Bot seems stuck. Respawning...');
+setInterval(() => {
+  if (mode === 'attack' && Date.now() - lastAttackTime > 60000) {
+    console.log('⌛ No attack for 1 min, typing /respawn');
     bot.chat('/respawn');
   }
-  lastPosition = pos.clone();
-}
+}, 10000);
 
 bot.on('death', () => {
-  console.log('☠️ Died. Waiting to resume...');
-  setTimeout(monitorAndAct, 3000);
+  console.log('☠️ Bot died. Waiting to respawn...');
 });
 
 bot.on('end', () => {
@@ -93,6 +94,4 @@ bot.on('end', () => {
   setTimeout(() => require('child_process').fork(__filename), 10000);
 });
 
-bot.on('error', err => {
-  console.log('❌ Error:', err.message);
-});
+bot.on('error', err => console.log('❌ Error:', err.message));
