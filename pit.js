@@ -15,11 +15,13 @@ bot.once('spawn', () => {
       bot.activateItem();
       bot.once('windowOpen', async (window) => {
         try {
-          await bot.waitForTicks(20);
+          await bot.waitForTicks(40); // wait longer for items to load
           const slot = window.slots[22];
           if (slot && slot.name !== 'air') {
             await bot.clickWindow(22, 0, 1); // shift-click
             console.log('🖱️ Shift-clicked slot 22');
+          } else {
+            console.log('⚠️ Slot 22 is empty or not ready');
           }
         } catch (err) {
           console.log('❌ GUI click error:', err.message);
@@ -54,7 +56,7 @@ function walkForward(duration = 5000) {
 function startCombat() {
   setInterval(() => {
     const player = bot.nearestEntity(e => e.type === 'player' && e.username !== bot.username);
-    if (player && bot.canSeeEntity(player)) {
+    if (player) {
       bot.lookAt(player.position.offset(0, player.height, 0));
       bot.attack(player);
       console.log(`⚔️ Attacking player: ${player.username}`);
