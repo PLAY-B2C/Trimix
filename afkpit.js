@@ -8,6 +8,7 @@ const bot = mineflayer.createBot({
 
 bot.once('spawn', () => {
   console.log('✅ Spawned');
+
   setTimeout(() => {
     bot.chat('/login ABCDEFG');
 
@@ -20,17 +21,17 @@ bot.once('spawn', () => {
           await bot.waitForTicks(40);
           const slot = window.slots[22];
           if (slot && slot.name !== 'air') {
-            await bot.clickWindow(22, 0, 1); // Shift-click slot 22
+            await bot.clickWindow(22, 0, 1); // shift-click
             console.log('🖱️ Shift-clicked slot 22');
 
-            // Start moving forward
-            bot.setControlState('forward', true);
-            console.log('🚶 Started moving forward');
+            await bot.waitForTicks(20); // small delay
+            bot.setControlState('forward', true); // walk forward
+            console.log('🚶 Walking forward');
           } else {
             console.log('⚠️ Slot 22 is empty or not ready');
           }
         } catch (err) {
-          console.log('❌ GUI click error:', err.message);
+          console.log('❌ Error:', err.message);
         }
       });
     }, 1000);
