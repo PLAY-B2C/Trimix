@@ -1,64 +1,38 @@
 const mineflayer = require('mineflayer');
+const armorManager = require('mineflayer-armor-manager')(mineflayer);
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
-const { GoalNear } = goals;
+const { GoalBlock } = goals;
+const Vec3 = require('vec3');
 
 const bot = mineflayer.createBot({
   host: 'mc.cloudpixel.fun',
   username: 'ConnieSpringer',
-  version: '1.16.5',
+  version: '1.16.5'
 });
 
 bot.loadPlugin(pathfinder);
+bot.loadPlugin(armorManager);
 
-let combatEnabled = false;
-let inRunMode = false;
+const TARGET_Y = 85;
+const RESPAWN_TIMEOUT = 60000;
+const ATTACK_RANGE = 6;
+const WHITELIST = ['AdminGuy', 'BotFriend'];
+
 let lastAttackTime = Date.now();
+let stuckCheckTimer = null;
 
 bot.once('spawn', () => {
   console.log('✅ Spawned');
-
-  const mcData = require('minecraft-data')(bot.version);
-  const defaultMove = new Movements(bot, mcData);
-  defaultMove.allowSprinting = true;
-  defaultMove.canDig = false;
-  bot.pathfinder.setMovements(defaultMove);
-
-  setTimeout(() => {
-    bot.chat('/login ABCDEFG');
-    setTimeout(() => {
-      bot.setQuickBarSlot(0);
-      bot.activateItem();
-      bot.once('windowOpen', async (window) => {
-        try {
-          await bot.waitForTicks(40);
-          const slot = window.slots[22];
-          if (slot && slot.name !== 'air') {
-            await bot.clickWindow(22, 0, 1);
-            console.log('🖱️ Shift-clicked slot 22');
-          } else {
-            console.log('⚠️ Slot 22 is empty or not ready');
-          }
-        } catch (err) {
-          console.log('❌ GUI click error:', err.message);
-        }
-
-        setTimeout(() => {
-          combatEnabled = true;
-          startModes();
-          monitorInactivity();
-        }, 2000);
-      });
-    }, 1000);
-  }, 2000);
+  bot.chat('/login ABCDEFG');
+  equipBest();
+  runMode();
+  monitorModes();
+  monitorRespawn();
 });
 
 bot.on('death', () => {
-  console.log('☠️ Died. Waiting 5 seconds then resuming...');
-  combatEnabled = false;
-  stopWalking();
-  setTimeout(() => {
-    combatEnabled = true;
-  }, 5000);
+  console.log('☠️ Bot died. Resuming...');
+  runMode();
 });
 
 bot.on('end', () => {
@@ -66,66 +40,97 @@ bot.on('end', () => {
   setTimeout(() => require('child_process').fork(__filename), 10000);
 });
 
-function startModes() {
-  setInterval(() => {
-    if (!combatEnabled) return;
+function runMode() {
+  console.log('🏃 Entering RUN MODE');
+  bot.setControlState('sprint', true);
+  bot.setControlState('jump', true);
+  bot.pathfinder.setGoal(new GoalBlock(0, 84, 0)); // run toward 0 84 0
+}
 
-    const y = bot.entity.position.y;
+function attackMode() {
+  console.log('⚔️ Entering ATTACK MODE');
+  bot.setControlState('sprint', false);
+  bot.setControlState('jump', false);
+  const mcData = require('minecraft-data')(bot.version);
+  const movements = new Movements(bot, mcData);
+  movements.allow1by1towers = false;
+  movements.canDig = false;
+  bot.pathfinder.setMovements(movements);
 
-    // Run Mode
-    if (y >= 85) {
-      if (!inRunMode) {
-        console.log(`🏃 Switched to RUN MODE (Y=${y.toFixed(1)} ≥ 85)`);
-        inRunMode = true;
-        startWalking();
-      }
+  const attackLoop = setInterval(() => {
+    if (bot.entity.position.y >= TARGET_Y) {
+      clearInterval(attackLoop);
+      runMode();
       return;
     }
 
-    // Attack Mode
-    if (inRunMode) {
-      console.log(`⚔️ Switched to ATTACK MODE (Y=${y.toFixed(1)} < 85)`);
-      inRunMode = false;
-      stopWalking();
-    }
+    const player = bot.nearestEntity(e =>
+      e.type === 'player' &&
+      e.username !== bot.username &&
+      !WHITELIST.includes(e.username) &&
+      !(e.metadata && e.metadata.some(meta => meta.invisible)) // check for vanish/invisible
+    );
 
-    const player = bot.nearestEntity(e => e.type === 'player' && e.username !== bot.username);
-    if (player) {
+    if (player && !isLeatherArmor(player)) {
       const dist = bot.entity.position.distanceTo(player.position);
       bot.lookAt(player.position.offset(0, player.height, 0));
-
-      if (dist > 3) {
-        bot.pathfinder.setGoal(new GoalNear(player.position.x, player.position.y, player.position.z, 1));
-        console.log(`🚶 Chasing player: ${player.username} (dist: ${dist.toFixed(1)})`);
-      } else {
-        bot.pathfinder.setGoal(null);
+      if (dist <= ATTACK_RANGE) {
         bot.attack(player);
         lastAttackTime = Date.now();
-        console.log(`⚔️ Attacking player: ${player.username}`);
+        console.log(`⚔️ Attacking ${player.username}`);
+      } else {
+        bot.pathfinder.setGoal(new GoalBlock(player.position.x, player.position.y, player.position.z));
       }
+    }
+  }, 500);
+}
+
+function isLeatherArmor(player) {
+  const armor = player.equipment;
+  return Object.values(armor).some(item => item?.name?.includes('leather'));
+}
+
+function equipBest() {
+  bot.armorManager.equipAll();
+}
+
+function monitorModes() {
+  setInterval(() => {
+    if (bot.entity.position.y >= TARGET_Y) {
+      runMode();
     } else {
-      bot.pathfinder.setGoal(null);
+      attackMode();
+    }
+
+    // Health check (retreat if < 6 hearts)
+    if (bot.health < 12) {
+      console.log('🛡️ Low health. Retreating...');
+      runMode();
     }
   }, 1000);
 }
 
-function monitorInactivity() {
+function monitorRespawn() {
   setInterval(() => {
-    const now = Date.now();
-    if (now - lastAttackTime >= 60 * 1000) {
-      console.log('⌛ No combat for 60s. Typing /respawn');
+    if (Date.now() - lastAttackTime > RESPAWN_TIMEOUT) {
+      console.log('⌛ Idle too long. Respawning...');
       bot.chat('/respawn');
-      lastAttackTime = now;
+      lastAttackTime = Date.now();
     }
-  }, 5000); // Check every 5 seconds
+  }, 5000);
 }
 
-function startWalking() {
-  bot.setControlState('forward', true);
+function stuckCheck() {
+  let lastPos = bot.entity.position.clone();
+  stuckCheckTimer = setInterval(() => {
+    if (bot.entity.position.distanceTo(lastPos) < 0.5) {
+      console.log('🪵 Bot might be stuck. Jumping.');
+      bot.setControlState('jump', true);
+      setTimeout(() => bot.setControlState('jump', false), 1000);
+    }
+    lastPos = bot.entity.position.clone();
+  }, 5000);
 }
 
-function stopWalking() {
-  bot.setControlState('forward', false);
-}
-
+bot.on('spawn', stuckCheck);
 bot.on('error', err => console.log('❌ Error:', err.message));
