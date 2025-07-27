@@ -11,11 +11,12 @@ const bot = mineflayer.createBot({
 bot.loadPlugin(pathfinder);
 
 let combatEnabled = false;
+let walkingHighY = false;
+let forwardInterval = null;
 
 bot.once('spawn', () => {
   console.log('✅ Spawned');
 
-  // Setup pathfinder
   const mcData = require('minecraft-data')(bot.version);
   const defaultMove = new Movements(bot, mcData);
   defaultMove.allowSprinting = true;
@@ -42,7 +43,6 @@ bot.once('spawn', () => {
         }
 
         setTimeout(() => {
-          walkForward(5000);
           combatEnabled = true;
           startCombat();
         }, 2000);
@@ -52,12 +52,11 @@ bot.once('spawn', () => {
 });
 
 bot.on('death', () => {
-  console.log('☠️ Died. Walking forward and restarting combat...');
+  console.log('☠️ Died. Restarting logic...');
   combatEnabled = false;
-  walkForward(5000);
+  stopWalkingForward();
   setTimeout(() => {
     combatEnabled = true;
-    startCombat();
   }, 5000);
 });
 
@@ -66,46 +65,53 @@ bot.on('end', () => {
   setTimeout(() => require('child_process').fork(__filename), 10000);
 });
 
-function walkForward(duration = 6000) {
-  bot.setControlState('forward', true);
-  setTimeout(() => {
-    bot.setControlState('forward', false);
-  }, duration);
-}
-
 function startCombat() {
   setInterval(() => {
+    const y = bot.entity.position.y;
+
     if (!combatEnabled) return;
 
-    const y = bot.entity.position.y;
     if (y >= 85) {
-      console.log(`🚫 Y=${y.toFixed(1)} ≥ 85. Skipping combat, walking forward...`);
-      combatEnabled = false;
-      walkForward(6000);
-      setTimeout(() => {
-        combatEnabled = true;
-      }, 6000);
+      if (!walkingHighY) {
+        console.log(`🚫 Y=${y.toFixed(1)} ≥ 85. Walking forward...`);
+        walkingHighY = true;
+        startWalkingForward();
+      }
       return;
+    }
+
+    // If Y < 85, stop forward walking
+    if (walkingHighY) {
+      console.log(`✅ Y=${y.toFixed(1)} < 85. Resuming combat.`);
+      walkingHighY = false;
+      stopWalkingForward();
     }
 
     const player = bot.nearestEntity(e => e.type === 'player' && e.username !== bot.username);
     if (player) {
       const dist = bot.entity.position.distanceTo(player.position);
-
       bot.lookAt(player.position.offset(0, player.height, 0));
 
       if (dist > 3) {
         bot.pathfinder.setGoal(new GoalNear(player.position.x, player.position.y, player.position.z, 1));
         console.log(`🏃 Chasing player: ${player.username} (dist: ${dist.toFixed(1)})`);
       } else {
-        bot.pathfinder.setGoal(null); // stop navigating
+        bot.pathfinder.setGoal(null);
         bot.attack(player);
         console.log(`⚔️ Attacking player: ${player.username}`);
       }
     } else {
-      bot.pathfinder.setGoal(null); // no target
+      bot.pathfinder.setGoal(null);
     }
   }, 1000);
+}
+
+function startWalkingForward() {
+  bot.setControlState('forward', true);
+}
+
+function stopWalkingForward() {
+  bot.setControlState('forward', false);
 }
 
 bot.on('error', err => console.log('❌ Error:', err.message));
