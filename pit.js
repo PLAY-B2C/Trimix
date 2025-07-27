@@ -1,4 +1,6 @@
 const mineflayer = require('mineflayer');
+const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
+const { GoalNear } = goals;
 
 const bot = mineflayer.createBot({
   host: 'mc.cloudpixel.fun',
@@ -6,8 +8,20 @@ const bot = mineflayer.createBot({
   version: '1.16.5',
 });
 
+bot.loadPlugin(pathfinder);
+
+let combatEnabled = false;
+
 bot.once('spawn', () => {
   console.log('✅ Spawned');
+
+  // Setup pathfinder
+  const mcData = require('minecraft-data')(bot.version);
+  const defaultMove = new Movements(bot, mcData);
+  defaultMove.allowSprinting = true;
+  defaultMove.canDig = false;
+  bot.pathfinder.setMovements(defaultMove);
+
   setTimeout(() => {
     bot.chat('/login ABCDEFG');
     setTimeout(() => {
@@ -15,10 +29,10 @@ bot.once('spawn', () => {
       bot.activateItem();
       bot.once('windowOpen', async (window) => {
         try {
-          await bot.waitForTicks(40); // wait longer for items to load
+          await bot.waitForTicks(40);
           const slot = window.slots[22];
           if (slot && slot.name !== 'air') {
-            await bot.clickWindow(22, 0, 1); // shift-click
+            await bot.clickWindow(22, 0, 1);
             console.log('🖱️ Shift-clicked slot 22');
           } else {
             console.log('⚠️ Slot 22 is empty or not ready');
@@ -26,8 +40,10 @@ bot.once('spawn', () => {
         } catch (err) {
           console.log('❌ GUI click error:', err.message);
         }
+
         setTimeout(() => {
           walkForward(5000);
+          combatEnabled = true;
           startCombat();
         }, 2000);
       });
@@ -37,8 +53,12 @@ bot.once('spawn', () => {
 
 bot.on('death', () => {
   console.log('☠️ Died. Walking forward and restarting combat...');
+  combatEnabled = false;
   walkForward(5000);
-  setTimeout(startCombat, 5000);
+  setTimeout(() => {
+    combatEnabled = true;
+    startCombat();
+  }, 5000);
 });
 
 bot.on('end', () => {
@@ -55,30 +75,37 @@ function walkForward(duration = 6000) {
 
 function startCombat() {
   setInterval(() => {
+    if (!combatEnabled) return;
+
     const y = bot.entity.position.y;
     if (y >= 85) {
       console.log(`🚫 Y=${y.toFixed(1)} ≥ 85. Skipping combat, walking forward...`);
+      combatEnabled = false;
       walkForward(6000);
+      setTimeout(() => {
+        combatEnabled = true;
+      }, 6000);
       return;
     }
 
     const player = bot.nearestEntity(e => e.type === 'player' && e.username !== bot.username);
     if (player) {
       const dist = bot.entity.position.distanceTo(player.position);
+
       bot.lookAt(player.position.offset(0, player.height, 0));
 
       if (dist > 3) {
-        bot.setControlState('forward', true);
-        console.log(`🏃 Running toward ${player.username} (dist: ${dist.toFixed(1)})`);
+        bot.pathfinder.setGoal(new GoalNear(player.position.x, player.position.y, player.position.z, 1));
+        console.log(`🏃 Chasing player: ${player.username} (dist: ${dist.toFixed(1)})`);
       } else {
-        bot.setControlState('forward', true); // keep moving while fighting
+        bot.pathfinder.setGoal(null); // stop navigating
         bot.attack(player);
         console.log(`⚔️ Attacking player: ${player.username}`);
       }
     } else {
-      bot.setControlState('forward', false);
+      bot.pathfinder.setGoal(null); // no target
     }
-  }, 500);
+  }, 1000);
 }
 
 bot.on('error', err => console.log('❌ Error:', err.message));
