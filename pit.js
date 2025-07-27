@@ -1,5 +1,5 @@
 const mineflayer = require('mineflayer');
-const { Vec3 } = require('vec3');
+const Vec3 = require('vec3');
 
 const bot = mineflayer.createBot({
   host: 'mc.cloudpixel.fun',
@@ -7,107 +7,96 @@ const bot = mineflayer.createBot({
   version: '1.16.5',
 });
 
-const WHITELIST = ['AdminName', 'Friend123'];
 let lastAttackTime = Date.now();
-let stuckTimer = null;
-let lastPos = null;
+let mode = 'run';
 
 bot.once('spawn', () => {
   console.log('✅ Spawned');
-  bot.chat('/login ABCDEFG');
-  setTimeout(() => bot.chat('/respawn'), 2000);
-  mainLoop();
+
+  setTimeout(() => {
+    bot.chat('/login ABCDEFG');
+
+    setTimeout(() => {
+      bot.setQuickBarSlot(0);
+      bot.activateItem(); // right-click with item in hotbar slot 0
+
+      bot.once('windowOpen', async (window) => {
+        try {
+          await bot.waitForTicks(40); // let GUI load
+          const slot = window.slots[22];
+          if (slot && slot.name !== 'air') {
+            await bot.clickWindow(22, 0, 1); // shift-click
+            console.log('🖱️ Shift-clicked slot 22');
+          } else {
+            console.log('⚠️ Slot 22 is empty or not ready');
+          }
+        } catch (err) {
+          console.log('❌ GUI click error:', err.message);
+        }
+
+        // Start behavior after GUI interaction
+        startBehaviorLoop();
+      });
+    }, 1000);
+  }, 2000);
 });
 
-bot.on('death', () => {
-  console.log('☠️ Died. Respawning...');
-  bot.chat('/respawn');
-});
-
-bot.on('end', () => {
-  console.log('🔁 Disconnected. Reconnecting in 10s...');
-  setTimeout(() => require('child_process').fork(__filename), 10000);
-});
-
-function mainLoop() {
+function startBehaviorLoop() {
   setInterval(() => {
     const y = bot.entity.position.y;
 
-    // === Mode switch ===
     if (y >= 85) {
-      runMode();
-    } else {
-      attackMode();
-    }
-
-    // === Stuck detection ===
-    if (lastPos && bot.entity.position.distanceTo(lastPos) < 0.2) {
-      if (!stuckTimer) stuckTimer = Date.now();
-      else if (Date.now() - stuckTimer > 30000) {
-        console.log('🚨 Stuck detected. Respawning...');
-        bot.chat('/respawn');
-        stuckTimer = null;
+      if (mode !== 'run') {
+        console.log('🚀 Switched to Run Mode');
+        mode = 'run';
       }
+
+      // Always run toward (0, 84, 0), even if blocks aren't present
+      const direction = new Vec3(0, 84, 0).minus(bot.entity.position).normalize();
+      bot.setControlState('sprint', true);
+      bot.setControlState('jump', true);
+      bot.look(direction.x, direction.z, false);
+      bot.setControlState('forward', true);
     } else {
-      lastPos = bot.entity.position.clone();
-      stuckTimer = null;
+      if (mode !== 'attack') {
+        console.log('⚔️ Switched to Attack Mode');
+        mode = 'attack';
+      }
+
+      const target = bot.nearestEntity(e =>
+        e.type === 'player' &&
+        e.username !== bot.username &&
+        !['YourAlt', 'Friend1'].includes(e.username)
+      );
+
+      if (target) {
+        bot.lookAt(target.position.offset(0, target.height, 0), true);
+        bot.attack(target);
+        lastAttackTime = Date.now();
+        console.log(`⚔️ Attacking ${target.username}`);
+      }
+
+      bot.setControlState('forward', false); // stop running
     }
 
-    // === Idle respawn in attack mode ===
-    if (y < 85 && Date.now() - lastAttackTime > 60000) {
-      console.log('⏱️ Idle too long in attack mode. Respawning...');
+    // Respawn if no one attacked for 1 minute
+    if (Date.now() - lastAttackTime > 60 * 1000) {
       bot.chat('/respawn');
-      lastAttackTime = Date.now();
+      lastAttackTime = Date.now(); // reset timer
     }
-
-    detectVanishPlayers();
   }, 500);
 }
 
-function runMode() {
-  bot.setControlState('sprint', true);
-  bot.setControlState('jump', true);
-  bot.setControlState('forward', true);
+bot.on('death', () => {
+  console.log('☠️ Died. Resetting...');
+  bot.setControlState('forward', false);
+});
 
-  const targetVec = new Vec3(0, 84, 0);
-  const dir = targetVec.minus(bot.entity.position).normalize();
-  bot.lookAt(bot.entity.position.plus(dir), true);
-}
+bot.on('end', () => {
+  console.log('🔁 Disconnected. Reconnecting...');
+  setTimeout(() => require('child_process').fork(__filename), 10000);
+});
 
-function attackMode() {
-  bot.setControlState('sprint', false);
-  bot.setControlState('jump', false);
-
-  const target = bot.nearestEntity(entity =>
-    entity.type === 'player' &&
-    entity.username !== bot.username &&
-    !WHITELIST.includes(entity.username)
-  );
-
-  if (target) {
-    bot.lookAt(target.position.offset(0, target.height, 0), true);
-    bot.setControlState('forward', true);
-    bot.attack(target);
-    console.log(`⚔️ Attacking ${target.username}`);
-    lastAttackTime = Date.now();
-  } else {
-    bot.clearControlStates();
-  }
-}
-
-function detectVanishPlayers() {
-  const visible = Object.values(bot.entities)
-    .filter(e => e.type === 'player')
-    .map(e => e.username);
-
-  const online = Object.keys(bot.players || {});
-  const vanished = online.filter(name =>
-    !visible.includes(name) && name !== bot.username && !WHITELIST.includes(name)
-  );
-
-  if (vanished.length > 0) {
-    console.log('👻 Vanish/invisible players detected:', vanished.join(', '));
-  }
-}
-
-bot.on('error', err => console.log('❌ Error:', err.message));
+bot.on('error', err => {
+  console.log('❌ Error:', err.message);
+});
