@@ -43,7 +43,7 @@ function createBot() {
       } catch (err) {
         console.log('❌ Activation failed:', err.message);
       }
-    }, 1000);
+    }, 1000); // 1s after login
 
     bot.once('windowOpen', async (window) => {
       console.log('📂 GUI opened');
@@ -67,7 +67,7 @@ function createBot() {
         setTimeout(() => {
           startPatrol(bot);
         }, 8000); // Wait 8s after warp
-      }, 2000); // Wait 2s after click
+      }, 2000); // Wait 2s after shift-click
     });
 
     startRightClickLoop(bot);
@@ -188,24 +188,23 @@ async function lookAndLeech(bot) {
 
   // Leech loop: every 2 min, move forward, wait 1s, go back
   setInterval(async () => {
-    const forward = bot.entity.yaw;
-    const dir = new Vec3(Math.round(Math.cos(forward)), 0, Math.round(Math.sin(forward)));
-
-    const forwardPos = bot.entity.position.plus(dir);
-    const originalGoal = new goals.GoalBlock(leechPos.x, leechPos.y, leechPos.z);
+    const yaw = bot.entity.yaw;
+    const dir = new Vec3(Math.round(Math.cos(yaw)), 0, Math.round(Math.sin(yaw)));
+    const forwardPos = bot.entity.position.offset(dir.x, 0, dir.z);
+    const returnGoal = new goals.GoalBlock(leechPos.x, leechPos.y, leechPos.z);
 
     console.log('➡️ Stepping forward briefly');
     bot.pathfinder.setGoal(new goals.GoalBlock(forwardPos.x, forwardPos.y, forwardPos.z));
     await bot.waitForTicks(20);
 
     console.log('↩️ Returning to leech spot');
-    bot.pathfinder.setGoal(originalGoal);
+    bot.pathfinder.setGoal(returnGoal);
     await bot.waitForTicks(20);
 
     try {
       await bot.lookAt(lookAtPos);
     } catch (_) {}
-  }, 120000); // Every 2 minutes
+  }, 120000); // every 2 minutes
 }
 
 createBot();
