@@ -238,7 +238,6 @@ function roamAndHunt(bot) {
     bot.pathfinder.goal.mob = spider; // attach custom prop for tracking
   }
 }
-  }
 
   roamRandomly();
   setInterval(followSpiderLoop, 2000);
