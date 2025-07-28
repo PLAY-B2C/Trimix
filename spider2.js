@@ -127,15 +127,14 @@ function startPatrol(bot) {
   movements.allowParkour = true;
   bot.pathfinder.setMovements(movements);
 
-  enableNameTrigger = true; // ✅ Start name-mention logic here
+  enableNameTrigger = true;
 
-  const waypoints =
-    patrolMode === 'initial' ? allWaypoints : allWaypoints.slice(11);
+  const waypoints = patrolMode === 'initial' ? allWaypoints : allWaypoints.slice(11);
 
   function goToNext() {
     if (patrolIndex >= waypoints.length) {
-      console.log('🎯 Reached final patrol point — switching to roam & hunt mode');
-      roamAndHunt(bot);
+      console.log('🧭 Patrol complete — switching to roaming...');
+      roamAndHunt(bot); // 🟢 Start roaming after last patrol
       return;
     }
 
@@ -164,7 +163,7 @@ function startPatrol(bot) {
 }
 
 function roamAndHunt(bot) {
-  console.log('🕷️ Patrol complete — entering free roam & spider hunt mode');
+  console.log('🕷️ Patrol complete — entering free roam & spider hunt mode.');
 
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
@@ -173,6 +172,7 @@ function roamAndHunt(bot) {
   bot.pathfinder.setMovements(movements);
 
   let roaming = true;
+  let currentTargetId = null;
 
   function getNearestSpider() {
     const spiders = bot.entities;
@@ -194,32 +194,30 @@ function roamAndHunt(bot) {
 
   function roamRandomly() {
     if (!roaming) return;
-
     const pos = bot.entity.position;
     const dx = Math.floor(Math.random() * 100 - 50);
     const dz = Math.floor(Math.random() * 100 - 50);
     const target = pos.offset(dx, 0, dz);
 
-    bot.pathfinder.setGoal(new goals.GoalNear(target.x, target.y, target.z, 2));
     console.log(`🚶 Roaming to (${target.x}, ${target.y}, ${target.z})`);
+    bot.pathfinder.setGoal(new goals.GoalNear(target.x, target.y, target.z, 2));
 
     setTimeout(() => roamRandomly(), 10000);
   }
 
   function followSpiderLoop() {
     const spider = getNearestSpider();
-    if (spider) {
-      if (roaming) {
-        roaming = false;
-        console.log(`🕷️ Spider found! Following at (${spider.position})`);
-        bot.pathfinder.setGoal(new goals.GoalFollow(spider, 1), true);
-      }
-    } else {
-      if (!roaming) {
-        roaming = true;
-        console.log('🔄 Spider gone. Resuming roam.');
-        roamRandomly();
-      }
+
+    if (spider && (!currentTargetId || spider.id !== currentTargetId)) {
+      roaming = false;
+      currentTargetId = spider.id;
+      console.log(`🕷️ Switching to spider at (${spider.position})`);
+      bot.pathfinder.setGoal(new goals.GoalFollow(spider, 1), true);
+    } else if (!spider && !roaming) {
+      roaming = true;
+      currentTargetId = null;
+      console.log('🔄 No spiders nearby. Resuming roam.');
+      roamRandomly();
     }
   }
 
