@@ -127,14 +127,15 @@ function startPatrol(bot) {
   movements.allowParkour = true;
   bot.pathfinder.setMovements(movements);
 
-  enableNameTrigger = true;
+  enableNameTrigger = true; // ✅ Start name-mention logic after patrol starts
 
-  const waypoints = patrolMode === 'initial' ? allWaypoints : allWaypoints.slice(11);
+  const waypoints =
+    patrolMode === 'initial' ? allWaypoints : allWaypoints.slice(11);
 
   function goToNext() {
     if (patrolIndex >= waypoints.length) {
-      console.log('🧭 Patrol complete — switching to roaming...');
-      roamAndHunt(bot); // 🟢 Start roaming after last patrol
+      console.log('🎯 Reached final patrol point — switching to roam & hunt mode');
+      roamAndHunt(bot);
       return;
     }
 
@@ -163,7 +164,7 @@ function startPatrol(bot) {
 }
 
 function roamAndHunt(bot) {
-  console.log('🕷️ Patrol complete — entering free roam & spider hunt mode.');
+  console.log('🕷️ Patrol complete — entering free roam & spider hunt mode');
 
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
@@ -194,13 +195,14 @@ function roamAndHunt(bot) {
 
   function roamRandomly() {
     if (!roaming) return;
+
     const pos = bot.entity.position;
     const dx = Math.floor(Math.random() * 100 - 50);
     const dz = Math.floor(Math.random() * 100 - 50);
     const target = pos.offset(dx, 0, dz);
 
-    console.log(`🚶 Roaming to (${target.x}, ${target.y}, ${target.z})`);
     bot.pathfinder.setGoal(new goals.GoalNear(target.x, target.y, target.z, 2));
+    console.log(`🚶 Roaming to (${target.x}, ${target.y}, ${target.z})`);
 
     setTimeout(() => roamRandomly(), 10000);
   }
@@ -208,7 +210,7 @@ function roamAndHunt(bot) {
   function followSpiderLoop() {
     const spider = getNearestSpider();
 
-    if (spider && (!currentTargetId || spider.id !== currentTargetId)) {
+    if (spider && spider.id !== currentTargetId) {
       roaming = false;
       currentTargetId = spider.id;
       console.log(`🕷️ Switching to spider at (${spider.position})`);
