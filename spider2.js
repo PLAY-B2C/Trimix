@@ -5,6 +5,7 @@ const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 let reconnecting = false;
 let patrolIndex = 0;
 let patrolMode = 'initial';
+let enableNameTrigger = false;
 
 const loginCommand = '/login 3043AA';
 const warpCommand = '/warp spider';
@@ -19,7 +20,7 @@ const allWaypoints = [
   new Vec3(-315, 96, -191),
   new Vec3(-331, 81, -228),
   new Vec3(-302, 67, -273),
-  new Vec3(-299, 67, -284), // index 11 — becomes patrol home
+  new Vec3(-299, 67, -284),
   new Vec3(-282, 65, -295),
   new Vec3(-258, 61, -273),
   new Vec3(-282, 65, -295),
@@ -38,34 +39,26 @@ function createBot() {
 
   bot.once('spawn', async () => {
     console.log('✅ Spawned');
-
-    // Step 1: Login
     setTimeout(() => bot.chat(loginCommand), 1000);
 
-    // Step 2: Right-click item in slot 0
     setTimeout(() => {
       bot.setQuickBarSlot(0);
       bot.activateItem();
     }, 2000);
 
-    // Step 3: GUI opens, shift-click index 20
     bot.once('windowOpen', async (window) => {
       await bot.waitForTicks(30);
       const slotIndex = 20;
       const slot = window.slots[slotIndex];
-
       if (slot && slot.name !== 'air') {
         try {
-          await bot.clickWindow(slotIndex, 0, 1); // shift-click
+          await bot.clickWindow(slotIndex, 0, 1);
           console.log('🎯 Shift-clicked teleport item.');
         } catch (err) {
           console.log('❌ GUI click error:', err.message);
         }
-      } else {
-        console.log('⚠️ Slot 20 is empty or missing.');
       }
 
-      // Step 4: Warp → Wait → Patrol
       setTimeout(() => {
         bot.chat(warpCommand);
         setTimeout(() => {
@@ -77,7 +70,6 @@ function createBot() {
     startRightClickLoop(bot);
   });
 
-  // Reconnect logic on death
   bot.on('death', () => {
     patrolIndex = 0;
     patrolMode = 'initial';
@@ -90,7 +82,6 @@ function createBot() {
     }, 2000);
   });
 
-  // Reconnect on disconnect
   bot.on('end', () => {
     if (reconnecting) return;
     reconnecting = true;
@@ -101,9 +92,12 @@ function createBot() {
     }, 10000);
   });
 
-  // Reconnect if someone mentions the bot's name
   bot.on('chat', (username, message) => {
-    if (username !== bot.username && message.toLowerCase().includes(botName.toLowerCase())) {
+    if (
+      enableNameTrigger &&
+      username !== bot.username &&
+      message.toLowerCase().includes(botName.toLowerCase())
+    ) {
       console.log(`💬 Name mentioned by ${username}: "${message}" — Restarting...`);
       bot.quit(); // triggers reconnect
     }
@@ -114,7 +108,6 @@ function createBot() {
   });
 }
 
-// Right-click hotbar slot 0 item in loop
 function startRightClickLoop(bot) {
   setInterval(() => {
     if (!bot?.entity || bot.entity.health <= 0) return;
@@ -127,13 +120,14 @@ function startRightClickLoop(bot) {
   }, 300);
 }
 
-// Patrol through waypoints
 function startPatrol(bot) {
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
   movements.canDig = false;
   movements.allowParkour = true;
   bot.pathfinder.setMovements(movements);
+
+  enableNameTrigger = true; // ✅ Start name-mention disconnect logic only now
 
   const waypoints =
     patrolMode === 'initial' ? allWaypoints : allWaypoints.slice(11);
