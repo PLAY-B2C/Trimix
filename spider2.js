@@ -39,15 +39,20 @@ function createBot() {
 
   bot.once('spawn', async () => {
     console.log('✅ Spawned');
-    setTimeout(() => bot.chat(loginCommand), 1000);
+    bot.chat(loginCommand);
 
+    // Wait 1s → activate item in hotbar slot 0
     setTimeout(() => {
-      bot.setQuickBarSlot(0);
-      bot.activateItem();
-    }, 2000);
+      try {
+        bot.setQuickBarSlot(0);
+        bot.activateItem();
+      } catch (err) {
+        console.log('⚠️ Activation error:', err.message);
+      }
+    }, 1000);
 
     bot.once('windowOpen', async (window) => {
-      await bot.waitForTicks(30);
+      await bot.waitForTicks(20);
       const slotIndex = 20;
       const slot = window.slots[slotIndex];
       if (slot && slot.name !== 'air') {
@@ -59,6 +64,7 @@ function createBot() {
         }
       }
 
+      // Wait 2s → then warp and start patrol
       setTimeout(() => {
         bot.chat(warpCommand);
         setTimeout(() => {
@@ -127,7 +133,7 @@ function startPatrol(bot) {
   movements.allowParkour = true;
   bot.pathfinder.setMovements(movements);
 
-  enableNameTrigger = true; // ✅ Start name-mention logic here
+  enableNameTrigger = true;
 
   const waypoints =
     patrolMode === 'initial' ? allWaypoints : allWaypoints.slice(11);
@@ -173,6 +179,7 @@ function roamAndHunt(bot) {
   bot.pathfinder.setMovements(movements);
 
   let roaming = true;
+  let currentTargetId = null;
 
   function getNearestSpider() {
     const spiders = bot.entities;
@@ -206,23 +213,21 @@ function roamAndHunt(bot) {
     setTimeout(() => roamRandomly(), 10000);
   }
 
-  let currentTargetId = null;
+  function followSpiderLoop() {
+    const spider = getNearestSpider();
 
-function followSpiderLoop() {
-  const spider = getNearestSpider();
-
-  if (spider && (!currentTargetId || spider.id !== currentTargetId)) {
-    roaming = false;
-    currentTargetId = spider.id;
-    console.log(`🕷️ Switching to spider at (${spider.position})`);
-    bot.pathfinder.setGoal(new goals.GoalFollow(spider, 1), true);
-  } else if (!spider && !roaming) {
-    roaming = true;
-    currentTargetId = null;
-    console.log('🔄 No spiders nearby. Resuming roam.');
-    roamRandomly();
+    if (spider && spider.id !== currentTargetId) {
+      roaming = false;
+      currentTargetId = spider.id;
+      console.log(`🕷️ Switching to spider at (${spider.position})`);
+      bot.pathfinder.setGoal(new goals.GoalFollow(spider, 1), true);
+    } else if (!spider && !roaming) {
+      roaming = true;
+      currentTargetId = null;
+      console.log('🔄 No spiders nearby. Resuming roam.');
+      roamRandomly();
+    }
   }
-}
 
   roamRandomly();
   setInterval(followSpiderLoop, 2000);
