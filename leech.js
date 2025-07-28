@@ -20,6 +20,21 @@ const waypoints = [
 const leechPos = new Vec3(-256, 111, -562);
 const lookAtPos = new Vec3(-180, 111, -562);
 
+async function safeShiftClick(bot, slotIndex, maxAttempts = 3) {
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      await bot.clickWindow(slotIndex, 0, 1); // Shift-click
+      console.log(`✅ Shift-clicked slot ${slotIndex} (attempt ${i + 1})`);
+      return true;
+    } catch (err) {
+      console.log(`⚠️ Shift-click attempt ${i + 1} failed: ${err.message}`);
+      await bot.waitForTicks(20); // Wait 1 second between attempts
+    }
+  }
+  console.log(`❌ Failed to shift-click slot ${slotIndex} after ${maxAttempts} attempts`);
+  return false;
+}
+
 function createBot() {
   const bot = mineflayer.createBot({
     host: 'mc.fakepixel.fun',
@@ -35,39 +50,37 @@ function createBot() {
     console.log('✅ Spawned');
     bot.chat(loginCommand);
 
-    setTimeout(() => {
+    // 1 second after login
+    setTimeout(async () => {
       try {
         bot.setQuickBarSlot(0);
-        bot.activateItem();
-        console.log('🟢 Activated item in slot 0');
+        bot.activateItem(); // Opens GUI (chest)
+        console.log('🟢 Activated item in slot 0 (likely opened GUI)');
       } catch (err) {
         console.log('❌ Activation failed:', err.message);
       }
-    }, 1000); // 1s after login
+    }, 1000);
 
+    // Wait for chest GUI to open
     bot.once('windowOpen', async (window) => {
-      console.log('📂 GUI opened');
-      await bot.waitForTicks(20); // 1 second
+      console.log(`📂 GUI opened: "${window.title}" (ID ${window.id})`);
+      await bot.waitForTicks(40); // 2 seconds
 
       const slot = window.slots[20];
       if (slot && slot.name !== 'air') {
-        try {
-          await bot.clickWindow(20, 0, 1); // Shift-click
-          console.log('✅ Shift-clicked slot 20');
-        } catch (err) {
-          console.log('❌ Shift-click error:', err.message);
-        }
+        await safeShiftClick(bot, 20); // Shift-click with retries
       } else {
-        console.log('❌ Slot 20 is empty');
+        console.log('❌ Slot 20 is empty or not synced yet');
       }
 
+      // Warp after 2 seconds
       setTimeout(() => {
         bot.chat(warpCommand);
         console.log('🔥 Warped to crimson');
         setTimeout(() => {
           startPatrol(bot);
-        }, 8000); // Wait 8s after warp
-      }, 2000); // Wait 2s after shift-click
+        }, 8000);
+      }, 2000);
     });
 
     startRightClickLoop(bot);
@@ -186,7 +199,7 @@ async function lookAndLeech(bot) {
     console.log('⚠️ Failed to look at position:', err.message);
   }
 
-  // Leech loop: every 2 min, move forward, wait 1s, go back
+  // Leech loop: every 2 min, move forward briefly and return
   setInterval(async () => {
     const yaw = bot.entity.yaw;
     const dir = new Vec3(Math.round(Math.cos(yaw)), 0, Math.round(Math.sin(yaw)));
