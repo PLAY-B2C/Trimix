@@ -87,7 +87,7 @@ function startPatrol(bot) {
   movements.allowParkour = true;
   bot.pathfinder.setMovements(movements);
 
-  function goToNext() {
+  function goToNext(attempts = 0) {
     if (patrolIndex >= waypoints.length) {
       console.log('🎯 Reached final point. Heading to leech spot...');
       goToLeechSpot(bot);
@@ -95,7 +95,7 @@ function startPatrol(bot) {
     }
 
     const target = waypoints[patrolIndex];
-    console.log(`🚶 Going to waypoint ${patrolIndex}: ${target}`);
+    console.log(`🚶 Going to waypoint ${patrolIndex} (Attempt ${attempts + 1})`);
     bot.pathfinder.setGoal(new goals.GoalNear(target.x, target.y, target.z, 1));
 
     let reached = false;
@@ -107,21 +107,26 @@ function startPatrol(bot) {
         clearTimeout(stuckTimer);
         reached = true;
         patrolIndex++;
-        setTimeout(goToNext, 300);
+        setTimeout(() => goToNext(0), 300);
       }
     }, 500);
 
     const stuckTimer = setTimeout(() => {
       if (!reached) {
-        console.log(`⚠️ Stuck at waypoint ${patrolIndex}, skipping...`);
         clearInterval(checkInterval);
-        patrolIndex++;
-        goToNext();
+        if (attempts < 2) {
+          console.log(`⚠️ Failed to reach waypoint ${patrolIndex}, retrying...`);
+          setTimeout(() => goToNext(attempts + 1), 300);
+        } else {
+          console.log(`❌ Skipping waypoint ${patrolIndex} after 3 attempts`);
+          patrolIndex++;
+          setTimeout(() => goToNext(0), 300);
+        }
       }
-    }, 10000); // 10s timeout
+    }, 10000);
   }
 
-  goToNext();
+  goToNext(0);
 }
 
 function goToLeechSpot(bot) {
@@ -142,8 +147,8 @@ function startLeeching(bot) {
 
   async function lookAndClick() {
     try {
-      const yaw = -Math.PI + 0.001; // North
-      const pitch = 7 * (Math.PI / 180); // 7 degrees downward
+      const yaw = 0; // South
+      const pitch = -7 * (Math.PI / 180); // Look slightly up
       await bot.look(yaw, pitch, true);
       bot.setQuickBarSlot(0);
       bot.activateItem();
@@ -164,7 +169,7 @@ function startLeeching(bot) {
     }, 1000);
   }
 
-  setInterval(lookAndClick, 300); // Every 300ms
+  setInterval(lookAndClick, 300);
   setInterval(stepForwardAndBack, 2 * 60 * 1000); // Every 2 minutes
 }
 
