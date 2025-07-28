@@ -3,14 +3,13 @@ const Vec3 = require('vec3');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 
 let reconnecting = false;
-let patrolStarted = false;
 let patrolIndex = 0;
 let patrolMode = 'initial';
 
 const loginCommand = '/login 3043AA';
 const warpCommand = '/warp spider';
 
-const allWaypoints = [ 
+const allWaypoints = [
   new Vec3(-233, 80, -244),
   new Vec3(-233, 80, -244),
   new Vec3(-261, 86, -237),
@@ -39,93 +38,76 @@ function createBot() {
   bot.once('spawn', async () => {
     console.log('✅ Logged in');
 
+    // Step 1: Login
+    setTimeout(() => bot.chat(loginCommand), 2000);
+
+    // Step 2: Open GUI from hotbar slot 0
     setTimeout(() => {
-      bot.chat(loginCommand);
-      console.log('🔐 Sent login command');
+      bot.setQuickBarSlot(0);
+      bot.activateItem();
+    }, 4000);
 
+    // Step 3: Wait for GUI to open, shift-click teleport item, then warp
+    bot.once('windowOpen', async (window) => {
+      await bot.waitForTicks(30); // allow slots to fill
+      const slotIndex = 20;
+      const slot = window.slots[slotIndex];
+
+      if (slot && slot.name !== 'air') {
+        try {
+          await bot.clickWindow(slotIndex, 0, 1); // shift-click
+          console.log('🎯 Shift-clicked teleport item.');
+        } catch (err) {
+          console.log('❌ GUI click error:', err.message);
+        }
+      } else {
+        console.log('⚠️ Slot 20 is empty or missing.');
+      }
+
+      // Step 4: Warp and start patrol
       setTimeout(() => {
-        bot.setQuickBarSlot(0);
-        bot.activateItem(); // Open GUI
+        bot.chat(warpCommand);
+        setTimeout(() => {
+          startPatrol(bot);
+        }, 8000); // wait after warp
+      }, 2000);
+    });
 
-        // Wait for GUI to open
-        bot.once('windowOpen', async (window) => {
-          console.log('📂 GUI opened');
-          await bot.waitForTicks(30);
-
-          const slotIndex = 20;
-          const slot = window.slots[slotIndex];
-
-          if (slot && slot.name !== 'air') {
-            try {
-              await bot.clickWindow(slotIndex, 0, 1); // Shift-click
-              console.log('🎯 Shift-clicked teleport item.');
-            } catch (err) {
-              console.log('❌ GUI click error:', err.message);
-            }
-          } else {
-            console.log('⚠️ Slot 20 was empty, teleport item missing.');
-          }
-
-          setTimeout(() => {
-            bot.chat(warpCommand);
-            console.log('🌀 Warping...');
-
-            setTimeout(() => {
-              startPatrol(bot);
-            }, 8000);
-          }, 2000);
-        });
-      }, 1000); // Wait 1s after /login
-    }, 2000); // Initial delay before login
+    // Right-click loop on slot 0
+    startRightClickLoop(bot);
   });
 
-  bot.on('chat', (username, message) => {
-    if (!patrolStarted) return;
-    if (message.toLowerCase().includes('jamaalcaliph')) {
-      console.log(`📢 Mention detected: "${message}"`);
-      reconnectBot(bot);
-    }
-  });
-
+  // Death handling → restart patrol
   bot.on('death', () => {
-    if (!patrolStarted) return;
-    console.log('☠️ Bot died. Reconnecting...');
     patrolIndex = 0;
     patrolMode = 'initial';
-    reconnectBot(bot);
+    console.log('☠️ Bot died. Restarting full route...');
+    setTimeout(() => {
+      bot.chat(warpCommand);
+      setTimeout(() => {
+        startPatrol(bot);
+      }, 8000);
+    }, 2000);
   });
 
+  // Reconnect on disconnect
   bot.on('end', () => {
     if (reconnecting) return;
     reconnecting = true;
-    console.log('🔁 Disconnected. Reconnecting in 10s...');
+    console.log('🔁 Disconnected, retrying in 10s...');
     setTimeout(() => {
       reconnecting = false;
       createBot();
     }, 10000);
   });
 
+  // Error logging
   bot.on('error', (err) => {
     console.log('❌ Bot error:', err.message);
   });
-
-  startRightClickLoop(bot);
 }
 
-function reconnectBot(bot) {
-  if (reconnecting) return;
-  reconnecting = true;
-  try {
-    bot.quit('Reconnecting...');
-  } catch (e) {
-    console.log('⚠️ Error during quit:', e.message);
-  }
-  setTimeout(() => {
-    reconnecting = false;
-    createBot();
-  }, 3000);
-}
-
+// ✅ Right-click hotbar slot 0 every 300ms
 function startRightClickLoop(bot) {
   setInterval(() => {
     if (!bot?.entity || bot.entity.health <= 0) return;
@@ -138,9 +120,8 @@ function startRightClickLoop(bot) {
   }, 300);
 }
 
+// ✅ Patrol through waypoints
 function startPatrol(bot) {
-  patrolStarted = true;
-
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
   movements.canDig = false;
@@ -164,7 +145,6 @@ function startPatrol(bot) {
 
     const checkInterval = setInterval(() => {
       const dist = bot.entity.position.distanceTo(target);
-
       if (dist < 2) {
         clearInterval(checkInterval);
         console.log(`✅ Reached waypoint ${patrolIndex}`);
