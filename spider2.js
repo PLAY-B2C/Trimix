@@ -3,6 +3,7 @@ const Vec3 = require('vec3');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 
 let reconnecting = false;
+let patrolStarted = false;
 let patrolIndex = 0;
 let patrolMode = 'initial';
 
@@ -69,15 +70,19 @@ function createBot() {
   });
 
   bot.on('death', () => {
+    if (!patrolStarted) return;
     patrolIndex = 0;
     patrolMode = 'initial';
-    console.log('☠️ Bot died. Restarting full route...');
-    setTimeout(() => {
-      bot.chat(warpCommand);
-      setTimeout(() => {
-        startPatrol(bot);
-      }, 8000);
-    }, 2000);
+    console.log('☠️ Bot died. Reconnecting...');
+    reconnectBot();
+  });
+
+  bot.on('chat', (username, message) => {
+    if (!patrolStarted) return;
+    if (message.toLowerCase().includes('jamaalcaliph')) {
+      console.log(`📢 Detected message mentioning bot: "${message}"`);
+      reconnectBot();
+    }
   });
 
   bot.on('end', () => {
@@ -95,13 +100,27 @@ function createBot() {
   });
 }
 
-// ✅ ONLY THIS FUNCTION IS FIXED
+function reconnectBot() {
+  if (reconnecting) return;
+  reconnecting = true;
+  try {
+    console.log('🔌 Forcing bot reconnect...');
+    bot.quit('Reconnecting...');
+  } catch (e) {
+    console.log('⚠️ Error quitting bot for reconnect:', e.message);
+  }
+  setTimeout(() => {
+    reconnecting = false;
+    createBot();
+  }, 3000);
+}
+
 function startRightClickLoop(bot) {
   setInterval(() => {
     if (!bot?.entity || bot.entity.health <= 0) return;
     try {
       bot.setQuickBarSlot(0);
-      bot.activateItem(); // ✅ Correct right-click action (use item)
+      bot.activateItem();
     } catch (err) {
       console.log('⚠️ Right click failed:', err.message);
     }
@@ -109,6 +128,8 @@ function startRightClickLoop(bot) {
 }
 
 function startPatrol(bot) {
+  patrolStarted = true;
+
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
   movements.canDig = false;
