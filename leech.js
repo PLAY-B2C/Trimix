@@ -95,16 +95,30 @@ function startPatrol(bot) {
     }
 
     const target = waypoints[patrolIndex];
+    console.log(`🚶 Going to waypoint ${patrolIndex}: ${target}`);
     bot.pathfinder.setGoal(new goals.GoalNear(target.x, target.y, target.z, 1));
 
-    const interval = setInterval(() => {
+    let reached = false;
+
+    const checkInterval = setInterval(() => {
       const dist = bot.entity.position.distanceTo(target);
-      if (dist < 2 || !bot.pathfinder.isMoving()) {
-        clearInterval(interval);
+      if (dist < 2) {
+        clearInterval(checkInterval);
+        clearTimeout(stuckTimer);
+        reached = true;
         patrolIndex++;
         setTimeout(goToNext, 300);
       }
     }, 500);
+
+    const stuckTimer = setTimeout(() => {
+      if (!reached) {
+        console.log(`⚠️ Stuck at waypoint ${patrolIndex}, skipping...`);
+        clearInterval(checkInterval);
+        patrolIndex++;
+        goToNext();
+      }
+    }, 10000); // 10s timeout
   }
 
   goToNext();
@@ -128,9 +142,9 @@ function startLeeching(bot) {
 
   async function lookAndClick() {
     try {
-      const yaw = -Math.PI + 0.001; // Slightly more to avoid 180° flip
-const pitch = 7 * (Math.PI / 180);
-await bot.look(yaw, pitch, true);
+      const yaw = -Math.PI + 0.001; // North
+      const pitch = 7 * (Math.PI / 180); // 7 degrees downward
+      await bot.look(yaw, pitch, true);
       bot.setQuickBarSlot(0);
       bot.activateItem();
     } catch (err) {
@@ -150,7 +164,7 @@ await bot.look(yaw, pitch, true);
     }, 1000);
   }
 
-  setInterval(lookAndClick, 300);
+  setInterval(lookAndClick, 300); // Every 300ms
   setInterval(stepForwardAndBack, 2 * 60 * 1000); // Every 2 minutes
 }
 
