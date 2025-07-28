@@ -37,40 +37,43 @@ function createBot() {
 
   bot.loadPlugin(pathfinder);
 
-  bot.once('spawn', async () => {
+  bot.once('spawn', () => {
     console.log('✅ Spawned');
     bot.chat(loginCommand);
 
-    // Wait 1s → activate item in hotbar slot 0
     setTimeout(() => {
       try {
         bot.setQuickBarSlot(0);
         bot.activateItem();
+        console.log('🟢 Activated item in slot 0');
       } catch (err) {
-        console.log('⚠️ Activation error:', err.message);
+        console.log('❌ Activation failed:', err.message);
       }
     }, 1000);
 
     bot.once('windowOpen', async (window) => {
-      await bot.waitForTicks(20);
-      const slotIndex = 20;
-      const slot = window.slots[slotIndex];
+      console.log('📂 GUI opened');
+      await bot.waitForTicks(20); // 1 second
+
+      const slot = window.slots[20];
       if (slot && slot.name !== 'air') {
         try {
-          await bot.clickWindow(slotIndex, 0, 1);
-          console.log('🎯 Shift-clicked teleport item.');
+          await bot.clickWindow(20, 0, 1); // Shift-click
+          console.log('✅ Shift-clicked slot 20');
         } catch (err) {
-          console.log('❌ GUI click error:', err.message);
+          console.log('❌ Shift-click error:', err.message);
         }
+      } else {
+        console.log('❌ Slot 20 is empty');
       }
 
-      // Wait 2s → then warp and start patrol
       setTimeout(() => {
         bot.chat(warpCommand);
+        console.log('🕸️ Warped to spider');
         setTimeout(() => {
           startPatrol(bot);
-        }, 8000);
-      }, 2000);
+        }, 8000); // Wait 8s after warp
+      }, 2000); // Wait 2s after click
     });
 
     startRightClickLoop(bot);
@@ -179,20 +182,17 @@ function roamAndHunt(bot) {
   bot.pathfinder.setMovements(movements);
 
   let roaming = true;
-  let currentTargetId = null;
 
   function getNearestSpider() {
-    const spiders = bot.entities;
     let nearest = null;
     let minDist = Infinity;
-
-    for (const id in spiders) {
-      const entity = spiders[id];
-      if (entity.name === 'spider') {
-        const dist = bot.entity.position.distanceTo(entity.position);
+    for (const id in bot.entities) {
+      const e = bot.entities[id];
+      if (e.name === 'spider') {
+        const dist = bot.entity.position.distanceTo(e.position);
         if (dist < minDist) {
           minDist = dist;
-          nearest = entity;
+          nearest = e;
         }
       }
     }
@@ -210,22 +210,23 @@ function roamAndHunt(bot) {
     bot.pathfinder.setGoal(new goals.GoalNear(target.x, target.y, target.z, 2));
     console.log(`🚶 Roaming to (${target.x}, ${target.y}, ${target.z})`);
 
-    setTimeout(() => roamRandomly(), 10000);
+    setTimeout(roamRandomly, 10000);
   }
 
   function followSpiderLoop() {
     const spider = getNearestSpider();
-
-    if (spider && spider.id !== currentTargetId) {
-      roaming = false;
-      currentTargetId = spider.id;
-      console.log(`🕷️ Switching to spider at (${spider.position})`);
-      bot.pathfinder.setGoal(new goals.GoalFollow(spider, 1), true);
-    } else if (!spider && !roaming) {
-      roaming = true;
-      currentTargetId = null;
-      console.log('🔄 No spiders nearby. Resuming roam.');
-      roamRandomly();
+    if (spider) {
+      if (roaming) {
+        roaming = false;
+        console.log(`🕷️ Spider found! Following at (${spider.position})`);
+        bot.pathfinder.setGoal(new goals.GoalFollow(spider, 1), true);
+      }
+    } else {
+      if (!roaming) {
+        roaming = true;
+        console.log('🔄 Spider gone. Resuming roam.');
+        roamRandomly();
+      }
     }
   }
 
