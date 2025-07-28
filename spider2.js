@@ -8,6 +8,7 @@ let patrolMode = 'initial';
 
 const loginCommand = '/login 3043AA';
 const warpCommand = '/warp spider';
+const botName = 'JamaaLcaliph';
 
 const allWaypoints = [
   new Vec3(-233, 80, -244),
@@ -27,7 +28,7 @@ const allWaypoints = [
 function createBot() {
   const bot = mineflayer.createBot({
     host: 'mc.fakepixel.fun',
-    username: 'JamaaLcaliph',
+    username: botName,
     version: '1.16.5',
     keepAlive: true,
     connectTimeout: 60000,
@@ -36,20 +37,20 @@ function createBot() {
   bot.loadPlugin(pathfinder);
 
   bot.once('spawn', async () => {
-    console.log('✅ Logged in');
+    console.log('✅ Spawned');
 
     // Step 1: Login
-    setTimeout(() => bot.chat(loginCommand), 2000);
+    setTimeout(() => bot.chat(loginCommand), 1000);
 
-    // Step 2: Open GUI from hotbar slot 0
+    // Step 2: Right-click item in slot 0
     setTimeout(() => {
       bot.setQuickBarSlot(0);
       bot.activateItem();
-    }, 4000);
+    }, 2000);
 
-    // Step 3: Wait for GUI to open, shift-click teleport item, then warp
+    // Step 3: GUI opens, shift-click index 20
     bot.once('windowOpen', async (window) => {
-      await bot.waitForTicks(30); // allow slots to fill
+      await bot.waitForTicks(30);
       const slotIndex = 20;
       const slot = window.slots[slotIndex];
 
@@ -64,20 +65,19 @@ function createBot() {
         console.log('⚠️ Slot 20 is empty or missing.');
       }
 
-      // Step 4: Warp and start patrol
+      // Step 4: Warp → Wait → Patrol
       setTimeout(() => {
         bot.chat(warpCommand);
         setTimeout(() => {
           startPatrol(bot);
-        }, 8000); // wait after warp
+        }, 8000);
       }, 2000);
     });
 
-    // Right-click loop on slot 0
     startRightClickLoop(bot);
   });
 
-  // Death handling → restart patrol
+  // Reconnect logic on death
   bot.on('death', () => {
     patrolIndex = 0;
     patrolMode = 'initial';
@@ -101,13 +101,20 @@ function createBot() {
     }, 10000);
   });
 
-  // Error logging
+  // Reconnect if someone mentions the bot's name
+  bot.on('chat', (username, message) => {
+    if (username !== bot.username && message.toLowerCase().includes(botName.toLowerCase())) {
+      console.log(`💬 Name mentioned by ${username}: "${message}" — Restarting...`);
+      bot.quit(); // triggers reconnect
+    }
+  });
+
   bot.on('error', (err) => {
     console.log('❌ Bot error:', err.message);
   });
 }
 
-// ✅ Right-click hotbar slot 0 every 300ms
+// Right-click hotbar slot 0 item in loop
 function startRightClickLoop(bot) {
   setInterval(() => {
     if (!bot?.entity || bot.entity.health <= 0) return;
@@ -120,7 +127,7 @@ function startRightClickLoop(bot) {
   }, 300);
 }
 
-// ✅ Patrol through waypoints
+// Patrol through waypoints
 function startPatrol(bot) {
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
