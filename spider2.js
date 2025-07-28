@@ -127,50 +127,104 @@ function startPatrol(bot) {
   movements.allowParkour = true;
   bot.pathfinder.setMovements(movements);
 
-  enableNameTrigger = true; // ✅ Activate name trigger only after warp
+  enableNameTrigger = true; // ✅ Start name-mention logic here
 
-  const waypoints = patrolMode === 'initial' ? allWaypoints : allWaypoints.slice(8);
+  const waypoints =
+    patrolMode === 'initial' ? allWaypoints : allWaypoints.slice(11);
 
   function goToNext() {
     if (patrolIndex >= waypoints.length) {
-      patrolIndex = 0;
-      patrolMode = 'loop';
-      console.log('🔁 Restarting patrol from HOME');
+      console.log('🎯 Reached final patrol point — switching to roam & hunt mode');
+      roamAndHunt(bot);
+      return;
     }
 
     const target = waypoints[patrolIndex];
     if (!target) return;
 
-    console.log(`➡️ Heading to waypoint ${patrolIndex}: ${target.toString()}`);
     bot.pathfinder.setGoal(new goals.GoalNear(target.x, target.y, target.z, 1));
 
-    let reached = false;
-
-    const timeout = setTimeout(() => {
-      if (!reached) {
-        console.log(`⏱️ Timeout at waypoint ${patrolIndex}, skipping...`);
-        bot.pathfinder.setGoal(null);
-        patrolIndex++;
-        goToNext();
-      }
-    }, 15000); // 15s timeout per waypoint
-
-    const interval = setInterval(() => {
-      if (!bot.entity?.position) return;
-
+    const checkInterval = setInterval(() => {
       const dist = bot.entity.position.distanceTo(target);
       if (dist < 2) {
-        clearTimeout(timeout);
-        clearInterval(interval);
-        reached = true;
+        clearInterval(checkInterval);
         console.log(`✅ Reached waypoint ${patrolIndex}`);
         patrolIndex++;
-        setTimeout(goToNext, 300);
+        setTimeout(goToNext, 200);
+      } else if (!bot.pathfinder.isMoving()) {
+        console.log(`⚠️ Stuck at waypoint ${patrolIndex}, skipping...`);
+        clearInterval(checkInterval);
+        patrolIndex++;
+        setTimeout(goToNext, 200);
       }
     }, 500);
   }
 
   goToNext();
+}
+
+function roamAndHunt(bot) {
+  console.log('🕷️ Patrol complete — entering free roam & spider hunt mode');
+
+  const mcData = require('minecraft-data')(bot.version);
+  const movements = new Movements(bot, mcData);
+  movements.canDig = false;
+  movements.allowParkour = true;
+  bot.pathfinder.setMovements(movements);
+
+  let roaming = true;
+
+  function getNearestSpider() {
+    const spiders = bot.entities;
+    let nearest = null;
+    let minDist = Infinity;
+
+    for (const id in spiders) {
+      const entity = spiders[id];
+      if (entity.name === 'spider') {
+        const dist = bot.entity.position.distanceTo(entity.position);
+        if (dist < minDist) {
+          minDist = dist;
+          nearest = entity;
+        }
+      }
+    }
+    return nearest;
+  }
+
+  function roamRandomly() {
+    if (!roaming) return;
+
+    const pos = bot.entity.position;
+    const dx = Math.floor(Math.random() * 100 - 50);
+    const dz = Math.floor(Math.random() * 100 - 50);
+    const target = pos.offset(dx, 0, dz);
+
+    bot.pathfinder.setGoal(new goals.GoalNear(target.x, target.y, target.z, 2));
+    console.log(`🚶 Roaming to (${target.x}, ${target.y}, ${target.z})`);
+
+    setTimeout(() => roamRandomly(), 10000);
+  }
+
+  function followSpiderLoop() {
+    const spider = getNearestSpider();
+    if (spider) {
+      if (roaming) {
+        roaming = false;
+        console.log(`🕷️ Spider found! Following at (${spider.position})`);
+        bot.pathfinder.setGoal(new goals.GoalFollow(spider, 1), true);
+      }
+    } else {
+      if (!roaming) {
+        roaming = true;
+        console.log('🔄 Spider gone. Resuming roam.');
+        roamRandomly();
+      }
+    }
+  }
+
+  roamRandomly();
+  setInterval(followSpiderLoop, 2000);
 }
 
 createBot();
