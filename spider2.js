@@ -38,57 +38,67 @@ function createBot() {
 
   bot.once('spawn', async () => {
     console.log('✅ Logged in');
-    setTimeout(() => bot.chat(loginCommand), 2000);
 
     setTimeout(() => {
-      bot.setQuickBarSlot(0);
-      bot.activateItem();
-    }, 4000);
-
-    bot.once('windowOpen', async (window) => {
-      await bot.waitForTicks(30);
-      const slotIndex = 20;
-      const slot = window.slots[slotIndex];
-      if (slot && slot.name !== 'air') {
-        try {
-          await bot.clickWindow(slotIndex, 0, 1);
-          console.log('🎯 Shift-clicked teleport item.');
-        } catch (err) {
-          console.log('❌ GUI click error:', err.message);
-        }
-      }
+      bot.chat(loginCommand);
+      console.log('🔐 Sent login command');
 
       setTimeout(() => {
-        bot.chat(warpCommand);
-        setTimeout(() => {
-          startPatrol(bot);
-        }, 8000);
-      }, 2000);
-    });
+        bot.setQuickBarSlot(0);
+        bot.activateItem(); // Open GUI
 
-    startRightClickLoop(bot);
-  });
+        // Wait for GUI to open
+        bot.once('windowOpen', async (window) => {
+          console.log('📂 GUI opened');
+          await bot.waitForTicks(30);
 
-  bot.on('death', () => {
-    if (!patrolStarted) return;
-    patrolIndex = 0;
-    patrolMode = 'initial';
-    console.log('☠️ Bot died. Reconnecting...');
-    reconnectBot();
+          const slotIndex = 20;
+          const slot = window.slots[slotIndex];
+
+          if (slot && slot.name !== 'air') {
+            try {
+              await bot.clickWindow(slotIndex, 0, 1); // Shift-click
+              console.log('🎯 Shift-clicked teleport item.');
+            } catch (err) {
+              console.log('❌ GUI click error:', err.message);
+            }
+          } else {
+            console.log('⚠️ Slot 20 was empty, teleport item missing.');
+          }
+
+          setTimeout(() => {
+            bot.chat(warpCommand);
+            console.log('🌀 Warping...');
+
+            setTimeout(() => {
+              startPatrol(bot);
+            }, 8000);
+          }, 2000);
+        });
+      }, 1000); // Wait 1s after /login
+    }, 2000); // Initial delay before login
   });
 
   bot.on('chat', (username, message) => {
     if (!patrolStarted) return;
     if (message.toLowerCase().includes('jamaalcaliph')) {
-      console.log(`📢 Detected message mentioning bot: "${message}"`);
-      reconnectBot();
+      console.log(`📢 Mention detected: "${message}"`);
+      reconnectBot(bot);
     }
+  });
+
+  bot.on('death', () => {
+    if (!patrolStarted) return;
+    console.log('☠️ Bot died. Reconnecting...');
+    patrolIndex = 0;
+    patrolMode = 'initial';
+    reconnectBot(bot);
   });
 
   bot.on('end', () => {
     if (reconnecting) return;
     reconnecting = true;
-    console.log('🔁 Disconnected, retrying in 10s...');
+    console.log('🔁 Disconnected. Reconnecting in 10s...');
     setTimeout(() => {
       reconnecting = false;
       createBot();
@@ -98,16 +108,17 @@ function createBot() {
   bot.on('error', (err) => {
     console.log('❌ Bot error:', err.message);
   });
+
+  startRightClickLoop(bot);
 }
 
-function reconnectBot() {
+function reconnectBot(bot) {
   if (reconnecting) return;
   reconnecting = true;
   try {
-    console.log('🔌 Forcing bot reconnect...');
     bot.quit('Reconnecting...');
   } catch (e) {
-    console.log('⚠️ Error quitting bot for reconnect:', e.message);
+    console.log('⚠️ Error during quit:', e.message);
   }
   setTimeout(() => {
     reconnecting = false;
