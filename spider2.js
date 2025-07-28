@@ -2,17 +2,16 @@ const mineflayer = require('mineflayer');
 const Vec3 = require('vec3');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 
+const botName = 'JamaaLcaliph';
+const loginCommand = '/login 3043AA';
+const warpCommand = '/warp spider';
+
 let reconnecting = false;
 let patrolIndex = 0;
 let patrolMode = 'initial';
 let enableNameTrigger = false;
 
-const loginCommand = '/login 3043AA';
-const warpCommand = '/warp spider';
-const botName = 'JamaaLcaliph';
-
 const allWaypoints = [
-  new Vec3(-233, 80, -244),
   new Vec3(-233, 80, -244),
   new Vec3(-261, 86, -237),
   new Vec3(-281, 95, -233),
@@ -31,58 +30,48 @@ function createBot() {
     host: 'mc.fakepixel.fun',
     username: botName,
     version: '1.16.5',
-    keepAlive: true,
-    connectTimeout: 60000,
   });
 
   bot.loadPlugin(pathfinder);
 
-  bot.once('spawn', () => {
+  bot.once('spawn', async () => {
     console.log('✅ Spawned');
-    bot.chat(loginCommand);
+
+    setTimeout(() => bot.chat(loginCommand), 500);
 
     setTimeout(() => {
-      try {
-        bot.setQuickBarSlot(0);
-        bot.activateItem();
-        console.log('🟢 Activated item in slot 0');
-      } catch (err) {
-        console.log('❌ Activation failed:', err.message);
-      }
-    }, 1000);
+      bot.setQuickBarSlot(0);
+      bot.activateItem();
+    }, 1500);
 
     bot.once('windowOpen', async (window) => {
-      console.log('📂 GUI opened');
-      await bot.waitForTicks(20); // 1 second
-
-      const slot = window.slots[20];
+      await bot.waitForTicks(30);
+      const slotIndex = 20;
+      const slot = window.slots[slotIndex];
       if (slot && slot.name !== 'air') {
         try {
-          await bot.clickWindow(20, 0, 1); // Shift-click
-          console.log('✅ Shift-clicked slot 20');
+          await bot.clickWindow(slotIndex, 0, 1);
+          console.log('🎯 Shift-clicked teleport item');
         } catch (err) {
-          console.log('❌ Shift-click error:', err.message);
+          console.log('❌ GUI click error:', err.message);
         }
-      } else {
-        console.log('❌ Slot 20 is empty');
       }
 
       setTimeout(() => {
         bot.chat(warpCommand);
-        console.log('🕸️ Warped to spider');
         setTimeout(() => {
           startPatrol(bot);
-        }, 8000); // Wait 8s after warp
-      }, 2000); // Wait 2s after click
+        }, 8000);
+      }, 2000);
     });
 
     startRightClickLoop(bot);
   });
 
   bot.on('death', () => {
+    console.log('☠️ Bot died. Re-running warp and patrol...');
     patrolIndex = 0;
     patrolMode = 'initial';
-    console.log('☠️ Bot died. Restarting full route...');
     setTimeout(() => {
       bot.chat(warpCommand);
       setTimeout(() => {
@@ -107,19 +96,17 @@ function createBot() {
       username !== bot.username &&
       message.toLowerCase().includes(botName.toLowerCase())
     ) {
-      console.log(`💬 Name mentioned by ${username}: "${message}" — Restarting...`);
-      bot.quit(); // triggers reconnect
+      console.log(`💬 Mentioned by ${username}: "${message}" — Restarting...`);
+      bot.quit();
     }
   });
 
-  bot.on('error', (err) => {
-    console.log('❌ Bot error:', err.message);
-  });
+  bot.on('error', (err) => console.log('❌ Bot error:', err.message));
 }
 
 function startRightClickLoop(bot) {
   setInterval(() => {
-    if (!bot?.entity || bot.entity.health <= 0) return;
+    if (!bot.entity || bot.entity.health <= 0) return;
     try {
       bot.setQuickBarSlot(0);
       bot.activateItem();
@@ -130,39 +117,35 @@ function startRightClickLoop(bot) {
 }
 
 function startPatrol(bot) {
+  console.log('🚦 Starting patrol...');
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
   movements.canDig = false;
   movements.allowParkour = true;
   bot.pathfinder.setMovements(movements);
 
-  enableNameTrigger = true;
-
-  const waypoints =
-    patrolMode === 'initial' ? allWaypoints : allWaypoints.slice(11);
+  enableNameTrigger = true; // 🔛 Enable name-trigger
 
   function goToNext() {
-    if (patrolIndex >= waypoints.length) {
-      console.log('🎯 Reached final patrol point — switching to roam & hunt mode');
+    if (patrolIndex >= allWaypoints.length) {
+      console.log('🏁 Patrol done — entering spider hunting mode');
       roamAndHunt(bot);
       return;
     }
 
-    const target = waypoints[patrolIndex];
-    if (!target) return;
-
+    const target = allWaypoints[patrolIndex];
     bot.pathfinder.setGoal(new goals.GoalNear(target.x, target.y, target.z, 1));
 
-    const checkInterval = setInterval(() => {
+    const check = setInterval(() => {
       const dist = bot.entity.position.distanceTo(target);
       if (dist < 2) {
-        clearInterval(checkInterval);
+        clearInterval(check);
         console.log(`✅ Reached waypoint ${patrolIndex}`);
         patrolIndex++;
         setTimeout(goToNext, 200);
       } else if (!bot.pathfinder.isMoving()) {
-        console.log(`⚠️ Stuck at waypoint ${patrolIndex}, skipping...`);
-        clearInterval(checkInterval);
+        clearInterval(check);
+        console.log(`⚠️ Stuck at waypoint ${patrolIndex}, skipping`);
         patrolIndex++;
         setTimeout(goToNext, 200);
       }
@@ -173,65 +156,49 @@ function startPatrol(bot) {
 }
 
 function roamAndHunt(bot) {
-  console.log('🕷️ Patrol complete — entering free roam & spider hunt mode');
-
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
-  movements.canDig = false;
-  movements.allowParkour = true;
   bot.pathfinder.setMovements(movements);
+  movements.allowParkour = true;
+  movements.canDig = false;
 
-  let roaming = true;
+  function roam() {
+    const pos = bot.entity.position;
+    const dx = Math.floor(Math.random() * 80 - 40);
+    const dz = Math.floor(Math.random() * 80 - 40);
+    const target = pos.offset(dx, 0, dz);
+    bot.pathfinder.setGoal(new goals.GoalNear(target.x, target.y, target.z, 2));
+    console.log(`🚶 Roaming to (${target.x}, ${target.y}, ${target.z})`);
+  }
 
-  function getNearestSpider() {
-    let nearest = null;
+  function findNearestSpider() {
+    let closest = null;
     let minDist = Infinity;
     for (const id in bot.entities) {
       const e = bot.entities[id];
       if (e.name === 'spider') {
-        const dist = bot.entity.position.distanceTo(e.position);
-        if (dist < minDist) {
-          minDist = dist;
-          nearest = e;
+        const d = bot.entity.position.distanceTo(e.position);
+        if (d < minDist) {
+          minDist = d;
+          closest = e;
         }
       }
     }
-    return nearest;
+    return closest;
   }
 
-  function roamRandomly() {
-    if (!roaming) return;
-
-    const pos = bot.entity.position;
-    const dx = Math.floor(Math.random() * 100 - 50);
-    const dz = Math.floor(Math.random() * 100 - 50);
-    const target = pos.offset(dx, 0, dz);
-
-    bot.pathfinder.setGoal(new goals.GoalNear(target.x, target.y, target.z, 2));
-    console.log(`🚶 Roaming to (${target.x}, ${target.y}, ${target.z})`);
-
-    setTimeout(roamRandomly, 10000);
-  }
-
-  function followSpiderLoop() {
-    const spider = getNearestSpider();
+  function loop() {
+    const spider = findNearestSpider();
     if (spider) {
-      if (roaming) {
-        roaming = false;
-        console.log(`🕷️ Spider found! Following at (${spider.position})`);
-        bot.pathfinder.setGoal(new goals.GoalFollow(spider, 1), true);
-      }
+      console.log(`🕷️ Chasing spider at ${spider.position}`);
+      bot.pathfinder.setGoal(new goals.GoalFollow(spider, 1), true);
     } else {
-      if (!roaming) {
-        roaming = true;
-        console.log('🔄 Spider gone. Resuming roam.');
-        roamRandomly();
-      }
+      roam();
     }
   }
 
-  roamRandomly();
-  setInterval(followSpiderLoop, 2000);
+  roam();
+  setInterval(loop, 3000);
 }
 
 createBot();
