@@ -37,12 +37,14 @@ function createBot() {
 
   bot.once('spawn', async () => {
     console.log('✅ Logged in');
-    setTimeout(() => bot.chat(loginCommand), 2000);
 
     setTimeout(() => {
-      bot.setQuickBarSlot(0);
-      bot.activateItem();
-    }, 4000);
+      bot.chat(loginCommand);
+      setTimeout(() => {
+        bot.setQuickBarSlot(0);
+        bot.activateItem();
+      }, 1000); // 1 second after /login
+    }, 2000);
 
     bot.once('windowOpen', async (window) => {
       await bot.waitForTicks(30);
@@ -57,6 +59,7 @@ function createBot() {
         }
       }
 
+      // ⏳ Wait 2 seconds after shift-click before warping
       setTimeout(() => {
         bot.chat(warpCommand);
         setTimeout(() => {
@@ -95,7 +98,6 @@ function createBot() {
   });
 }
 
-// ✅ ONLY THIS FUNCTION IS FIXED
 function startRightClickLoop(bot) {
   setInterval(() => {
     if (!bot?.entity || bot.entity.health <= 0) return;
