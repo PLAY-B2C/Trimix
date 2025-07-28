@@ -128,9 +128,9 @@ function startLeeching(bot) {
 
   async function lookAndClick() {
     try {
-      const yaw = -Math.PI; // -180 degrees
-      const pitch = 7 * (Math.PI / 180); // 7 degrees
-      await bot.look(yaw, pitch, true);
+      const yaw = -Math.PI + 0.001; // Slightly more to avoid 180° flip
+const pitch = 7 * (Math.PI / 180);
+await bot.look(yaw, pitch, true);
       bot.setQuickBarSlot(0);
       bot.activateItem();
     } catch (err) {
