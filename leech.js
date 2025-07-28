@@ -5,35 +5,21 @@ const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 let reconnecting = false;
 let patrolIndex = 0;
 let enableNameTrigger = false;
+let patrolMode = 'initial';
 
 const loginCommand = '/login 3043AA';
 const warpCommand = '/warp crimson';
 const botName = 'JamaaLcaliph';
 
-const waypoints = [
+const allWaypoints = [
   new Vec3(-360, 86, -591),
   new Vec3(-289, 84, -643),
   new Vec3(-262, 93, -630),
   new Vec3(-281, 101, -615),
 ];
 
-const leechPos = new Vec3(-256, 111, -562);
-const lookAtPos = new Vec3(-180, 111, -562);
-
-async function safeShiftClick(bot, slotIndex, maxAttempts = 3) {
-  for (let i = 0; i < maxAttempts; i++) {
-    try {
-      await bot.clickWindow(slotIndex, 0, 1); // Shift-click
-      console.log(`✅ Shift-clicked slot ${slotIndex} (attempt ${i + 1})`);
-      return true;
-    } catch (err) {
-      console.log(`⚠️ Shift-click attempt ${i + 1} failed: ${err.message}`);
-      await bot.waitForTicks(20); // Wait 1 second between attempts
-    }
-  }
-  console.log(`❌ Failed to shift-click slot ${slotIndex} after ${maxAttempts} attempts`);
-  return false;
-}
+const leechSpot = new Vec3(-256, 111, -562);
+const leechLook = new Vec3(-180, 111, -562);
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -50,44 +36,52 @@ function createBot() {
     console.log('✅ Spawned');
     bot.chat(loginCommand);
 
-    // 1 second after login
-    setTimeout(async () => {
+    setTimeout(() => {
       try {
         bot.setQuickBarSlot(0);
-        bot.activateItem(); // Opens GUI (chest)
-        console.log('🟢 Activated item in slot 0 (likely opened GUI)');
+        bot.activateItem();
+        console.log('🟢 Activated item in slot 0');
       } catch (err) {
         console.log('❌ Activation failed:', err.message);
       }
     }, 1000);
+  });
 
-    // Wait for chest GUI to open
-    bot.once('windowOpen', async (window) => {
-      console.log(`📂 GUI opened: "${window.title}" (ID ${window.id})`);
-      await bot.waitForTicks(40); // 2 seconds
+  bot.once('windowOpen', async (window) => {
+    console.log('📂 GUI opened');
 
-      const slot = window.slots[20];
+    await bot.waitForTicks(40); // wait 2 seconds for sync
+
+    window.slots.forEach((slot, i) => {
       if (slot && slot.name !== 'air') {
-        await safeShiftClick(bot, 20); // Shift-click with retries
-      } else {
-        console.log('❌ Slot 20 is empty or not synced yet');
+        console.log(`🔹 Slot ${i}: ${slot.name}`);
       }
-
-      // Warp after 2 seconds
-      setTimeout(() => {
-        bot.chat(warpCommand);
-        console.log('🔥 Warped to crimson');
-        setTimeout(() => {
-          startPatrol(bot);
-        }, 8000);
-      }, 2000);
     });
 
-    startRightClickLoop(bot);
+    const slot = window.slots[20];
+    if (slot && slot.name !== 'air') {
+      try {
+        await bot.clickWindow(20, 0, 0); // regular left-click
+        console.log('✅ Clicked slot 20 successfully');
+      } catch (err) {
+        console.log('❌ Click error on slot 20:', err.message);
+      }
+    } else {
+      console.log('⚠️ Slot 20 is empty or not ready.');
+    }
+
+    setTimeout(() => {
+      bot.chat(warpCommand);
+      console.log('🔥 Warped to crimson');
+      setTimeout(() => {
+        startPatrol(bot);
+      }, 8000);
+    }, 2000);
   });
 
   bot.on('death', () => {
     patrolIndex = 0;
+    patrolMode = 'initial';
     console.log('☠️ Bot died. Restarting patrol...');
     setTimeout(() => {
       bot.chat(warpCommand);
@@ -114,13 +108,15 @@ function createBot() {
       message.toLowerCase().includes(botName.toLowerCase())
     ) {
       console.log(`💬 Name mentioned by ${username}: "${message}" — Restarting...`);
-      bot.quit(); // triggers reconnect
+      bot.quit();
     }
   });
 
   bot.on('error', (err) => {
     console.log('❌ Bot error:', err.message);
   });
+
+  startRightClickLoop(bot);
 }
 
 function startRightClickLoop(bot) {
@@ -144,10 +140,12 @@ function startPatrol(bot) {
 
   enableNameTrigger = true;
 
+  const waypoints = patrolMode === 'initial' ? allWaypoints : allWaypoints.slice(-1);
+
   function goToNext() {
     if (patrolIndex >= waypoints.length) {
-      console.log('🎯 Reached final patrol point — starting leeching mode');
-      startLeeching(bot);
+      console.log('🎯 Reached last point — starting leech mode');
+      startLeechMode(bot);
       return;
     }
 
@@ -175,49 +173,36 @@ function startPatrol(bot) {
   goToNext();
 }
 
-function startLeeching(bot) {
+function startLeechMode(bot) {
+  console.log('🧲 Entered leech mode');
+
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
   movements.canDig = false;
   movements.allowParkour = true;
   bot.pathfinder.setMovements(movements);
 
-  // Move to leech spot
-  bot.pathfinder.setGoal(new goals.GoalBlock(leechPos.x, leechPos.y, leechPos.z));
+  let forward = false;
 
-  bot.once('goal_reached', async () => {
-    console.log('🧲 Arrived at leech spot');
-    await lookAndLeech(bot);
-  });
-}
-
-async function lookAndLeech(bot) {
-  try {
-    await bot.lookAt(lookAtPos);
-    console.log('👀 Looking at target position for leeching');
-  } catch (err) {
-    console.log('⚠️ Failed to look at position:', err.message);
+  function returnToLeechSpot() {
+    bot.pathfinder.setGoal(new goals.GoalNear(leechSpot.x, leechSpot.y, leechSpot.z, 1));
+    bot.lookAt(leechLook.offset(0, 0.5, 0));
+    console.log('📍 Returning to leech spot');
   }
 
-  // Leech loop: every 2 min, move forward briefly and return
-  setInterval(async () => {
-    const yaw = bot.entity.yaw;
-    const dir = new Vec3(Math.round(Math.cos(yaw)), 0, Math.round(Math.sin(yaw)));
-    const forwardPos = bot.entity.position.offset(dir.x, 0, dir.z);
-    const returnGoal = new goals.GoalBlock(leechPos.x, leechPos.y, leechPos.z);
+  async function moveOutAndBack() {
+    forward = !forward;
+    const offset = forward ? 1 : -1;
+    const newPos = leechSpot.offset(offset, 0, 0);
+    bot.pathfinder.setGoal(new goals.GoalNear(newPos.x, newPos.y, newPos.z, 1));
+    console.log(`🚶 Moved ${forward ? 'forward' : 'back'}`);
+    setTimeout(() => {
+      returnToLeechSpot();
+    }, 1000); // wait 1 second then return
+  }
 
-    console.log('➡️ Stepping forward briefly');
-    bot.pathfinder.setGoal(new goals.GoalBlock(forwardPos.x, forwardPos.y, forwardPos.z));
-    await bot.waitForTicks(20);
-
-    console.log('↩️ Returning to leech spot');
-    bot.pathfinder.setGoal(returnGoal);
-    await bot.waitForTicks(20);
-
-    try {
-      await bot.lookAt(lookAtPos);
-    } catch (_) {}
-  }, 120000); // every 2 minutes
+  returnToLeechSpot();
+  setInterval(moveOutAndBack, 2 * 60 * 1000); // every 2 minutes
 }
 
 createBot();
