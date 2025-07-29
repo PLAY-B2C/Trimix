@@ -155,9 +155,9 @@ function startLeeching(bot) {
 
   async function lookAndClick() {
     try {
-      const yaw = Math.PI; // Facing south
-      const pitch = -7 * (Math.PI / 180);
-      await bot.look(yaw, pitch, true);
+      const yaw = Math.PI; // or -Math.PI, both are North
+const pitch = -7 * (Math.PI / 180); // -7 degrees pitch
+await bot.look(yaw, pitch, true);
       bot.setQuickBarSlot(0);
       bot.activateItem();
     } catch (err) {
