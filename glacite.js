@@ -17,7 +17,6 @@ const botConfig = {
   loginCommand: '/login 3043AA',
   warpCommand: '/warp dwarven',
   glaciteCenter: new Vec3(0, 128, 160),
-  roamRadius: 8,
   waypoints: [
     new Vec3(66, 200, -104),
     new Vec3(70, 198, -88),
@@ -34,7 +33,6 @@ const botConfig = {
 
 let patrolIndex = 0;
 let reachedGlacite = false;
-let roamTimer = null;
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -48,6 +46,7 @@ function createBot() {
   bot.once('spawn', () => {
     console.log('✅ Spawned');
     patrolIndex = 0;
+    reachedGlacite = false;
     setTimeout(() => {
       bot.chat(botConfig.loginCommand);
       setTimeout(() => openTeleportGUI(bot), 2000);
@@ -58,7 +57,6 @@ function createBot() {
     console.log('☠️ Bot died. Restarting patrol...');
     patrolIndex = 0;
     reachedGlacite = false;
-    clearTimeout(roamTimer);
     setTimeout(() => {
       bot.chat(botConfig.warpCommand);
       setTimeout(() => startPatrol(bot), 8000);
@@ -98,7 +96,7 @@ function createBot() {
   function startPatrol(bot) {
     const mcData = require('minecraft-data')(bot.version);
     const movements = new Movements(bot, mcData);
-    movements.maxDropDown = 10; // 🔽 Allow falling down 10 blocks
+    movements.maxDropDown = 10;
     movements.allowParkour = true;
     movements.canDig = false;
     bot.pathfinder.setMovements(movements);
@@ -123,9 +121,8 @@ function createBot() {
           retryCount = 0;
           console.log(`📍 Reached waypoint ${patrolIndex}`);
           if (patrolIndex === botConfig.waypoints.length - 1) {
-            reachedGlacite = true;
-            console.log('🌟 Reached Glacite. Starting roam mode...');
-            startRoam(bot);
+            console.log('🌟 Reached Glacite. Executing final right-click...');
+            afterReachingGlacite();
           } else {
             patrolIndex++;
             setTimeout(moveToNext, 600);
@@ -164,37 +161,31 @@ function createBot() {
     moveToNext();
   }
 
-  function startRoam(bot) {
-    const clickLoop = () => {
-      if (!reachedGlacite) return;
+  function afterReachingGlacite() {
+    reachedGlacite = true;
+
+    // Step 1: Use item in slot 2
+    bot.setQuickBarSlot(2);
+    bot.activateItem();
+
+    // Step 2: After 1 second, switch to slot 0 and stop moving
+    setTimeout(() => {
       bot.setQuickBarSlot(0);
-      bot.activateItem();
-      setTimeout(clickLoop, 200); // Constant right-clicking
-    };
-
-    const roam = () => {
-      if (!reachedGlacite) return;
-      const offsetX = Math.floor(Math.random() * botConfig.roamRadius * 2) - botConfig.roamRadius;
-      const offsetZ = Math.floor(Math.random() * botConfig.roamRadius * 2) - botConfig.roamRadius;
-      const target = botConfig.glaciteCenter.offset(offsetX, 0, offsetZ);
-      const y = bot.blockAt(target)?.position.y || botConfig.glaciteCenter.y;
-
-      bot.pathfinder.setGoal(new GoalNear(target.x, y, target.z, 1));
-      roamTimer = setTimeout(roam, 5000 + Math.random() * 3000);
-    };
-
-    // Reconnect on mention after 5s
-    bot.on('message', (jsonMsg) => {
-      const msg = jsonMsg.toString().toLowerCase();
-      if (reachedGlacite && msg.includes('drakontide')) {
-        console.log('📢 Mention detected. Disconnecting in 5s...');
-        setTimeout(() => bot.quit(), 5000);
-      }
-    });
-
-    roam();
-    clickLoop();
+      bot.clearControlStates(); // Make sure the bot stands still
+      console.log('🧍 Holding slot 0 and standing still.');
+    }, 1000);
   }
+
+  // Monitor chat for triggers only after Glacite reached
+  bot.on('message', (jsonMsg) => {
+    if (!reachedGlacite) return;
+    const msg = jsonMsg.toString().toLowerCase();
+    if (msg.includes('drakontide') || msg.includes('has sent you trade request')) {
+      console.log('📨 Trigger phrase detected in chat. Reconnecting...');
+      bot.quit();
+      setTimeout(createBot, 10000);
+    }
+  });
 }
 
 createBot();
