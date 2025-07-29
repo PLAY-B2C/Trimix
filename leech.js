@@ -83,8 +83,14 @@ function createBot() {
 function startPatrol(bot) {
   const mcData = require('minecraft-data')(bot.version);
   const movements = new Movements(bot, mcData);
+
   movements.canDig = false;
   movements.allowParkour = true;
+  movements.allow1by1towers = true;
+  movements.allowJump = true;
+  movements.canJump = true;
+  movements.maxDropDown = 100;
+
   bot.pathfinder.setMovements(movements);
 
   function goToNext(attempts = 0) {
@@ -96,6 +102,7 @@ function startPatrol(bot) {
 
     const target = waypoints[patrolIndex];
     console.log(`🚶 Going to waypoint ${patrolIndex} (Attempt ${attempts + 1})`);
+    bot.setControlState('sprint', true);
     bot.pathfinder.setGoal(new goals.GoalNear(target.x, target.y, target.z, 1));
 
     let reached = false;
@@ -130,6 +137,7 @@ function startPatrol(bot) {
 }
 
 function goToLeechSpot(bot) {
+  bot.setControlState('sprint', true);
   bot.pathfinder.setGoal(new goals.GoalNear(leechSpot.x, leechSpot.y, leechSpot.z, 1));
 
   const checkInterval = setInterval(() => {
@@ -147,8 +155,8 @@ function startLeeching(bot) {
 
   async function lookAndClick() {
     try {
-      const yaw = 0; // South
-      const pitch = -7 * (Math.PI / 180); // Look slightly up
+      const yaw = Math.PI; // Facing south
+      const pitch = -7 * (Math.PI / 180);
       await bot.look(yaw, pitch, true);
       bot.setQuickBarSlot(0);
       bot.activateItem();
