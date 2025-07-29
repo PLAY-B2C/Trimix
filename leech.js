@@ -86,58 +86,52 @@ function startPatrol(bot) {
 
   movements.canDig = false;
   movements.allowParkour = true;
-  movements.allow1by1towers = true;
-  movements.allowJump = true;
+  movements.allowFreeMotion = true;
+  movements.jumpUpBlocks = 2;
   movements.canJump = true;
-  movements.maxDropDown = 100;
+  movements.allowSprinting = true;
 
   bot.pathfinder.setMovements(movements);
+  goToNextWaypoint(bot);
+}
 
-  function goToNext(attempts = 0) {
-    if (patrolIndex >= waypoints.length) {
-      console.log('🎯 Reached final point. Heading to leech spot...');
-      goToLeechSpot(bot);
-      return;
-    }
-
-    const target = waypoints[patrolIndex];
-    console.log(`🚶 Going to waypoint ${patrolIndex} (Attempt ${attempts + 1})`);
-    bot.setControlState('sprint', true);
-    bot.pathfinder.setGoal(new goals.GoalNear(target.x, target.y, target.z, 1));
-
-    let reached = false;
-
-    const checkInterval = setInterval(() => {
-      const dist = bot.entity.position.distanceTo(target);
-      if (dist < 2) {
-        clearInterval(checkInterval);
-        clearTimeout(stuckTimer);
-        reached = true;
-        patrolIndex++;
-        setTimeout(() => goToNext(0), 300);
-      }
-    }, 500);
-
-    const stuckTimer = setTimeout(() => {
-      if (!reached) {
-        clearInterval(checkInterval);
-        if (attempts < 2) {
-          console.log(`⚠️ Failed to reach waypoint ${patrolIndex}, retrying...`);
-          setTimeout(() => goToNext(attempts + 1), 300);
-        } else {
-          console.log(`❌ Skipping waypoint ${patrolIndex} after 3 attempts`);
-          patrolIndex++;
-          setTimeout(() => goToNext(0), 300);
-        }
-      }
-    }, 10000);
+function goToNextWaypoint(bot) {
+  if (patrolIndex >= waypoints.length) {
+    console.log('🎯 Reached final point. Heading to leech spot...');
+    return goToLeechSpot(bot);
   }
 
-  goToNext(0);
+  const target = waypoints[patrolIndex];
+  let attempts = 0;
+
+  const tryNavigate = () => {
+    if (attempts >= 3) {
+      console.log(`⚠️ Failed to reach waypoint ${patrolIndex}, skipping...`);
+      patrolIndex++;
+      return goToNextWaypoint(bot);
+    }
+
+    console.log(`🚶 Going to waypoint ${patrolIndex}, attempt ${attempts + 1}`);
+    bot.pathfinder.setGoal(new goals.GoalNear(target.x, target.y, target.z, 1));
+
+    const check = setInterval(() => {
+      const dist = bot.entity.position.distanceTo(target);
+      if (dist < 2) {
+        clearInterval(check);
+        patrolIndex++;
+        setTimeout(() => goToNextWaypoint(bot), 500);
+      } else if (!bot.pathfinder.isMoving()) {
+        clearInterval(check);
+        attempts++;
+        setTimeout(tryNavigate, 500);
+      }
+    }, 800);
+  };
+
+  tryNavigate();
 }
 
 function goToLeechSpot(bot) {
-  bot.setControlState('sprint', true);
   bot.pathfinder.setGoal(new goals.GoalNear(leechSpot.x, leechSpot.y, leechSpot.z, 1));
 
   const checkInterval = setInterval(() => {
@@ -155,9 +149,9 @@ function startLeeching(bot) {
 
   async function lookAndClick() {
     try {
-      const yaw = Math.PI; // or -Math.PI, both are North
-const pitch = -7 * (Math.PI / 180); // -7 degrees pitch
-await bot.look(yaw, pitch, true);
+      const yaw = -Math.PI; // North
+      const pitch = -7 * (Math.PI / 180); // Pitch upward slightly
+      await bot.look(yaw, pitch, true);
       bot.setQuickBarSlot(0);
       bot.activateItem();
     } catch (err) {
