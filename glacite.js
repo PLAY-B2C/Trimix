@@ -3,7 +3,6 @@ const Vec3 = require('vec3');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const { GoalNear } = goals;
 
-// 🔇 Suppress deprecation warning for objectType
 const originalWarn = console.warn;
 console.warn = (msg, ...args) => {
   if (typeof msg === 'string' && msg.includes('objectType is deprecated')) return;
@@ -33,6 +32,7 @@ const botConfig = {
 
 let patrolIndex = 0;
 let reachedGlacite = false;
+let reconnecting = false;
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -47,6 +47,7 @@ function createBot() {
     console.log('✅ Spawned');
     patrolIndex = 0;
     reachedGlacite = false;
+    reconnecting = false;
     setTimeout(() => {
       bot.chat(botConfig.loginCommand);
       setTimeout(() => openTeleportGUI(bot), 2000);
@@ -64,8 +65,14 @@ function createBot() {
   });
 
   bot.on('end', () => {
-    console.log('🔁 Disconnected. Reconnecting in 10s...');
-    setTimeout(createBot, 10000);
+    if (!reconnecting) {
+      reconnecting = true;
+      console.log('🔁 Disconnected. Reconnecting in 10s...');
+      setTimeout(() => {
+        reconnecting = false;
+        createBot();
+      }, 10000);
+    }
   });
 
   bot.on('error', err => {
@@ -163,27 +170,25 @@ function createBot() {
 
   function afterReachingGlacite() {
     reachedGlacite = true;
-
-    // Step 1: Use item in slot 2
     bot.setQuickBarSlot(2);
     bot.activateItem();
 
-    // Step 2: After 1 second, switch to slot 0 and stop moving
     setTimeout(() => {
       bot.setQuickBarSlot(0);
-      bot.clearControlStates(); // Make sure the bot stands still
+      bot.clearControlStates();
       console.log('🧍 Holding slot 0 and standing still.');
     }, 1000);
   }
 
-  // Monitor chat for triggers only after Glacite reached
   bot.on('message', (jsonMsg) => {
-    if (!reachedGlacite) return;
+    if (!reachedGlacite || reconnecting) return;
     const msg = jsonMsg.toString().toLowerCase();
     if (msg.includes('drakontide') || msg.includes('has sent you trade request')) {
-      console.log('📨 Trigger phrase detected in chat. Reconnecting...');
-      bot.quit();
-      setTimeout(createBot, 10000);
+      console.log('📨 Trigger phrase detected. Disconnecting in 5s...');
+      reconnecting = true;
+      setTimeout(() => {
+        bot.quit();
+      }, 5000);
     }
   });
 }
