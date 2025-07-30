@@ -14,19 +14,20 @@ function startBotLogic() {
     setTimeout(() => {
       try {
         const window = bot.currentWindow;
+
         if (window) {
           bot.shiftClickWindow(20);
-          console.log('✅ Attempted shift-click on slot 20');
+          console.log('✅ Shift-clicked slot 20 in open GUI');
         } else {
-          console.log('⚠️ No GUI window — attempting raw shift-click');
+          console.log('⚠️ No GUI window — sending raw shift-click packet');
 
+          // ✅ Corrected packet: no `item` field included
           bot._client.write('window_click', {
             windowId: 0,
             slot: 20,
             mouseButton: 1,
             action: 1,
             mode: 1,
-            item: undefined, // ← this is important
           });
 
           console.log('✅ Sent raw window_click packet');
@@ -39,8 +40,8 @@ function startBotLogic() {
         bot.chat('/warp museum');
         console.log('🧭 Warped to museum');
       }, 2000);
-    }, 400); // Wait after right-click
-  }, 1000); // Wait after /login
+    }, 400);
+  }, 1000);
 }
 
 function createBot() {
@@ -56,7 +57,7 @@ function createBot() {
   });
 
   bot.once('spawn', () => {
-    console.log('🎮 Bot spawned — starting automation');
+    console.log('🎮 Bot spawned — starting logic');
     startBotLogic();
   });
 
@@ -77,7 +78,7 @@ function scheduleReconnect() {
   console.log('🔁 Reconnecting in 10 seconds...');
   reconnectTimeout = setTimeout(() => {
     reconnectTimeout = null;
-    createBot(); // 🔄 Rebuild bot from scratch
+    createBot();
   }, 10000);
 }
 
