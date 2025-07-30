@@ -19,32 +19,39 @@ function createBot() {
     bot.chat('/login 3043AA');
 
     setTimeout(() => {
-      bot.setQuickBarSlot(0); // Set to slot 0
-      bot.activateItem();     // Right-click with item
+      bot.setQuickBarSlot(0);
+      bot.activateItem(); // Right-click with item in slot 0
       console.log('🖱️ Right-clicked with item in slot 0');
 
       setTimeout(() => {
-        const window = bot.currentWindow;
-        if (!window) {
-          console.log('⚠️ No GUI window opened.');
-          return;
-        }
+        try {
+          const window = bot.currentWindow;
+          if (window) {
+            bot.shiftClickWindow(20);
+            console.log('✅ Attempted shift-click on slot 20');
+          } else {
+            console.log('⚠️ No GUI window — still attempting shift-click fallback');
 
-        const slot = window.slots[20];
-        if (!slot) {
-          console.log('⚠️ Slot 20 is empty or undefined.');
-          return;
+            // Fallback: attempt shift-click anyway
+            bot._client.write('window_click', {
+              windowId: 0, // 0 usually means player inventory
+              slot: 20,
+              mouseButton: 1,
+              action: 1,
+              mode: 1,
+              item: null,
+            });
+          }
+        } catch (e) {
+          console.log('⚠️ Shift-click error:', e.message);
         }
-
-        bot.shiftClickWindow(20);
-        console.log('✅ Shift-clicked slot 20');
 
         setTimeout(() => {
           bot.chat('/warp museum');
           console.log('🧭 Warped to museum');
         }, 2000);
-      }, 400); // Wait for chest GUI to open
-    }, 1000); // Wait after login
+      }, 400);
+    }, 1000);
   });
 
   bot.on('end', () => {
@@ -58,7 +65,6 @@ function createBot() {
   });
 }
 
-// Prevent reconnect spam
 function scheduleReconnect() {
   if (reconnectTimeout) return;
 
