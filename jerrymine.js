@@ -7,29 +7,56 @@ let triedPositions = new Set();
 function createBot() {
   const bot = mineflayer.createBot({
     host: 'mc.fakepixel.fun',
-    port: 25565, // default port
+    port: 25565,
     username: 'DrakonTide',
   });
 
   bot.loadPlugin(pathfinder);
 
-  bot.once('spawn', () => {
+  bot.once('spawn', async () => {
     console.log('✅ Bot spawned');
     bot.chat('/login 3043AA');
 
-    setTimeout(() => {
-      goToIceArea(bot);
-    }, 3000);
+    await bot.waitForTicks(20); // 1 second
+    bot.setQuickBarSlot(0);
+    bot.activateItem();
+
+    bot.once('windowOpen', async (window) => {
+      const slot20 = window.slots[20];
+      if (slot20 && slot20.name.includes('player_head')) {
+        bot.clickWindow(20, 0, 0);
+        console.log('🎯 Clicked player_head in slot 20');
+      } else {
+        console.log('⚠️ Slot 20 does not contain a player_head');
+      }
+
+      setTimeout(async () => {
+        bot.setQuickBarSlot(8);
+        bot.activateItem();
+
+        bot.once('windowOpen', async (window2) => {
+          const itemInSlot = window2.slots.find(i => i);
+          if (itemInSlot) {
+            try {
+              await bot.clickWindow(itemInSlot.slot, 0, 1); // shift-click
+              console.log('📥 Shift-clicked item to slot 38');
+            } catch (err) {
+              console.log('❌ Failed shift-click:', err.message);
+            }
+          }
+          // Now begin the ice journey
+          goToIceArea(bot);
+        }, 3000);
+      }, 2000);
+    });
   });
 
   bot.on('error', (err) => console.log('❌ Bot error:', err.message));
-
   bot.on('end', () => {
     console.log('🔁 Bot disconnected. Reconnecting in 10s...');
     setTimeout(createBot, 10000);
   });
 
-  // ✅ Only log when chat says "You found"
   bot.on('chat', (username, message) => {
     if (message.includes("You found")) {
       console.log(`🎉 Game message: ${message}`);
@@ -133,20 +160,19 @@ function scanAndMineNearbyIce(bot) {
 
     await bot.lookAt(block.position.offset(0.5, 0.5, 0.5));
 
-    // Equip best pickaxe
     const pickaxe = bot.inventory.items().find(i =>
-      i.name.includes('netherite_pickaxe') || i.name.includes('diamond_pickaxe') || i.name.includes('iron_pickaxe') || i.name.includes('stone_pickaxe') || i.name.includes('wooden_pickaxe')
+      i.name.includes('pickaxe')
     );
 
     if (pickaxe) {
       try {
         await bot.equip(pickaxe, 'hand');
-        console.log('🪓 Equipped best pickaxe.');
+        console.log('🪓 Equipped pickaxe.');
       } catch (err) {
         console.log('❌ Failed to equip pickaxe:', err.message);
       }
     } else {
-      console.log('⚠️ No pickaxe in inventory. Mining with hand.');
+      console.log('⚠️ No pickaxe. Mining with hand.');
     }
 
     bot.swingArm('right', true);
