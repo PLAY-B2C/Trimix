@@ -1,64 +1,33 @@
 const mineflayer = require('mineflayer');
+const Vec3 = require('vec3');
+const { pathfinder } = require('mineflayer-pathfinder');
 
 let bot;
 let reconnectTimeout = null;
 
-function startBotLogic() {
-  bot.chat('/login 3043AA');
-
-  setTimeout(() => {
-    bot.setQuickBarSlot(0);
-    bot.activateItem();
-    console.log('🖱️ Right-clicked with item in slot 0');
-
-    setTimeout(() => {
-      try {
-        const window = bot.currentWindow;
-
-        if (window) {
-          bot.shiftClickWindow(20);
-          console.log('✅ Shift-clicked slot 20 in open GUI');
-        } else {
-          console.log('⚠️ No GUI window — sending raw shift-click packet');
-
-          bot._client.write('window_click', {
-            windowId: 0,
-            slot: 20,
-            mouseButton: 1,
-            action: 1,
-            mode: 1,
-            item: { present: false }, // ✅ FIXED: prevents crash
-          });
-
-          console.log('✅ Sent raw window_click packet');
-        }
-      } catch (e) {
-        console.log('⚠️ Shift-click error:', e.message);
-      }
-
-      setTimeout(() => {
-        bot.chat('/warp museum');
-        console.log('🧭 Warped to museum');
-      }, 2000);
-    }, 400);
-  }, 1000);
-}
+const botConfig = {
+  host: 'mc.fakepixel.fun',
+  username: 'DrakonTide',
+  version: '1.16.5',
+  loginCommand: '/login 3043AA',
+  warpCommand: '/warp museum',
+};
 
 function createBot() {
   bot = mineflayer.createBot({
-    host: 'mc.fakepixel.fun',
-    port: 25565,
-    username: 'B2C',
-    version: '1.16.5',
+    host: botConfig.host,
+    username: botConfig.username,
+    version: botConfig.version,
   });
 
-  bot.on('login', () => {
-    console.log('✅ Logged in');
-  });
+  bot.loadPlugin(pathfinder);
 
   bot.once('spawn', () => {
-    console.log('🎮 Bot spawned — starting logic');
-    startBotLogic();
+    console.log('✅ Spawned');
+    setTimeout(() => {
+      bot.chat(botConfig.loginCommand);
+      setTimeout(() => openTeleportGUI(bot), 2000);
+    }, 2000);
   });
 
   bot.on('end', () => {
@@ -66,7 +35,7 @@ function createBot() {
     scheduleReconnect();
   });
 
-  bot.on('error', (err) => {
+  bot.on('error', err => {
     console.log('❌ Bot error:', err.message);
     scheduleReconnect();
   });
@@ -80,6 +49,41 @@ function scheduleReconnect() {
     reconnectTimeout = null;
     createBot();
   }, 10000);
+}
+
+function openTeleportGUI(bot) {
+  bot.setQuickBarSlot(0);
+  bot.activateItem();
+  console.log('🖱️ Right-clicked with item in slot 0');
+
+  bot.once('windowOpen', async window => {
+    await bot.waitForTicks(20); // wait for GUI to fully load
+    const slot = window.slots[20];
+    if (slot) {
+      try {
+        await bot.clickWindow(20, 0, 1);
+        console.log('✅ Shift-clicked slot 20');
+      } catch (err) {
+        console.log('❌ GUI click error:', err.message);
+      }
+    } else {
+      console.log('⚠️ Slot 20 not found — skipping click');
+    }
+
+    setTimeout(() => {
+      bot.chat(botConfig.warpCommand);
+      console.log('🧭 Warped to museum');
+    }, 2000);
+  });
+
+  // If no GUI opens, still warp after delay
+  setTimeout(() => {
+    if (!bot.currentWindow) {
+      console.log('⚠️ No GUI opened — continuing anyway');
+      bot.chat(botConfig.warpCommand);
+      console.log('🧭 Warped to museum');
+    }
+  }, 3000);
 }
 
 createBot();
