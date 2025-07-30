@@ -15,18 +15,12 @@ function createBot(username, password) {
       bot.chat(`/login ${password}`);
     }, 2000);
 
-    // Assume login success if bot stays connected for 5s after login
     setTimeout(() => {
       if (bot.player && bot.player.uuid) {
         loginConfirmed = true;
         console.log(`[${username}] ✅ Login successful`);
       }
     }, 7000);
-
-    // Disconnect after 1h 10min
-    setTimeout(() => {
-      bot.quit('Session finished');
-    }, 70 * 60 * 1000);
   });
 
   bot.on('end', () => {
@@ -40,6 +34,5 @@ function createBot(username, password) {
   });
 }
 
-// 🔒 Start both bots
-createBot('JamaaLcaliph', '3043AA');
+// 🟢 BoltMC bot only
 createBot('BoltMC', '2151220');
