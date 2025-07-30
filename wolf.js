@@ -8,7 +8,7 @@ function startBotLogic() {
 
   setTimeout(() => {
     bot.setQuickBarSlot(0);
-    bot.activateItem(); // Right-click with item
+    bot.activateItem();
     console.log('🖱️ Right-clicked with item in slot 0');
 
     setTimeout(() => {
@@ -21,13 +21,13 @@ function startBotLogic() {
         } else {
           console.log('⚠️ No GUI window — sending raw shift-click packet');
 
-          // ✅ Corrected packet: no `item` field included
           bot._client.write('window_click', {
             windowId: 0,
             slot: 20,
             mouseButton: 1,
             action: 1,
             mode: 1,
+            item: { present: false }, // ✅ FIXED: prevents crash
           });
 
           console.log('✅ Sent raw window_click packet');
