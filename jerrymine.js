@@ -19,34 +19,42 @@ function createBot() {
 
     await bot.waitForTicks(20); // 1 second
     bot.setQuickBarSlot(0);
-    bot.activateItem();
+    bot.activateItem(); // Open GUI from slot 0
 
-    bot.once('windowOpen', async (window) => {
-      const slot20 = window.slots[20];
+    bot.once('windowOpen', async (firstWindow) => {
+      const slot20 = firstWindow.slots[20];
       if (slot20 && slot20.name.includes('player_head')) {
-        bot.clickWindow(20, 0, 0);
-        console.log('🎯 Clicked player_head in slot 20');
+        try {
+          await bot.clickWindow(20, 0, 0);
+          console.log('🎯 Clicked player head in slot 20');
+        } catch (err) {
+          console.log('❌ Failed to click slot 20:', err.message);
+        }
       } else {
-        console.log('⚠️ Slot 20 does not contain a player_head');
+        console.log('⚠️ Slot 20 is not a player head or empty.');
       }
 
-      setTimeout(async () => {
+      // Wait 2 seconds before next GUI
+      setTimeout(() => {
         bot.setQuickBarSlot(8);
-        bot.activateItem();
+        bot.activateItem(); // Open GUI from slot 8
 
-        bot.once('windowOpen', async (window2) => {
-          const itemInSlot = window2.slots.find(i => i);
-          if (itemInSlot) {
+        bot.once('windowOpen', async (secondWindow) => {
+          const itemSlot = secondWindow.slots.find(s => s && s.type !== 0);
+          if (itemSlot) {
             try {
-              await bot.clickWindow(itemInSlot.slot, 0, 1); // shift-click
-              console.log('📥 Shift-clicked item to slot 38');
+              await bot.clickWindow(itemSlot.slot, 0, 1); // shift-click
+              console.log(`📥 Shift-clicked item from slot ${itemSlot.slot}`);
             } catch (err) {
-              console.log('❌ Failed shift-click:', err.message);
+              console.log('❌ Failed to shift-click:', err.message);
             }
+          } else {
+            console.log('⚠️ No item found in second GUI to shift-click');
           }
-          // Now begin the ice journey
+
+          // Start waypoint movement and ice mining
           goToIceArea(bot);
-        }, 3000);
+        });
       }, 2000);
     });
   });
