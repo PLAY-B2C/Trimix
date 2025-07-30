@@ -8,33 +8,35 @@ function createBot(username, password) {
     version: '1.16.5',
   });
 
-  bot.on('login', () => {
-    console.log(`[${username}] Logged in`);
-  });
+  let loginConfirmed = false;
 
   bot.on('spawn', () => {
-    console.log(`[${username}] Spawned, sending login...`);
     setTimeout(() => {
       bot.chat(`/login ${password}`);
+    }, 2000);
 
-      // Disconnect after 1 hour 10 minutes
-      setTimeout(() => {
-        console.log(`[${username}] Time's up — disconnecting.`);
-        bot.quit('AFK time completed');
-      }, 70 * 60 * 1000); // 70 minutes
-    }, 3000);
+    // Assume login success if bot stays connected for 5s after login
+    setTimeout(() => {
+      if (bot.player && bot.player.uuid) {
+        loginConfirmed = true;
+        console.log(`[${username}] ✅ Login successful`);
+      }
+    }, 7000);
+
+    // Disconnect after 1h 10min
+    setTimeout(() => {
+      bot.quit('Session finished');
+    }, 70 * 60 * 1000);
   });
 
   bot.on('end', () => {
-    console.log(`[${username}] Disconnected from server.`);
+    if (!loginConfirmed) {
+      console.log(`[${username}] ❌ Login failed or disconnected early`);
+    }
   });
 
-  bot.on('error', (err) => {
-    console.error(`[${username}] Error: ${err.message}`);
-  });
-
-  bot.on('message', (msg) => {
-    console.log(`[${username}] Chat: ${msg.toString()}`);
+  bot.on('error', () => {
+    console.log(`[${username}] ❌ Login error`);
   });
 }
 
