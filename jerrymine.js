@@ -16,43 +16,45 @@ function createBot() {
   bot.once('spawn', async () => {
     console.log('✅ Bot spawned');
     bot.chat('/login 3043AA');
-
     await bot.waitForTicks(20); // 1 second
-    bot.setQuickBarSlot(0);
-    bot.activateItem(); // Open GUI from slot 0
 
-    bot.once('windowOpen', async (firstWindow) => {
-      const slot20 = firstWindow.slots[20];
-      if (slot20 && slot20.name.includes('player_head')) {
+    bot.setQuickBarSlot(0);
+    bot.activateItem(); // Right-click with slot 0 (open double chest)
+
+    bot.once('windowOpen', async (window1) => {
+      const slot20 = window1.slots[20];
+      if (slot20 && slot20.type !== 0) {
         try {
-          await bot.clickWindow(20, 0, 0);
-          console.log('🎯 Clicked player head in slot 20');
+          await bot.clickWindow(20, 0, 1); // shift-click slot 20
+          console.log('📥 Shift-clicked slot 20');
         } catch (err) {
-          console.log('❌ Failed to click slot 20:', err.message);
+          console.log('❌ Error shift-clicking slot 20:', err.message);
         }
       } else {
-        console.log('⚠️ Slot 20 is not a player head or empty.');
+        console.log('⚠️ Slot 20 empty or invalid');
       }
 
-      // Wait 2 seconds before next GUI
+      // Wait 2 seconds
       setTimeout(() => {
         bot.setQuickBarSlot(8);
-        bot.activateItem(); // Open GUI from slot 8
+        bot.activateItem(); // Right-click with slot 8 (opens new GUI)
 
-        bot.once('windowOpen', async (secondWindow) => {
-          const itemSlot = secondWindow.slots.find(s => s && s.type !== 0);
-          if (itemSlot) {
+        bot.once('windowOpen', async (window2) => {
+          const slot38 = window2.slots[38];
+          const firstItem = window2.slots.find(i => i && i.name);
+
+          if (firstItem) {
             try {
-              await bot.clickWindow(itemSlot.slot, 0, 1); // shift-click
-              console.log(`📥 Shift-clicked item from slot ${itemSlot.slot}`);
+              await bot.clickWindow(firstItem.slot, 0, 1); // shift-click to move item
+              console.log(`📥 Shift-clicked ${firstItem.name} to slot 38`);
             } catch (err) {
-              console.log('❌ Failed to shift-click:', err.message);
+              console.log('❌ Error shift-clicking in second GUI:', err.message);
             }
           } else {
-            console.log('⚠️ No item found in second GUI to shift-click');
+            console.log('⚠️ No item to shift-click in second GUI');
           }
 
-          // Start waypoint movement and ice mining
+          // Start walking to waypoints
           goToIceArea(bot);
         });
       }, 2000);
