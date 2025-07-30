@@ -19,21 +19,14 @@ function createBot() {
     bot.chat('/login 3043AA');
 
     setTimeout(() => {
-      bot.setQuickBarSlot(0); // Use slot 0
-
-      const blockInFront = bot.blockAtCursor(4);
-      if (!blockInFront) {
-        console.log('⚠️ No block in front to interact with.');
-        return;
-      }
-
-      bot.activateBlock(blockInFront); // Right click
-      console.log('🧱 Right-clicked to open chest');
+      bot.setQuickBarSlot(0); // Set to slot 0
+      bot.activateItem();     // Right-click with item
+      console.log('🖱️ Right-clicked with item in slot 0');
 
       setTimeout(() => {
         const window = bot.currentWindow;
         if (!window) {
-          console.log('⚠️ No chest window opened.');
+          console.log('⚠️ No GUI window opened.');
           return;
         }
 
@@ -50,8 +43,8 @@ function createBot() {
           bot.chat('/warp museum');
           console.log('🧭 Warped to museum');
         }, 2000);
-      }, 400);
-    }, 1000);
+      }, 400); // Wait for chest GUI to open
+    }, 1000); // Wait after login
   });
 
   bot.on('end', () => {
@@ -65,11 +58,11 @@ function createBot() {
   });
 }
 
-// Prevent stacking reconnects
+// Prevent reconnect spam
 function scheduleReconnect() {
   if (reconnectTimeout) return;
 
-  console.log('🔁 Attempting reconnect in 10 seconds...');
+  console.log('🔁 Reconnecting in 10 seconds...');
   reconnectTimeout = setTimeout(() => {
     reconnectTimeout = null;
     createBot();
