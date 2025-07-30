@@ -4,7 +4,7 @@ function createBot() {
   const bot = mineflayer.createBot({
     host: 'mc.fakepixel.fun',
     port: 25565,
-    username: 'BoltMC',
+    username: 'JamaaLcaliph',
     version: '1.8.9',
   });
 
@@ -19,7 +19,7 @@ function createBot() {
 
     // Login command
     setTimeout(() => {
-      bot.chat('/login 2151220');
+      bot.chat('/login 3043AA');
     }, 2000);
 
     // Confirm login after a short delay
