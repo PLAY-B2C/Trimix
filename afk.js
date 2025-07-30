@@ -4,7 +4,7 @@ function createBot(username, password) {
   const bot = mineflayer.createBot({
     host: 'mc.fakepixel.fun',
     port: 25565,
-    username: username,
+    username,
     version: '1.16.5',
   });
 
@@ -13,22 +13,31 @@ function createBot(username, password) {
   });
 
   bot.on('spawn', () => {
-    console.log(`[${username}] Spawned`);
-    // Send /login command after short delay
+    console.log(`[${username}] Spawned, sending login...`);
     setTimeout(() => {
       bot.chat(`/login ${password}`);
-    }, 2000); // Wait 2 seconds for spawn
+
+      // Disconnect after 1 hour 10 minutes
+      setTimeout(() => {
+        console.log(`[${username}] Time's up — disconnecting.`);
+        bot.quit('AFK time completed');
+      }, 70 * 60 * 1000); // 70 minutes
+    }, 3000);
   });
 
   bot.on('end', () => {
-    console.log(`[${username}] Disconnected from server`);
+    console.log(`[${username}] Disconnected from server.`);
   });
 
   bot.on('error', (err) => {
-    console.error(`[${username}] Error:`, err);
+    console.error(`[${username}] Error: ${err.message}`);
+  });
+
+  bot.on('message', (msg) => {
+    console.log(`[${username}] Chat: ${msg.toString()}`);
   });
 }
 
-// Create both bots
+// 🔒 Start both bots
 createBot('JamaaLcaliph', '3043AA');
 createBot('BoltMC', '2151220');
