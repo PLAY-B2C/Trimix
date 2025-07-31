@@ -51,22 +51,19 @@ function createBot() {
       console.log(`🎯 Reached B2C at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`)
       bot.setQuickBarSlot(0)
 
-      console.log('🖱️ Starting spam right-click on B2C')
-
       const clickInterval = setInterval(() => {
         if (!b2c || !b2c.isValid) {
-          console.log('❌ Lost sight of B2C, stopping spam.')
           clearInterval(clickInterval)
           return
         }
         bot.activateEntity(b2c)
       }, 500)
 
-      // Stop clicking on disconnect
-      bot.once('end', () => clearInterval(clickInterval))
-      bot.once('kicked', () => clearInterval(clickInterval))
+      const stopClicking = () => clearInterval(clickInterval)
+      bot.once('end', stopClicking)
+      bot.once('kicked', stopClicking)
+      bot.once('death', stopClicking)
 
-      // If GUI opens, shift-click red glass panes or "Not Ready" items
       bot.on('windowOpen', (window) => {
         console.log('📦 GUI opened:', window.title)
 
@@ -96,6 +93,22 @@ function createBot() {
     })
   }
 
+  // 🛡 Handle respawn / teleport / server swap
+  bot.on('respawn', () => {
+    console.log('⚡ Respawned. Re-initializing pathfinder.')
+    bot.pathfinder.setGoal(null)
+  })
+
+  bot.on('teleport', () => {
+    console.log('🌀 Teleported.')
+    bot.pathfinder.setGoal(null)
+  })
+
+  bot.on('dimensionChange', () => {
+    console.log('🌍 Dimension changed.')
+    bot.pathfinder.setGoal(null)
+  })
+
   bot.on('kicked', (reason) => {
     console.log('❌ Kicked:', reason)
   })
@@ -108,6 +121,11 @@ function createBot() {
     console.log('🔌 Disconnected. Reconnecting in 5 seconds...')
     setTimeout(createBot, 5000)
   })
+
+  return bot
+}
+
+createBot()  })
 
   return bot
 }
