@@ -8,7 +8,7 @@ function createBot() {
     port: 25565,
     username: 'JamaaLcaliph',
     auth: 'offline',
-    checkTimeoutInterval: 60000 // Prevent timeout during dungeon load
+    checkTimeoutInterval: 60000
   })
 
   bot.loadPlugin(pathfinder)
@@ -18,7 +18,6 @@ function createBot() {
     bot.chat('/login 3043AA')
   })
 
-  // Listen for login retry
   bot.on('message', (message) => {
     const msg = message.toString().toLowerCase()
     if (msg.includes('login failed') || msg.includes('please login')) {
@@ -27,7 +26,7 @@ function createBot() {
     }
 
     if (msg.includes('is holding')) {
-      console.log('📣 "is holding" detected, starting behavior...')
+      console.log('📣 Detected "is holding" — beginning task.')
       goToB2C(bot)
     }
   })
@@ -51,10 +50,10 @@ function createBot() {
       console.log(`🎯 Reached B2C at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`)
 
       setTimeout(() => {
-        bot.setQuickBarSlot(4)
+        bot.setQuickBarSlot(2) // index 2 = 3rd slot
         bot.activateItem()
-        console.log('🧪 Activated item in slot 4.')
-      }, 1000) // Small delay after reaching to ensure chunk load
+        console.log('🎮 Activated item in hotbar slot 2.')
+      }, 1000)
     })
   }
 
@@ -63,17 +62,20 @@ function createBot() {
 
     for (let i = 0; i < window.slots.length; i++) {
       const item = window.slots[i]
-      if (item && (item.name === 'red_stained_glass_pane' || (item.name === 'stained_glass_pane' && item.metadata === 14))) {
+      if (
+        item &&
+        (item.name === 'red_stained_glass_pane' ||
+         (item.name === 'stained_glass_pane' && item.metadata === 14))
+      ) {
         bot.clickWindow(i, 0, 1) // shift-click
-        console.log(`✅ Shift-clicked red glass pane in slot ${i}`)
+        console.log(`✅ Shift-clicked red glass pane at slot ${i}`)
       }
     }
 
-    bot.pathfinder.setGoal(null) // Stand still
-    console.log('😴 Bot is now AFK. Keep-alive is automatic.')
+    bot.pathfinder.setGoal(null) // Stop moving
+    console.log('😴 Standing still. Keep-alive packets sent automatically.')
   })
 
-  // Handle disconnect and reconnect
   bot.on('kicked', (reason) => {
     console.log('❌ Kicked:', reason)
   })
