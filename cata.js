@@ -8,19 +8,19 @@ function createBot() {
     port: 25565,
     username: 'JamaaLcaliph',
     auth: 'offline',
-    checkTimeoutInterval: 60000 // Keepalive timer
+    checkTimeoutInterval: 60000, // Prevent timeout early
   })
 
   bot.loadPlugin(pathfinder)
 
   let waitingForWorldLoad = false
+  let shouldGoToB2C = false
 
   bot.once('spawn', () => {
     console.log('✅ Bot spawned.')
     bot.chat('/login 3043AA')
   })
 
-  // Login retry
   bot.on('message', (message) => {
     const msg = message.toString().toLowerCase()
 
@@ -29,42 +29,47 @@ function createBot() {
       setTimeout(() => bot.chat('/login 3043AA'), 2000)
     }
 
-    // Start behavior after "is holding"
     if (msg.includes('is holding')) {
       console.log('📣 Detected "is holding" message.')
 
-      // Delay behavior until after world is fully loaded
       if (waitingForWorldLoad) {
-        console.log('⏳ Waiting for teleport/server change to complete...')
+        console.log('⏳ Waiting for world to finish loading...')
+        shouldGoToB2C = true
         return
       }
-      safeGoToB2C()
+
+      goToB2C()
     }
   })
 
-  // Detect dimension swap or server switch
-  bot.on('respawn', () => {
-    console.log('🌐 Respawned (possibly dimension or server switch).')
-    waitingForWorldLoad = true
-
-    // Delay to allow world chunks/entities to load
-    setTimeout(() => {
-      console.log('✅ World load complete.')
-      waitingForWorldLoad = false
-    }, 3000)
-  })
-
-  // Handle forced teleport
+  // Delay movement on teleport or respawn
   bot.on('teleport', () => {
-    console.log('🌀 Teleported.')
+    console.log('🌀 Teleported. Waiting for chunks...')
     waitingForWorldLoad = true
     setTimeout(() => {
       console.log('✅ Teleport complete.')
       waitingForWorldLoad = false
+      if (shouldGoToB2C) {
+        shouldGoToB2C = false
+        goToB2C()
+      }
     }, 3000)
   })
 
-  function safeGoToB2C() {
+  bot.on('respawn', () => {
+    console.log('🌐 Respawned (possible server/dimension swap).')
+    waitingForWorldLoad = true
+    setTimeout(() => {
+      console.log('✅ World load complete.')
+      waitingForWorldLoad = false
+      if (shouldGoToB2C) {
+        shouldGoToB2C = false
+        goToB2C()
+      }
+    }, 3000)
+  })
+
+  function goToB2C() {
     const target = bot.players['B2C']?.entity
     if (!target) {
       console.log('❌ Player B2C not found.')
@@ -82,9 +87,15 @@ function createBot() {
     bot.once('goal_reached', () => {
       console.log(`🎯 Reached B2C at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`)
       bot.pathfinder.setGoal(null)
-      console.log('😴 Bot is now idle and staying connected.')
+      console.log('😴 Bot is now idle and staying alive.')
     })
   }
+
+  // Reconnect logic
+  bot.on('end', () => {
+    console.log('🔌 Bot disconnected. Reconnecting in 5s...')
+    setTimeout(createBot, 5000)
+  })
 
   bot.on('kicked', (reason) => {
     console.log('❌ Kicked:', reason)
@@ -92,11 +103,6 @@ function createBot() {
 
   bot.on('error', (err) => {
     console.log('💥 Error:', err.message)
-  })
-
-  bot.on('end', () => {
-    console.log('🔌 Disconnected. Reconnecting in 5 seconds...')
-    setTimeout(createBot, 5000)
   })
 
   return bot
