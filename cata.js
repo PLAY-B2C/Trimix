@@ -9,7 +9,8 @@ const BOT_CONFIG = {
   auth: 'offline'
 }
 
-const NPC_COORDS = { x: 0, y: 64, z: 0 } // Change to actual NPC coords
+// Change this to the actual NPC location you want the bot to walk to
+const NPC_COORDS = { x: 0, y: 64, z: 0 }
 
 let bot
 
@@ -31,12 +32,12 @@ function createBot() {
     }
 
     if (msg.includes('is holding')) {
-      console.log('"is holding" detected in chat, moving to NPC...')
-      moveToNPC()
+      console.log('"is holding" detected in chat, walking to NPC...')
+      moveToNPCAndActivate()
     }
   })
 
-  function moveToNPC() {
+  function moveToNPCAndActivate() {
     const mcData = minecraftData(bot.version)
     const movements = new Movements(bot, mcData)
     bot.pathfinder.setMovements(movements)
@@ -46,21 +47,27 @@ function createBot() {
 
     bot.once('goal_reached', () => {
       console.log(`Reached NPC at ${NPC_COORDS.x}, ${NPC_COORDS.y}, ${NPC_COORDS.z}`)
-      bot.setQuickBarSlot(7)
-      bot.activateItem()
+      activateItemNow()
     })
+  }
+
+  function activateItemNow() {
+    bot.setQuickBarSlot(4) // slot index 4 = 5th slot
+    bot.activateItem()
+    console.log('Activated item in slot 4')
   }
 
   bot.on('windowOpen', (window) => {
     console.log('Window opened:', window.title)
+
     if (window.slots.length === 54) {
-      clickRedGlassPanes(window)
+      shiftClickRedGlass(window)
     } else {
       console.log('Not a double chest, ignoring')
     }
   })
 
-  function clickRedGlassPanes(window) {
+  function shiftClickRedGlass(window) {
     let clicked = false
     for (let i = 0; i < window.slots.length; i++) {
       const item = window.slots[i]
@@ -69,8 +76,8 @@ function createBot() {
         (item.name === 'red_stained_glass_pane' ||
           (item.name === 'stained_glass_pane' && item.metadata === 14))
       ) {
-        bot.clickWindow(i, 0, 0)
-        console.log(`Clicked red glass pane at slot ${i}`)
+        bot.clickWindow(i, 0, 1) // mode 1 = shift-click
+        console.log(`Shift-clicked red glass pane at slot ${i}`)
         clicked = true
       }
     }
@@ -79,8 +86,8 @@ function createBot() {
       console.log('No red glass panes found')
     }
 
-    bot.pathfinder.setGoal(null)
-    console.log('Bot is now AFK')
+    console.log('Done. Bot is now AFK.')
+    bot.pathfinder.setGoal(null) // Stop movement if still active
   }
 
   bot.on('kicked', (reason) => {
