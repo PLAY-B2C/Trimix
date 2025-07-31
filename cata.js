@@ -28,11 +28,11 @@ function createBot() {
 
     if (msg.includes('is holding')) {
       console.log('📣 Detected "is holding" — beginning task.')
-      goToAndClickB2C()
+      goToAndSpamClickB2C()
     }
   })
 
-  function goToAndClickB2C() {
+  function goToAndSpamClickB2C() {
     const b2c = bot.players['B2C']?.entity
     if (!b2c) {
       console.log('❌ Player B2C not found.')
@@ -49,42 +49,50 @@ function createBot() {
 
     bot.once('goal_reached', () => {
       console.log(`🎯 Reached B2C at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`)
-
-      // Clear hand
       bot.setQuickBarSlot(0)
 
-      // Right-click on the player entity
-      setTimeout(() => {
+      console.log('🖱️ Starting spam right-click on B2C')
+
+      const clickInterval = setInterval(() => {
+        if (!b2c || !b2c.isValid) {
+          console.log('❌ Lost sight of B2C, stopping spam.')
+          clearInterval(clickInterval)
+          return
+        }
         bot.activateEntity(b2c)
-        console.log('🖱️ Right-clicked B2C (empty hand)')
+      }, 500)
 
-        // Wait for GUI to open
-        bot.once('windowOpen', (window) => {
-          console.log('📦 GUI opened:', window.title)
+      // Stop clicking on disconnect
+      bot.once('end', () => clearInterval(clickInterval))
+      bot.once('kicked', () => clearInterval(clickInterval))
 
-          let clickedAny = false
+      // If GUI opens, shift-click red glass panes or "Not Ready" items
+      bot.on('windowOpen', (window) => {
+        console.log('📦 GUI opened:', window.title)
 
-          for (let i = 0; i < window.slots.length; i++) {
-            const item = window.slots[i]
-            if (
-              item &&
-              (item.name === 'red_stained_glass_pane' ||
-               (item.name === 'stained_glass_pane' && item.metadata === 14))
-            ) {
-              bot.clickWindow(i, 0, 1) // shift-click
-              console.log(`✅ Shift-clicked red glass pane at slot ${i}`)
-              clickedAny = true
-            }
+        let clickedAny = false
+
+        for (let i = 0; i < window.slots.length; i++) {
+          const item = window.slots[i]
+          if (!item) continue
+
+          const isRedPane =
+            item.name === 'red_stained_glass_pane' ||
+            (item.name === 'stained_glass_pane' && item.metadata === 14)
+
+          const isNotReady = item.displayName?.toLowerCase().includes('not ready')
+
+          if (isRedPane || isNotReady) {
+            bot.clickWindow(i, 0, 1) // shift-click
+            console.log(`✅ Shift-clicked ${item.displayName || item.name} at slot ${i}`)
+            clickedAny = true
           }
+        }
 
-          if (!clickedAny) {
-            console.log('❌ No red glass panes found.')
-          }
-
-          bot.pathfinder.setGoal(null)
-          console.log('😴 Standing still. Session active.')
-        })
-      }, 1000)
+        if (!clickedAny) {
+          console.log('❌ No red glass panes or "Not Ready" items found.')
+        }
+      })
     })
   }
 
