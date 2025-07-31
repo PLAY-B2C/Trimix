@@ -5,7 +5,7 @@ const { pathfinder, Movements, goals } = require('mineflayer-pathfinder')
 const bot = mineflayer.createBot({
   host: 'mc.fakepixel.fun',
   port: 25565,
-  username: 'JamaaLcaliph',
+  username: 'BoltMC',
   auth: 'offline' // Offline mode for cracked server
 })
 
@@ -16,7 +16,7 @@ bot.loadPlugin(pathfinder)
 bot.on('spawn', () => {
   console.log('Bot has spawned in the server!')
   // Send login command
-  bot.chat('/login 3043AA')
+  bot.chat('/login 2151220')
 })
 
 // Handle login failure
