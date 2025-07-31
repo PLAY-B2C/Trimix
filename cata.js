@@ -8,7 +8,7 @@ function createBot() {
     port: 25565,
     username: 'JamaaLcaliph',
     auth: 'offline',
-    checkTimeoutInterval: 60000
+    checkTimeoutInterval: 60000 // Keeps bot alive longer
   })
 
   bot.loadPlugin(pathfinder)
@@ -27,12 +27,12 @@ function createBot() {
     }
 
     if (msg.includes('is holding')) {
-      console.log('📣 Detected "is holding" — beginning task.')
-      goToAndClickB2C()
+      console.log('📣 Detected "is holding" — starting movement.')
+      goToB2C()
     }
   })
 
-  function goToAndClickB2C() {
+  function goToB2C() {
     const b2c = bot.players['B2C']?.entity
     if (!b2c) {
       console.log('❌ Player B2C not found.')
@@ -49,42 +49,8 @@ function createBot() {
 
     bot.once('goal_reached', () => {
       console.log(`🎯 Reached B2C at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`)
-
-      // Clear hand
-      bot.setQuickBarSlot(0)
-
-      // Right-click on the player entity
-      setTimeout(() => {
-        bot.activateEntity(b2c)
-        console.log('🖱️ Right-clicked B2C (empty hand)')
-
-        // Wait for GUI to open
-        bot.once('windowOpen', (window) => {
-          console.log('📦 GUI opened:', window.title)
-
-          let clickedAny = false
-
-          for (let i = 0; i < window.slots.length; i++) {
-            const item = window.slots[i]
-            if (
-              item &&
-              (item.name === 'red_stained_glass_pane' ||
-               (item.name === 'stained_glass_pane' && item.metadata === 14))
-            ) {
-              bot.clickWindow(i, 0, 1) // shift-click
-              console.log(`✅ Shift-clicked red glass pane at slot ${i}`)
-              clickedAny = true
-            }
-          }
-
-          if (!clickedAny) {
-            console.log('❌ No red glass panes found.')
-          }
-
-          bot.pathfinder.setGoal(null)
-          console.log('😴 Standing still. Session active.')
-        })
-      }, 1000)
+      bot.pathfinder.setGoal(null) // Stop moving
+      console.log('😴 Bot is now idle and keeping connection alive.')
     })
   }
 
