@@ -93,7 +93,6 @@ function createBot() {
     })
   }
 
-  // 🛡 Handle respawn / teleport / server swap
   bot.on('respawn', () => {
     console.log('⚡ Respawned. Re-initializing pathfinder.')
     bot.pathfinder.setGoal(null)
@@ -121,29 +120,6 @@ function createBot() {
     console.log('🔌 Disconnected. Reconnecting in 5 seconds...')
     setTimeout(createBot, 5000)
   })
-
-  return bot
-}
-
-createBot()  })
-
-  bot.on('kicked', (reason) => {
-    console.log('❌ Kicked:', reason)
-  })
-
-  bot.on('error', (err) => {
-    console.log('💥 Error:', err.message)
-  })
-
-  bot.on('end', () => {
-    console.log('🔌 Disconnected. Reconnecting in 5 seconds...')
-    setTimeout(createBot, 5000)
-  })
-
-  return bot
-}
-
-createBot()  })
 
   return bot
 }
