@@ -6,37 +6,54 @@ const bot = mineflayer.createBot({
   version: '1.16.5',
 });
 
-function alwaysWalkForward() {
-  // Keep reapplying forward movement just in case it's reset
+function forceWalkForward() {
   bot.setControlState('forward', true);
+  console.log('🚶 Walking forward (reapplied)');
+}
+
+function joinPitServer() {
+  bot.chat('/server pit');
+  console.log('🌍 Sent /server pit');
 }
 
 bot.once('spawn', () => {
   console.log('✅ Spawned');
 
-  // Login
-  bot.chat('/login ABCDEFG');
-  console.log('🔐 Sent /login');
-
-  // Join pit server
   setTimeout(() => {
-    bot.chat('/server pit');
-    console.log('🌍 Sent /server pit');
+    bot.chat('/login ABCDEFG');
+    console.log('🔐 Sent /login');
+
+    setTimeout(() => {
+      joinPitServer();
+
+      // Start walking forward after joining pit
+      setTimeout(() => {
+        forceWalkForward();
+      }, 2000);
+    }, 2000);
   }, 2000);
 });
 
-// Force movement after every respawn
+// If the bot dies and respawns
 bot.on('respawn', () => {
   console.log('💀 Respawned');
-  alwaysWalkForward();
+
+  // Rejoin /server pit (in case server sent us back to hub)
+  setTimeout(() => {
+    joinPitServer();
+
+    setTimeout(() => {
+      forceWalkForward();
+    }, 2000);
+  }, 1000);
 });
 
-// Also reapply movement periodically to prevent it from stopping
+// Redundant: Force walking forward every second in case server resets state
 setInterval(() => {
-  if (bot && bot.player && bot.entity) {
+  if (bot && bot.entity && bot.player) {
     bot.setControlState('forward', true);
   }
-}, 1000); // every second, ensure forward is active
+}, 1000);
 
 bot.on('end', () => {
   console.log('🔁 Disconnected. Reconnecting in 10s...');
