@@ -11,30 +11,17 @@ bot.once('spawn', () => {
 
   setTimeout(() => {
     bot.chat('/login ABCDEFG');
+    console.log('🔐 Logged in');
 
     setTimeout(() => {
-      bot.setQuickBarSlot(0);
-      bot.activateItem();
+      bot.chat('/server pit');
+      console.log('🌍 Switching to /server pit');
 
-      bot.once('windowOpen', async (window) => {
-        try {
-          await bot.waitForTicks(40);
-          const slot = window.slots[22];
-          if (slot && slot.name !== 'air') {
-            await bot.clickWindow(22, 0, 1); // shift-click
-            console.log('🖱️ Shift-clicked slot 22');
-
-            await bot.waitForTicks(20); // small delay
-            bot.setControlState('forward', true); // walk forward
-            console.log('🚶 Walking forward');
-          } else {
-            console.log('⚠️ Slot 22 is empty or not ready');
-          }
-        } catch (err) {
-          console.log('❌ Error:', err.message);
-        }
-      });
-    }, 1000);
+      setTimeout(() => {
+        bot.setControlState('forward', true);
+        console.log('🚶 Always walking forward');
+      }, 2000);
+    }, 2000);
   }, 2000);
 });
 
