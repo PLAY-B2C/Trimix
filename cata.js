@@ -35,7 +35,8 @@ bot.on('message', (message) => {
 
 // Function to move to NPC coordinates
 function moveToNPC() {
-  const movements = new Movements(bot, require('minecraft-data')(bot.version))
+  const mcData = require('minecraft-data')(bot.version)
+  const movements = new Movements(bot, mcData)
   bot.pathfinder.setMovements(movements)
 
   const goal = new goals.GoalNear(NPC_COORDS.x, NPC_COORDS.y, NPC_COORDS.z, 1) // Stop within 1 block
@@ -95,7 +96,9 @@ bot.on('kicked', (reason) => {
   }, 5000)
 })
 
-bot.on('error', (err) => console.log('Error:', err.stack))
+bot.on('error', (err) => {
+  console.log('Error:', err.stack)
+})
 
 // Debug pathfinding issues
 bot.on('path_update', (results) => {
