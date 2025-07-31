@@ -8,13 +8,10 @@ function createBot() {
     port: 25565,
     username: 'JamaaLcaliph',
     auth: 'offline',
-    checkTimeoutInterval: 60000, // Prevent timeout early
+    checkTimeoutInterval: 60000
   })
 
   bot.loadPlugin(pathfinder)
-
-  let waitingForWorldLoad = false
-  let shouldGoToB2C = false
 
   bot.once('spawn', () => {
     console.log('✅ Bot spawned.')
@@ -30,48 +27,14 @@ function createBot() {
     }
 
     if (msg.includes('is holding')) {
-      console.log('📣 Detected "is holding" message.')
-
-      if (waitingForWorldLoad) {
-        console.log('⏳ Waiting for world to finish loading...')
-        shouldGoToB2C = true
-        return
-      }
-
-      goToB2C()
+      console.log('📣 Detected "is holding" — beginning task.')
+      goToAndClickB2C()
     }
   })
 
-  // Delay movement on teleport or respawn
-  bot.on('teleport', () => {
-    console.log('🌀 Teleported. Waiting for chunks...')
-    waitingForWorldLoad = true
-    setTimeout(() => {
-      console.log('✅ Teleport complete.')
-      waitingForWorldLoad = false
-      if (shouldGoToB2C) {
-        shouldGoToB2C = false
-        goToB2C()
-      }
-    }, 3000)
-  })
-
-  bot.on('respawn', () => {
-    console.log('🌐 Respawned (possible server/dimension swap).')
-    waitingForWorldLoad = true
-    setTimeout(() => {
-      console.log('✅ World load complete.')
-      waitingForWorldLoad = false
-      if (shouldGoToB2C) {
-        shouldGoToB2C = false
-        goToB2C()
-      }
-    }, 3000)
-  })
-
-  function goToB2C() {
-    const target = bot.players['B2C']?.entity
-    if (!target) {
+  function goToAndClickB2C() {
+    const b2c = bot.players['B2C']?.entity
+    if (!b2c) {
       console.log('❌ Player B2C not found.')
       return
     }
@@ -80,22 +43,50 @@ function createBot() {
     const movements = new Movements(bot, mcData)
     bot.pathfinder.setMovements(movements)
 
-    const pos = target.position
+    const pos = b2c.position
     const goal = new goals.GoalNear(pos.x, pos.y, pos.z, 1)
     bot.pathfinder.setGoal(goal)
 
     bot.once('goal_reached', () => {
       console.log(`🎯 Reached B2C at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`)
-      bot.pathfinder.setGoal(null)
-      console.log('😴 Bot is now idle and staying alive.')
+
+      // Clear hand
+      bot.setQuickBarSlot(0)
+
+      // Right-click on the player entity
+      setTimeout(() => {
+        bot.activateEntity(b2c)
+        console.log('🖱️ Right-clicked B2C (empty hand)')
+
+        // Wait for GUI to open
+        bot.once('windowOpen', (window) => {
+          console.log('📦 GUI opened:', window.title)
+
+          let clickedAny = false
+
+          for (let i = 0; i < window.slots.length; i++) {
+            const item = window.slots[i]
+            if (
+              item &&
+              (item.name === 'red_stained_glass_pane' ||
+               (item.name === 'stained_glass_pane' && item.metadata === 14))
+            ) {
+              bot.clickWindow(i, 0, 1) // shift-click
+              console.log(`✅ Shift-clicked red glass pane at slot ${i}`)
+              clickedAny = true
+            }
+          }
+
+          if (!clickedAny) {
+            console.log('❌ No red glass panes found.')
+          }
+
+          bot.pathfinder.setGoal(null)
+          console.log('😴 Standing still. Session active.')
+        })
+      }, 1000)
     })
   }
-
-  // Reconnect logic
-  bot.on('end', () => {
-    console.log('🔌 Bot disconnected. Reconnecting in 5s...')
-    setTimeout(createBot, 5000)
-  })
 
   bot.on('kicked', (reason) => {
     console.log('❌ Kicked:', reason)
@@ -103,6 +94,11 @@ function createBot() {
 
   bot.on('error', (err) => {
     console.log('💥 Error:', err.message)
+  })
+
+  bot.on('end', () => {
+    console.log('🔌 Disconnected. Reconnecting in 5 seconds...')
+    setTimeout(createBot, 5000)
   })
 
   return bot
