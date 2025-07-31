@@ -5,7 +5,7 @@ const { pathfinder, Movements, goals } = require('mineflayer-pathfinder')
 const bot = mineflayer.createBot({
   host: 'mc.fakepixel.fun',
   port: 25565,
-  username: 'BoltMC',
+  username: 'JamaaLcaliph',
   auth: 'offline' // Offline mode for cracked server
 })
 
@@ -16,7 +16,7 @@ bot.loadPlugin(pathfinder)
 bot.on('spawn', () => {
   console.log('Bot has spawned in the server!')
   // Send login command
-  bot.chat('/login 2151220')
+  bot.chat('/login 3043AA')
 })
 
 // Handle login failure
@@ -28,14 +28,14 @@ bot.on('message', (message) => {
   }
 })
 
-// Handle chat messages for trade requests
+// Handle chat messages for "is holding"
 bot.on('chat', (username, message) => {
   if (username === bot.username) return // Ignore bot's own messages
 
-  // Check for trade request message
-  if (message.includes('has sent you a trade request. Click here to accept!')) {
-    console.log(`Trade request detected from ${username}`)
-    followPlayer(username)
+  // Check for "is holding" message
+  if (message.includes('is holding')) {
+    console.log(`"is holding" message detected, following B2C`)
+    followPlayer('B2C') // Always follow B2C
   }
 })
 
