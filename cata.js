@@ -2,7 +2,6 @@ const mineflayer = require('mineflayer')
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder')
 const minecraftData = require('minecraft-data')
 
-// === CONFIG ===
 const BOT_CONFIG = {
   host: 'mc.fakepixel.fun',
   port: 25565,
@@ -10,10 +9,12 @@ const BOT_CONFIG = {
   auth: 'offline'
 }
 
-const NPC_COORDS = { x: 0, y: 64, z: 0 } // ⚠️ Replace with actual NPC coordinates
-let alreadyTriggered = false
+// 🟨 Replace with your actual NPC location:
+const NPC_COORDS = { x: 0, y: 64, z: 0 }
 
 let bot
+let alreadyTriggered = false
+let npcScanInterval = null
 
 function createBot() {
   bot = mineflayer.createBot(BOT_CONFIG)
@@ -22,16 +23,6 @@ function createBot() {
   bot.on('spawn', () => {
     console.log('✅ Bot spawned at', bot.entity.position)
     bot.chat('/login 3043AA')
-
-    // Scan for NPCs after a few seconds
-    setTimeout(() => {
-      logNearbyNPCs()
-
-      // Continue scanning every 5 seconds
-      setInterval(() => {
-        logNearbyNPCs()
-      }, 5000)
-    }, 3000)
   })
 
   bot.on('message', (message) => {
@@ -44,57 +35,18 @@ function createBot() {
 
     if (!alreadyTriggered && msg.includes('is holding')) {
       alreadyTriggered = true
-      console.log('📣 "is holding" detected — starting interaction...')
+      console.log('📣 "is holding" detected — scanning NPCs and walking...')
+      startNPCScan()
       moveToNPCAndActivate()
     }
   })
 
-  function moveToNPCAndActivate() {
-    const mcData = minecraftData(bot.version)
-    const movements = new Movements(bot, mcData)
-    bot.pathfinder.setMovements(movements)
-
-    const goal = new goals.GoalNear(NPC_COORDS.x, NPC_COORDS.y, NPC_COORDS.z, 1)
-    bot.pathfinder.setGoal(goal)
-
-    bot.once('goal_reached', () => {
-      console.log(`🎯 Reached NPC at (${NPC_COORDS.x}, ${NPC_COORDS.y}, ${NPC_COORDS.z})`)
-      bot.setQuickBarSlot(4) // Select slot 4 (index 4)
-      bot.activateItem()
-      console.log('🧪 Activated item in slot 4')
-    })
-  }
-
-  bot.on('windowOpen', (window) => {
-    console.log('📦 GUI opened:', window.title)
-    if (window.slots.length === 54) {
-      shiftClickRedGlass(window)
-    } else {
-      console.log('🟥 Not a double chest — skipping.')
-    }
-  })
-
-  function shiftClickRedGlass(window) {
-    let clicked = false
-    for (let i = 0; i < window.slots.length; i++) {
-      const item = window.slots[i]
-      if (
-        item &&
-        (item.name === 'red_stained_glass_pane' ||
-          (item.name === 'stained_glass_pane' && item.metadata === 14))
-      ) {
-        bot.clickWindow(i, 0, 1) // Shift-click
-        console.log(`✅ Shift-clicked red glass pane at slot ${i}`)
-        clicked = true
-      }
-    }
-
-    if (!clicked) {
-      console.log('⚠️ No red glass panes found.')
-    }
-
-    console.log('😴 Done interacting. Bot is now AFK.')
-    bot.pathfinder.setGoal(null)
+  function startNPCScan() {
+    // Start scanning for NPCs every 5 seconds
+    npcScanInterval = setInterval(() => {
+      logNearbyNPCs()
+    }, 5000)
+    logNearbyNPCs() // Log immediately too
   }
 
   function logNearbyNPCs() {
@@ -116,8 +68,58 @@ function createBot() {
     }
   }
 
+  function moveToNPCAndActivate() {
+    const mcData = minecraftData(bot.version)
+    const movements = new Movements(bot, mcData)
+    bot.pathfinder.setMovements(movements)
+
+    const goal = new goals.GoalNear(NPC_COORDS.x, NPC_COORDS.y, NPC_COORDS.z, 1)
+    bot.pathfinder.setGoal(goal)
+
+    bot.once('goal_reached', () => {
+      console.log(`🎯 Reached NPC at (${NPC_COORDS.x}, ${NPC_COORDS.y}, ${NPC_COORDS.z})`)
+      bot.setQuickBarSlot(4)
+      bot.activateItem()
+      console.log('🧪 Activated item in slot 4')
+    })
+  }
+
+  bot.on('windowOpen', (window) => {
+    console.log('📦 GUI opened:', window.title)
+
+    if (window.slots.length === 54) {
+      shiftClickRedGlass(window)
+    } else {
+      console.log('🟥 Not a double chest — skipping.')
+    }
+  })
+
+  function shiftClickRedGlass(window) {
+    let clicked = false
+    for (let i = 0; i < window.slots.length; i++) {
+      const item = window.slots[i]
+      if (
+        item &&
+        (item.name === 'red_stained_glass_pane' ||
+          (item.name === 'stained_glass_pane' && item.metadata === 14))
+      ) {
+        bot.clickWindow(i, 0, 1) // shift-click
+        console.log(`✅ Shift-clicked red glass pane at slot ${i}`)
+        clicked = true
+      }
+    }
+
+    if (!clicked) {
+      console.log('⚠️ No red glass panes found.')
+    }
+
+    console.log('😴 Done interacting. Bot is now AFK.')
+    bot.pathfinder.setGoal(null)
+  }
+
   bot.on('kicked', (reason) => {
     console.log('❌ Kicked from server:', reason)
+    clearInterval(npcScanInterval)
     reconnectBot()
   })
 
