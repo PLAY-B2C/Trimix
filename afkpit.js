@@ -6,6 +6,11 @@ const bot = mineflayer.createBot({
   version: '1.16.5',
 });
 
+function startWalking() {
+  bot.setControlState('forward', true);
+  console.log('🚶 Resumed walking forward');
+}
+
 bot.once('spawn', () => {
   console.log('✅ Spawned');
 
@@ -17,12 +22,15 @@ bot.once('spawn', () => {
       bot.chat('/server pit');
       console.log('🌍 Switching to /server pit');
 
-      setTimeout(() => {
-        bot.setControlState('forward', true);
-        console.log('🚶 Always walking forward');
-      }, 2000);
+      setTimeout(startWalking, 2000); // start walking after changing server
     }, 2000);
   }, 2000);
+});
+
+// Reapply walking when the bot respawns after death
+bot.on('respawn', () => {
+  console.log('💀 Respawned');
+  setTimeout(startWalking, 1000); // short delay to make sure it's safe
 });
 
 bot.on('error', err => console.log('❌ Error:', err.message));
