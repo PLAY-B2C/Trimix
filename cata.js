@@ -9,28 +9,30 @@ const BOT_CONFIG = {
   auth: 'offline'
 }
 
-const NPC_COORDS = { x: 0, y: 64, z: 0 } // Replace with real coordinates
+const NPC_COORDS = { x: 0, y: 64, z: 0 } // Change to actual NPC coords
 
 let bot
 
 function createBot() {
   bot = mineflayer.createBot(BOT_CONFIG)
-
   bot.loadPlugin(pathfinder)
 
   bot.on('spawn', () => {
     console.log('Bot has spawned!')
     bot.chat('/login 3043AA')
-
-    // Wait a few seconds to ensure login processes
-    setTimeout(moveToNPC, 3000)
   })
 
   bot.on('message', (message) => {
     const msg = message.toString().toLowerCase()
+
     if (msg.includes('login failed') || msg.includes('please login')) {
       console.log('Login failed, retrying...')
       setTimeout(() => bot.chat('/login 3043AA'), 2000)
+    }
+
+    if (msg.includes('is holding')) {
+      console.log('"is holding" detected in chat, moving to NPC...')
+      moveToNPC()
     }
   })
 
