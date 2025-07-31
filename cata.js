@@ -9,6 +9,9 @@ const bot = mineflayer.createBot({
   auth: 'offline' // Offline mode for cracked server
 })
 
+// NPC coordinates (replace with actual coordinates from mc.fakepixel.fun)
+const NPC_COORDS = { x: 0, y: 64, z: 0 } // Example: x, y, z
+
 // Load pathfinder plugin
 bot.loadPlugin(pathfinder)
 
@@ -17,6 +20,8 @@ bot.on('spawn', () => {
   console.log('Bot has spawned in the server!')
   // Send login command
   bot.chat('/login 3043AA')
+  // Move to NPC coordinates after a short delay to ensure login completes
+  setTimeout(() => moveToNPC(), 3000)
 })
 
 // Handle login failure
@@ -28,36 +33,19 @@ bot.on('message', (message) => {
   }
 })
 
-// Handle chat messages for "is holding"
-bot.on('chat', (username, message) => {
-  if (username === bot.username) return // Ignore bot's own messages
-
-  // Check for "is holding" message
-  if (message.includes('is holding')) {
-    console.log(`"is holding" message detected, following B2C`)
-    followPlayer('B2C') // Always follow B2C
-  }
-})
-
-// Function to follow player
-function followPlayer(username) {
-  const player = bot.players[username]
-  if (!player || !player.entity) {
-    console.log(`Player ${username} not found or not visible`)
-    return
-  }
-
-  const movements = new Movements(bot)
+// Function to move to NPC coordinates
+function moveToNPC() {
+  const movements = new Movements(bot, require('minecraft-data')(bot.version))
   bot.pathfinder.setMovements(movements)
 
-  const goal = new goals.GoalNear(player.entity.position.x, player.entity.position.y, player.entity.position.z, 2)
+  const goal = new goals.GoalNear(NPC_COORDS.x, NPC_COORDS.y, NPC_COORDS.z, 1) // Stop within 1 block
   bot.pathfinder.setGoal(goal)
 
-  // When close to player, perform actions
+  // When close to NPC, perform actions
   bot.once('goal_reached', () => {
-    console.log(`Reached player ${username}`)
-    // Select hotbar slot 8 (index 8)
-    bot.setQuickBarSlot(8)
+    console.log(`Reached NPC at ${NPC_COORDS.x}, ${NPC_COORDS.y}, ${NPC_COORDS.z}`)
+    // Select hotbar slot 7 (index 7)
+    bot.setQuickBarSlot(7)
     // Activate item
     bot.activateItem()
   })
@@ -94,7 +82,7 @@ function clickRedGlassPanes(window) {
   // Stop moving and AFK
   bot.pathfinder.setGoal(null)
   console.log('Bot is now AFK')
-}
+})
 
 // Log errors and kick reasons
 bot.on('kicked', (reason) => {
@@ -107,4 +95,9 @@ bot.on('kicked', (reason) => {
   }, 5000)
 })
 
-bot.on('error', (err) => console.log('Error:', err))
+bot.on('error', (err) => console.log('Error:', err.stack))
+
+// Debug pathfinding issues
+bot.on('path_update', (results) => {
+  console.log('Path update:', results.status)
+})
