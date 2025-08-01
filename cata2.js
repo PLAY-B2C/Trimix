@@ -14,6 +14,7 @@ function createBot({ username, password, delay }) {
       port: 25565,
       username,
       auth: 'offline',
+      version: '1.16.5',
       checkTimeoutInterval: 120000
     })
 
@@ -55,11 +56,7 @@ function createBot({ username, password, delay }) {
         goToAndClickNPC(bot)
       }
 
-      // Removed disconnect logic on "this dungeon will close in"
-      // if (msg.includes('this dungeon will close in')) {
-      //   console.log(`⛔ ${username} quitting (dungeon closing).`)
-      //   bot.quit('Dungeon closing')
-      // }
+      // Removed: auto-disconnect on "this dungeon will close in"
 
       if (msg.includes('i first entered the dungeon') && !teleportingStatus[username]) {
         console.log(`🔁 ${username} start spamming right-click.`)
@@ -70,6 +67,14 @@ function createBot({ username, password, delay }) {
         console.log(`😴 ${username} going AFK.`)
         stopRightClickSpam(bot)
         startKeepAlive(bot)
+      }
+    })
+
+    bot.on('windowOpen', (window) => {
+      try {
+        console.log(`📦 ${bot.username} GUI opened:`, window.title)
+      } catch (e) {
+        console.warn(`⚠️ ${bot.username} GUI open error:`, e.message)
       }
     })
 
@@ -120,23 +125,25 @@ function createBot({ username, password, delay }) {
           console.log(`🖱️ ${bot.username} left-clicked NPC`)
 
           bot.once('windowOpen', (window) => {
-            console.log(`📦 ${bot.username} GUI opened:`, window.title)
             let clickedAny = false
-
-            for (let i = 0; i < window.slots.length; i++) {
-              const item = window.slots[i]
-              if (
-                item &&
-                (
-                  item.name === 'red_stained_glass_pane' ||
-                  (item.name === 'stained_glass_pane' && item.metadata === 14) ||
-                  item.displayName?.toLowerCase().includes('not ready')
-                )
-              ) {
-                bot.clickWindow(i, 0, 1)
-                console.log(`✅ ${bot.username} shift-clicked: ${item.displayName || item.name}`)
-                clickedAny = true
+            try {
+              for (let i = 0; i < window.slots.length; i++) {
+                const item = window.slots[i]
+                if (
+                  item &&
+                  (
+                    item.name === 'red_stained_glass_pane' ||
+                    (item.name === 'stained_glass_pane' && item.metadata === 14) ||
+                    item.displayName?.toLowerCase().includes('not ready')
+                  )
+                ) {
+                  bot.clickWindow(i, 0, 1)
+                  console.log(`✅ ${bot.username} shift-clicked: ${item.displayName || item.name}`)
+                  clickedAny = true
+                }
               }
+            } catch (e) {
+              console.warn(`⚠️ GUI error during clickWindow: ${e.message}`)
             }
 
             if (!clickedAny) {
