@@ -1,79 +1,144 @@
-const mineflayer = require('mineflayer')
-const { pathfinder, Movements, goals } = require('mineflayer-pathfinder')
-const mcDataLoader = require('minecraft-data')
-const { Vec3 } = require('vec3')
+const mineflayer = require('mineflayer') const { pathfinder, Movements, goals } = require('mineflayer-pathfinder') const mcDataLoader = require('minecraft-data')
 
-const knownBotNames = ['DrakonTide']
-let rightClickIntervals = {}
+let rightClickIntervals = {} const teleportingStatus = {}
 
-function createBot(username, password, loginDelay = 0) {
-  setTimeout(() => {
-    const bot = mineflayer.createBot({
-      host: 'mc.fakepixel.fun',
-      port: 25565,
-      username,
-      version: '1.16.5'
-    })
+function createBot({ username, password, delay }) { setTimeout(() => { const bot = mineflayer.createBot({ host: 'mc.fakepixel.fun', port: 25565, username, auth: 'offline', checkTimeoutInterval: 120000 })
 
-    bot.loadPlugin(pathfinder)
+bot.loadPlugin(pathfinder)
 
-    bot.once('spawn', () => {
-      console.log(`✅ ${username} spawned.`)
-      const mcData = mcDataLoader(bot.version)
-      bot.pathfinder.setMovements(new Movements(bot, mcData))
-    })
+bot.once('spawn', () => {
+  console.log(`✅ ${username} spawned.`)
+  bot.chat(`/login ${password}`)
+})
 
-    bot.on('chat', (msg) => {
-      if (msg.includes('you have dealt')) {
-        console.log(`😴 ${username} going AFK.`)
-        stopRightClickSpam(bot)
-        startKeepAlive(bot)
-      }
-    })
+bot.on('message', (message) => {
+  const msg = message.toString().toLowerCase()
 
-    bot.on('windowOpen', (window) => {
-      clickRedGlassPanes(bot, window)
-    })
+  if (msg.includes('login failed') || msg.includes('please login')) {
+    console.log(`🔐 ${username} login retry...`)
+    setTimeout(() => bot.chat(`/login ${password}`), 2000)
+  }
 
-    bot.on('physicTick', () => {
-      const npc = findNearestNPC(bot)
-      if (npc) {
-        console.log(`🧍 ${bot.username} found NPC: ${npc.username}`)
-        interactWithNPC(bot, npc)
-      }
-    })
+  if (msg.includes('sending to sb')) {
+    console.log(`🚪 ${username} is being teleported (sending to sb...). Preparing safely.`)
+    teleportingStatus[username] = true
 
-    bot.on('end', () => {
-      console.log(`🔁 ${username} disconnected. Reconnecting...`)
-      createBot(username, password, 5000)
-    })
+    try { bot.pathfinder.setGoal(null) } catch {}
+    stopRightClickSpam(bot)
 
-    bot.on('kicked', (reason) => {
-      console.log(`⛔ ${username} was kicked: ${reason}`)
-    })
-  }, loginDelay)
-}
+    if (bot.currentWindow) {
+      try { bot.closeWindow(bot.currentWindow) } catch {}
+    }
 
-function findNearestNPC(bot) {
-  return bot.nearestEntity(e =>
+    bot.removeAllListeners('windowOpen')
+
+    setTimeout(() => {
+      teleportingStatus[username] = false
+      console.log(`⏳ ${username} teleport buffer passed.`)
+    }, 5000)
+  }
+
+  if (msg.includes('the dungeon will begin')) {
+    console.log(`🏃 ${username} moving to NPC.`)
+    goToAndClickNPC(bot)
+  }
+
+  if (msg.includes('this dungeon will close in')) {
+    console.log(`⛔ ${username} quitting (dungeon closing).`)
+    bot.quit('Dungeon closing')
+  }
+
+  if (msg.includes('i first entered the dungeon')) {
+    console.log(`🔁 ${username} start spamming right-click.`)
+    startRightClickSpam(bot)
+  }
+
+  if (msg.includes('you have dealt')) {
+    console.log(`😴 ${username} going AFK.`)
+    stopRightClickSpam(bot)
+    startKeepAlive(bot)
+  }
+})
+
+bot.on('kicked', (reason) => {
+  console.log(`❌ ${username} was kicked:`, reason)
+})
+
+bot.on('error', (err) => {
+  console.log(`💥 ${username} error:`, err.message)
+})
+
+bot.on('end', () => {
+  console.log(`🔌 ${username} disconnected. Reconnecting in 5s...`)
+  setTimeout(() => createBot({ username, password, delay: 0 }), 5000)
+})
+
+function goToAndClickNPC(bot) {
+  if (teleportingStatus[bot.username]) return
+
+  const npc = bot.nearestEntity(e =>
     e.type === 'player' &&
-    e.username !== bot.username &&
-    !knownBotNames.includes(e.username)
+    e.username === '§e§lCLICK'
   )
+
+  if (!npc) {
+    console.log(`❌ ${bot.username} no NPC named §e§lCLICK found.`)
+    return
+  }
+
+  const mcData = mcDataLoader(bot.version)
+  const movements = new Movements(bot, mcData)
+  bot.pathfinder.setMovements(movements)
+
+  const pos = npc.position
+  const goal = new goals.GoalNear(pos.x, pos.y, pos.z, 0.3)
+  bot.pathfinder.setGoal(goal)
+
+  bot.once('goal_reached', () => {
+    console.log(`🎯 ${bot.username} reached NPC at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`)
+    bot.setQuickBarSlot(0)
+
+    setTimeout(() => {
+      bot.attack(npc)
+      console.log(`🖱️ ${bot.username} left-clicked NPC`)
+
+      bot.once('windowOpen', (window) => {
+        console.log(`📦 ${bot.username} GUI opened:`, window.title)
+        let clickedAny = false
+
+        for (let i = 0; i < window.slots.length; i++) {
+          const item = window.slots[i]
+          if (
+            item &&
+            (
+              item.name === 'red_stained_glass_pane' ||
+              (item.name === 'stained_glass_pane' && item.metadata === 14) ||
+              item.displayName?.toLowerCase().includes('not ready')
+            )
+          ) {
+            bot.clickWindow(i, 0, 1)
+            console.log(`✅ ${bot.username} shift-clicked: ${item.displayName || item.name}`)
+            clickedAny = true
+          }
+        }
+
+        if (!clickedAny) {
+          console.log(`❌ ${bot.username} no red pane or "Not Ready" found.`)
+        }
+
+        bot.pathfinder.setGoal(null)
+      })
+    }, 1000)
+  })
 }
 
-function interactWithNPC(bot, npc) {
+function startRightClickSpam(bot) {
+  if (teleportingStatus[bot.username]) return
   if (rightClickIntervals[bot.username]) return
-  bot.lookAt(npc.position.offset(0, 1.6, 0))
-  bot.attack(npc)
-  console.log(`👊 ${bot.username} left-clicked ${npc.username}`)
-
-  setTimeout(() => {
-    rightClickIntervals[bot.username] = setInterval(() => {
-      bot.activateEntity(npc)
-    }, 500)
-    console.log(`🖱️ ${bot.username} started right-click spamming on ${npc.username}`)
-  }, 1000)
+  bot.setQuickBarSlot(0)
+  rightClickIntervals[bot.username] = setInterval(() => {
+    bot.activateItem()
+  }, 300)
 }
 
 function stopRightClickSpam(bot) {
@@ -83,60 +148,24 @@ function stopRightClickSpam(bot) {
   }
 }
 
-function clickRedGlassPanes(bot, window) {
-  const redGlassSlots = window.slots
-    .map((item, index) => ({ item, index }))
-    .filter(s =>
-      s.item &&
-      s.item.name.includes('stained_glass_pane') &&
-      s.item.displayName?.includes('Ready')
-    )
-
-  if (redGlassSlots.length === 0) {
-    console.log(`🔴 ${bot.username}: No "Ready" red glass panes found.`)
-    return
-  }
-
-  bot.clickWindow(redGlassSlots[0].index, 0, 1)
-  console.log(`✅ ${bot.username} shift-clicked "${redGlassSlots[0].item.displayName}"`)
-
-  setTimeout(() => {
-    walkBackwards(bot)
-  }, 1000)
-}
-
-function walkBackwards(bot) {
-  const npc = findNearestNPC(bot)
-  if (!npc) {
-    console.log(`⚠️ ${bot.username} cannot walk back: NPC missing.`)
-    return
-  }
-
-  const mcData = mcDataLoader(bot.version)
-  const movements = new Movements(bot, mcData)
-  bot.pathfinder.setMovements(movements)
-
-  const pos = bot.entity.position
-  const yaw = bot.entity.yaw
-  const dx = -9 * Math.sin(yaw)
-  const dz = -9 * Math.cos(yaw)
-  const backPos = pos.offset(dx, 0, dz)
-  const goal = new goals.GoalBlock(backPos.x, backPos.y, backPos.z)
-
-  bot.lookAt(npc.position.offset(0, 1.6, 0))
-  bot.pathfinder.setGoal(goal)
-  console.log(`↩️ ${bot.username} walking backwards 9 blocks while facing NPC.`)
-}
-
 function startKeepAlive(bot) {
   setInterval(() => {
-    try {
-      bot._client.write('keep_alive', { keepAliveId: BigInt(Date.now()) })
-    } catch (e) {
-      console.log(`💤 ${bot.username} failed keep-alive: ${e.message}`)
+    if (bot && bot.player) {
+      bot._client.write('ping', { keepAliveId: Date.now() })
+      console.log(`📶 ${bot.username} keep-alive ping sent.`)
     }
-  }, 15000)
+  }, 30000)
 }
 
-// 🔐 Create bot with login delay of 0ms
-createBot('DrakonTide', '3043AA', 0)
+process.on('uncaughtException', (err) => {
+  console.error('🛑 Uncaught Exception:', err)
+})
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🛑 Unhandled Promise:', reason)
+})
+
+}, delay) }
+
+createBot({ username: 'DrakonTide', password: '3043AA', delay: 0 }) createBot({ username: 'Supreme_Bolt', password: '2151220', delay: 5000 })
+
