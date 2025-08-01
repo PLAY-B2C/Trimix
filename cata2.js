@@ -47,7 +47,7 @@ function createBot({ username, password, delay }) {
         setTimeout(() => {
           teleportingStatus[username] = false
           console.log(`🔄 ${username} teleport completed.`)
-        }, 5000) // 5s delay before assuming teleport complete
+        }, 5000)
       }
 
       if (msg.includes('the dungeon will begin') && !teleportingStatus[username]) {
@@ -55,10 +55,11 @@ function createBot({ username, password, delay }) {
         goToAndClickNPC(bot)
       }
 
-      if (msg.includes('this dungeon will close in')) {
-        console.log(`⛔ ${username} quitting (dungeon closing).`)
-        bot.quit('Dungeon closing')
-      }
+      // Removed disconnect logic on "this dungeon will close in"
+      // if (msg.includes('this dungeon will close in')) {
+      //   console.log(`⛔ ${username} quitting (dungeon closing).`)
+      //   bot.quit('Dungeon closing')
+      // }
 
       if (msg.includes('i first entered the dungeon') && !teleportingStatus[username]) {
         console.log(`🔁 ${username} start spamming right-click.`)
