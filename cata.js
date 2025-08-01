@@ -18,6 +18,14 @@ function createBot() {
   bot.once('spawn', () => {
     console.log('✅ Bot spawned.')
     bot.chat('/login 3043AA')
+
+    // Debug nearby entities after login
+    setTimeout(() => {
+      console.log('📋 Listing nearby entities:')
+      Object.values(bot.entities).forEach(e => {
+        console.log(`[${e.type}] name=${e.name || e.username || '???'} pos=${e.position}`)
+      })
+    }, 3000)
   })
 
   bot.on('message', (message) => {
@@ -51,12 +59,12 @@ function createBot() {
   })
 
   function goToAndClickNPC() {
-    const npc = bot.nearestEntity(e =>
-      e.type === 'mob' || e.type === 'player' || e.type === 'object'
+    const npc = Object.values(bot.entities).find(e =>
+      (e.type === 'player' && e.username && e.username.length <= 16)
     )
 
     if (!npc) {
-      console.log('❌ No NPC found nearby.')
+      console.log('❌ No NPC found (type=player).')
       return
     }
 
@@ -65,27 +73,26 @@ function createBot() {
     bot.pathfinder.setMovements(movements)
 
     const pos = npc.position
-    const goal = new goals.GoalNear(pos.x, pos.y, pos.z, 0.3) // Get close
+    const goal = new goals.GoalNear(pos.x, pos.y, pos.z, 0.3)
     bot.pathfinder.setGoal(goal)
 
     bot.once('goal_reached', async () => {
       console.log(`🎯 Reached NPC at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`)
-
       bot.setQuickBarSlot(0)
 
       try {
-        await bot.lookAt(npc.position.offset(0, npc.height, 0)) // 👀 Look at NPC
-        bot.attack(npc) // 🖱️ Left-click
+        await bot.lookAt(npc.position.offset(0, npc.height, 0))
+        bot.attack(npc) // Left click
         console.log('🖱️ Looked at and left-clicked NPC')
       } catch (err) {
-        console.error('😵 Failed to look and click:', err)
+        console.error('😵 Failed to look or click NPC:', err)
+        return
       }
 
       bot.once('windowOpen', (window) => {
         console.log('📦 GUI opened:', window.title)
 
         let clickedAny = false
-
         for (let i = 0; i < window.slots.length; i++) {
           const item = window.slots[i]
           if (
@@ -108,6 +115,59 @@ function createBot() {
 
         bot.pathfinder.setGoal(null)
         console.log('⏳ Waiting for dungeon entry...')
+      })
+    })
+  }
+
+  function startRightClickSpam() {
+    if (rightClickInterval) return
+    bot.setQuickBarSlot(0)
+    rightClickInterval = setInterval(() => {
+      bot.activateItem()
+    }, 300)
+  }
+
+  function stopRightClickSpam() {
+    if (rightClickInterval) {
+      clearInterval(rightClickInterval)
+      rightClickInterval = null
+    }
+  }
+
+  function startKeepAlive() {
+    setInterval(() => {
+      if (bot && bot.player) {
+        bot._client.write('ping', { keepAliveId: Date.now() })
+        console.log('📶 Keep-alive ping sent.')
+      }
+    }, 30000)
+  }
+
+  bot.on('kicked', (reason) => {
+    console.log('❌ Kicked:', reason)
+  })
+
+  bot.on('error', (err) => {
+    console.log('💥 Error:', err.message)
+  })
+
+  bot.on('end', () => {
+    console.log('🔌 Disconnected. Reconnecting in 5 seconds...')
+    setTimeout(createBot, 5000)
+  })
+
+  process.on('uncaughtException', (err) => {
+    console.error('🛑 Uncaught Exception:', err)
+  })
+
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('🛑 Unhandled Promise:', reason)
+  })
+
+  return bot
+}
+
+createBot()        console.log('⏳ Waiting for dungeon entry...')
       })
     })
   }
