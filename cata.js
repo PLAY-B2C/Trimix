@@ -3,7 +3,7 @@ const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const mcDataLoader = require('minecraft-data');
 
 let rightClickIntervals = {};
-const targetNPCUsername = '§e§lCLICK'; // Exact NPC name
+const targetNPCUsername = '§e§lCLICK'; // Only target this NPC
 
 function createBot({ username, password, delay }) {
   setTimeout(() => {
@@ -163,64 +163,4 @@ function createBot({ username, password, delay }) {
 
 // Launch bots
 createBot({ username: 'DrakonTide', password: '3043AA', delay: 0 });
-createBot({ username: 'Supreme_Bolt', password: '2151220', delay: 5000 });          if (
-            item &&
-            (
-              item.name === 'red_stained_glass_pane' ||
-              (item.name === 'stained_glass_pane' && item.metadata === 14) ||
-              item.displayName?.toLowerCase().includes('not ready')
-            )
-          ) {
-            bot.clickWindow(i, 0, 1)
-            console.log(`✅ ${bot.username} shift-clicked: ${item.displayName || item.name}`)
-            clickedAny = true
-          }
-        }
-
-        if (!clickedAny) {
-          console.log(`❌ ${bot.username} no red pane or "Not Ready" found.`)
-        }
-
-        bot.pathfinder.setGoal(null)
-      })
-    }, 1000)
-  })
-}
-
-function startRightClickSpam(bot) {
-  if (teleportingStatus[bot.username]) return
-  if (rightClickIntervals[bot.username]) return
-  bot.setQuickBarSlot(0)
-  rightClickIntervals[bot.username] = setInterval(() => {
-    bot.activateItem()
-  }, 300)
-}
-
-function stopRightClickSpam(bot) {
-  if (rightClickIntervals[bot.username]) {
-    clearInterval(rightClickIntervals[bot.username])
-    delete rightClickIntervals[bot.username]
-  }
-}
-
-function startKeepAlive(bot) {
-  setInterval(() => {
-    if (bot && bot.player) {
-      bot._client.write('ping', { keepAliveId: Date.now() })
-      console.log(`📶 ${bot.username} keep-alive ping sent.`)
-    }
-  }, 30000)
-}
-
-process.on('uncaughtException', (err) => {
-  console.error('🛑 Uncaught Exception:', err)
-})
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('🛑 Unhandled Promise:', reason)
-})
-
-}, delay) }
-
-createBot({ username: 'DrakonTide', password: '3043AA', delay: 0 }) createBot({ username: 'Supreme_Bolt', password: '2151220', delay: 5000 })
-
+createBot({ username: 'Supreme_Bolt', password: '2151220', delay: 5000 });
