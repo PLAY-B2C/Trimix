@@ -65,7 +65,7 @@ function createBot() {
     bot.pathfinder.setMovements(movements)
 
     const pos = npc.position
-    const goal = new goals.GoalNear(pos.x, pos.y, pos.z, 1)
+    const goal = new goals.GoalNear(pos.x, pos.y, pos.z, 0.3) // 🔧 Changed from 1 → 0.3
     bot.pathfinder.setGoal(goal)
 
     bot.once('goal_reached', () => {
