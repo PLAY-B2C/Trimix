@@ -18,14 +18,6 @@ function createBot() {
   bot.once('spawn', () => {
     console.log('✅ Bot spawned.')
     bot.chat('/login 3043AA')
-
-    // Debug nearby entities after login
-    setTimeout(() => {
-      console.log('📋 Listing nearby entities:')
-      Object.values(bot.entities).forEach(e => {
-        console.log(`[${e.type}] name=${e.name || e.username || '???'} pos=${e.position}`)
-      })
-    }, 3000)
   })
 
   bot.on('message', (message) => {
@@ -59,12 +51,12 @@ function createBot() {
   })
 
   function goToAndClickNPC() {
-    const npc = Object.values(bot.entities).find(e =>
-      (e.type === 'player' && e.username && e.username.length <= 16)
+    const npc = bot.nearestEntity(e =>
+      e.type === 'mob' || e.type === 'player' || e.type === 'object'
     )
 
     if (!npc) {
-      console.log('❌ No NPC found (type=player).')
+      console.log('❌ No NPC found nearby.')
       return
     }
 
@@ -73,49 +65,47 @@ function createBot() {
     bot.pathfinder.setMovements(movements)
 
     const pos = npc.position
-    const goal = new goals.GoalNear(pos.x, pos.y, pos.z, 0.3)
+    const goal = new goals.GoalNear(pos.x, pos.y, pos.z, 0.3) // 🔧 Changed from 1 → 0.3
     bot.pathfinder.setGoal(goal)
 
-    bot.once('goal_reached', async () => {
+    bot.once('goal_reached', () => {
       console.log(`🎯 Reached NPC at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`)
+
       bot.setQuickBarSlot(0)
 
-      try {
-        await bot.lookAt(npc.position.offset(0, npc.height, 0))
-        bot.attack(npc) // Left click
-        console.log('🖱️ Looked at and left-clicked NPC')
-      } catch (err) {
-        console.error('😵 Failed to look or click NPC:', err)
-        return
-      }
+      setTimeout(() => {
+        bot.attack(npc) // left-click
+        console.log('🖱️ Left-clicked NPC')
 
-      bot.once('windowOpen', (window) => {
-        console.log('📦 GUI opened:', window.title)
+        bot.once('windowOpen', (window) => {
+          console.log('📦 GUI opened:', window.title)
 
-        let clickedAny = false
-        for (let i = 0; i < window.slots.length; i++) {
-          const item = window.slots[i]
-          if (
-            item &&
-            (
-              item.name === 'red_stained_glass_pane' ||
-              (item.name === 'stained_glass_pane' && item.metadata === 14) ||
-              item.displayName?.toLowerCase().includes('not ready')
-            )
-          ) {
-            bot.clickWindow(i, 0, 1)
-            console.log(`✅ Shift-clicked: ${item.displayName || item.name} at slot ${i}`)
-            clickedAny = true
+          let clickedAny = false
+
+          for (let i = 0; i < window.slots.length; i++) {
+            const item = window.slots[i]
+            if (
+              item &&
+              (
+                item.name === 'red_stained_glass_pane' ||
+                (item.name === 'stained_glass_pane' && item.metadata === 14) ||
+                item.displayName?.toLowerCase().includes('not ready')
+              )
+            ) {
+              bot.clickWindow(i, 0, 1)
+              console.log(`✅ Shift-clicked: ${item.displayName || item.name} at slot ${i}`)
+              clickedAny = true
+            }
           }
-        }
 
-        if (!clickedAny) {
-          console.log('❌ No red glass panes or "Not Ready" found.')
-        }
+          if (!clickedAny) {
+            console.log('❌ No red glass panes or "Not Ready" found.')
+          }
 
-        bot.pathfinder.setGoal(null)
-        console.log('⏳ Waiting for dungeon entry...')
-      })
+          bot.pathfinder.setGoal(null)
+          console.log('⏳ Waiting for dungeon entry...')
+        })
+      }, 1000)
     })
   }
 
