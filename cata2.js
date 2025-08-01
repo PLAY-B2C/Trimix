@@ -70,7 +70,9 @@ function createBot({ username, password, delay }) {
       const npc = bot.nearestEntity(e =>
         e.type === 'player' &&
         e.username !== bot.username &&
-        !knownBotNames.includes(e.username)
+        !knownBotNames.includes(e.username) &&
+        (!bot.players[e.username]?.ping || bot.players[e.username]?.ping === 0) &&
+        e.velocity.x === 0 && e.velocity.y === 0 && e.velocity.z === 0
       )
 
       if (!npc) {
@@ -158,6 +160,6 @@ function createBot({ username, password, delay }) {
   }, delay)
 }
 
-// Launching all 3 bots with 5 sec delay
+// Launching all bots with delay
 createBot({ username: 'DrakonTide', password: '3043AA', delay: 0 })
 createBot({ username: 'Supreme_Bolt', password: '2151220', delay: 5000 })
