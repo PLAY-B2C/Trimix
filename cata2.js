@@ -4,7 +4,8 @@ const mcDataLoader = require('minecraft-data')
 
 let rightClickIntervals = {}
 
-const knownBotNames = ['DrakonTide', 'Supreme_Bolt', 'JamaaLcaliph']
+// Add all bot or real player names to ignore here
+const knownBotNames = ['DrakonTide', 'Supreme_Bolt', 'JamaaLcaliph', 'B2C', 'BoltMC']
 
 function createBot({ username, password, delay }) {
   setTimeout(() => {
