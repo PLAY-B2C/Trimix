@@ -65,47 +65,50 @@ function createBot() {
     bot.pathfinder.setMovements(movements)
 
     const pos = npc.position
-    const goal = new goals.GoalNear(pos.x, pos.y, pos.z, 0.3) // 🔧 Changed from 1 → 0.3
+    const goal = new goals.GoalNear(pos.x, pos.y, pos.z, 0.3) // Get close
     bot.pathfinder.setGoal(goal)
 
-    bot.once('goal_reached', () => {
+    bot.once('goal_reached', async () => {
       console.log(`🎯 Reached NPC at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`)
 
       bot.setQuickBarSlot(0)
 
-      setTimeout(() => {
-        bot.attack(npc) // left-click
-        console.log('🖱️ Left-clicked NPC')
+      try {
+        await bot.lookAt(npc.position.offset(0, npc.height, 0)) // 👀 Look at NPC
+        bot.attack(npc) // 🖱️ Left-click
+        console.log('🖱️ Looked at and left-clicked NPC')
+      } catch (err) {
+        console.error('😵 Failed to look and click:', err)
+      }
 
-        bot.once('windowOpen', (window) => {
-          console.log('📦 GUI opened:', window.title)
+      bot.once('windowOpen', (window) => {
+        console.log('📦 GUI opened:', window.title)
 
-          let clickedAny = false
+        let clickedAny = false
 
-          for (let i = 0; i < window.slots.length; i++) {
-            const item = window.slots[i]
-            if (
-              item &&
-              (
-                item.name === 'red_stained_glass_pane' ||
-                (item.name === 'stained_glass_pane' && item.metadata === 14) ||
-                item.displayName?.toLowerCase().includes('not ready')
-              )
-            ) {
-              bot.clickWindow(i, 0, 1)
-              console.log(`✅ Shift-clicked: ${item.displayName || item.name} at slot ${i}`)
-              clickedAny = true
-            }
+        for (let i = 0; i < window.slots.length; i++) {
+          const item = window.slots[i]
+          if (
+            item &&
+            (
+              item.name === 'red_stained_glass_pane' ||
+              (item.name === 'stained_glass_pane' && item.metadata === 14) ||
+              item.displayName?.toLowerCase().includes('not ready')
+            )
+          ) {
+            bot.clickWindow(i, 0, 1)
+            console.log(`✅ Shift-clicked: ${item.displayName || item.name} at slot ${i}`)
+            clickedAny = true
           }
+        }
 
-          if (!clickedAny) {
-            console.log('❌ No red glass panes or "Not Ready" found.')
-          }
+        if (!clickedAny) {
+          console.log('❌ No red glass panes or "Not Ready" found.')
+        }
 
-          bot.pathfinder.setGoal(null)
-          console.log('⏳ Waiting for dungeon entry...')
-        })
-      }, 1000)
+        bot.pathfinder.setGoal(null)
+        console.log('⏳ Waiting for dungeon entry...')
+      })
     })
   }
 
