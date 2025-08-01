@@ -8,7 +8,7 @@ function createBot() {
   const bot = mineflayer.createBot({
     host: 'mc.fakepixel.fun',
     port: 25565,
-    username: 'JamaaLcaliph',
+    username: 'DrakonTide',
     auth: 'offline',
     checkTimeoutInterval: 120000
   })
