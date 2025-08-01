@@ -3,8 +3,8 @@ const { pathfinder, Movements, goals } = require('mineflayer-pathfinder')
 const mcDataLoader = require('minecraft-data')
 
 let rightClickIntervals = {}
+let teleportingStatus = {}
 
-// Add all bot or real player names to ignore here
 const knownBotNames = ['DrakonTide', 'Supreme_Bolt', 'JamaaLcaliph', 'B2C', 'BoltMC']
 
 function createBot({ username, password, delay }) {
@@ -18,6 +18,7 @@ function createBot({ username, password, delay }) {
     })
 
     bot.loadPlugin(pathfinder)
+    teleportingStatus[username] = false
 
     bot.once('spawn', () => {
       console.log(`✅ ${username} spawned.`)
@@ -32,7 +33,24 @@ function createBot({ username, password, delay }) {
         setTimeout(() => bot.chat(`/login ${password}`), 2000)
       }
 
-      if (msg.includes('the dungeon will begin')) {
+      if (msg.includes('sending to sb')) {
+        console.log(`🚪 ${username} preparing for teleport.`)
+        teleportingStatus[username] = true
+
+        try { bot.pathfinder.setGoal(null) } catch {}
+        stopRightClickSpam(bot)
+        if (bot.currentWindow) {
+          try { bot.closeWindow(bot.currentWindow) } catch {}
+        }
+        bot.removeAllListeners('windowOpen')
+
+        setTimeout(() => {
+          teleportingStatus[username] = false
+          console.log(`🔄 ${username} teleport completed.`)
+        }, 5000) // 5s delay before assuming teleport complete
+      }
+
+      if (msg.includes('the dungeon will begin') && !teleportingStatus[username]) {
         console.log(`🏃 ${username} moving to NPC.`)
         goToAndClickNPC(bot)
       }
@@ -42,7 +60,7 @@ function createBot({ username, password, delay }) {
         bot.quit('Dungeon closing')
       }
 
-      if (msg.includes('i first entered the dungeon')) {
+      if (msg.includes('i first entered the dungeon') && !teleportingStatus[username]) {
         console.log(`🔁 ${username} start spamming right-click.`)
         startRightClickSpam(bot)
       }
@@ -64,10 +82,13 @@ function createBot({ username, password, delay }) {
 
     bot.on('end', () => {
       console.log(`🔌 ${username} disconnected. Reconnecting in 5s...`)
+      clearInterval(rightClickIntervals[username])
       setTimeout(() => createBot({ username, password, delay: 0 }), 5000)
     })
 
     function goToAndClickNPC(bot) {
+      if (teleportingStatus[bot.username]) return
+
       const npc = bot.nearestEntity(e =>
         e.type === 'player' &&
         e.username !== bot.username &&
@@ -128,7 +149,7 @@ function createBot({ username, password, delay }) {
     }
 
     function startRightClickSpam(bot) {
-      if (rightClickIntervals[bot.username]) return
+      if (rightClickIntervals[bot.username] || teleportingStatus[bot.username]) return
       bot.setQuickBarSlot(0)
       rightClickIntervals[bot.username] = setInterval(() => {
         bot.activateItem()
@@ -161,6 +182,6 @@ function createBot({ username, password, delay }) {
   }, delay)
 }
 
-// Launching all bots with delay
+// Launching bots
 createBot({ username: 'DrakonTide', password: '3043AA', delay: 0 })
 createBot({ username: 'Supreme_Bolt', password: '2151220', delay: 5000 })
