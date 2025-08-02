@@ -114,7 +114,7 @@ function createBot({ username, password, delay }) {
       const goal = new goals.GoalNear(pos.x, pos.y, pos.z, 0.3)
       bot.pathfinder.setGoal(goal)
 
-      bot.once('goal_reached', async () => {
+      bot.once('goal_reached', () => {
         console.log(`🎯 ${bot.username} reached NPC at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`)
         bot.setQuickBarSlot(0)
 
@@ -122,91 +122,6 @@ function createBot({ username, password, delay }) {
           bot.lookAt(npc.position, false)
           bot.activateEntity(npc)
           console.log(`🖱️ ${bot.username} right-clicked NPC`)
-
-          bot.once('windowOpen', (window) => {
-            let clickedAny = false
-            try {
-              for (let i = 0; i < window.slots.length; i++) {
-                const item = window.slots[i]
-                if (
-                  item &&
-                  (
-                    item.name === 'red_stained_glass_pane' ||
-                    (item.name === 'stained_glass_pane' && item.metadata === 14) ||
-                    item.displayName?.toLowerCase().includes('not ready')
-                  )
-                ) {
-                  bot.clickWindow(i, 0, 1)
-                  console.log(`✅ ${bot.username} shift-clicked: ${item.displayName || item.name}`)
-                  clickedAny = true
-                }
-              }
-            } catch (e) {
-              console.warn(`⚠️ GUI error during clickWindow: ${e.message}`)
-            }
-
-            if (!clickedAny) {
-              console.log(`❌ ${bot.username} no red pane or "Not Ready" found.`)
-            }
-
-            bot.pathfinder.setGoal(null)
-          })
-        }, 1000)
-      })
-    }
-
-    function startRightClickSpam(bot) {
-      if (rightClickIntervals[bot.username] || teleportingStatus[bot.username]) return
-      bot.setQuickBarSlot(0)
-      rightClickIntervals[bot.username] = setInterval(() => {
-        bot.activateItem()
-      }, 300)
-    }
-
-    function stopRightClickSpam(bot) {
-      if (rightClickIntervals[bot.username]) {
-        clearInterval(rightClickIntervals[bot.username])
-        delete rightClickIntervals[bot.username]
-      }
-    }
-
-    function startKeepAlive(bot) {
-      setInterval(() => {
-        if (bot && bot.player) {
-          bot._client.write('ping', { keepAliveId: Date.now() })
-          console.log(`📶 ${bot.username} keep-alive ping sent.`)
-        }
-      }, 30000)
-    }
-
-    process.on('uncaughtException', (err) => {
-      console.error('🛑 Uncaught Exception:', err)
-    })
-
-    process.on('unhandledRejection', (reason, promise) => {
-      console.error('🛑 Unhandled Promise:', reason)
-    })
-  }, delay)
-}
-
-// Launching bots
-createBot({ username: 'DrakonTide', password: '3043AA', delay: 0 })
-createBot({ username: 'Supreme_Bolt', password: '2151220', delay: 5000 })
-      const mcData = mcDataLoader(bot.version)
-      const movements = new Movements(bot, mcData)
-      bot.pathfinder.setMovements(movements)
-
-      const pos = npc.position
-      const goal = new goals.GoalNear(pos.x, pos.y, pos.z, 0.3)
-      bot.pathfinder.setGoal(goal)
-
-      bot.once('goal_reached', () => {
-        console.log(`🎯 ${bot.username} reached NPC at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`)
-        bot.setQuickBarSlot(0)
-
-        setTimeout(() => {
-          bot.attack(npc)
-          console.log(`🖱️ ${bot.username} left-clicked NPC`)
 
           bot.once('windowOpen', (window) => {
             let clickedAny = false
