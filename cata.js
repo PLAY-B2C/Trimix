@@ -40,26 +40,15 @@ function createBot({ username, password, delay }) {
 
         try { bot.pathfinder.setGoal(null) } catch {}
         stopRightClickSpam(bot)
-
-        try {
-          if (bot.currentWindow) bot.closeWindow(bot.currentWindow)
-        } catch {}
-
-        bot.removeAllListeners('windowOpen')
-        bot.removeAllListeners('goal_reached')
-        bot.removeAllListeners('entityGone')
-        bot.removeAllListeners('entitySpawn')
-
-        const waitForSpawn = () => {
-          if (bot.player && bot.entity) {
-            teleportingStatus[username] = false
-            console.log(`🔄 ${username} teleport completed.`)
-          } else {
-            setTimeout(waitForSpawn, 500)
-          }
+        if (bot.currentWindow) {
+          try { bot.closeWindow(bot.currentWindow) } catch {}
         }
+        bot.removeAllListeners('windowOpen')
 
-        waitForSpawn()
+        setTimeout(() => {
+          teleportingStatus[username] = false
+          console.log(`🔄 ${username} teleport completed.`)
+        }, 5000)
       }
 
       if (msg.includes('the dungeon will begin') && !teleportingStatus[username]) {
@@ -92,11 +81,6 @@ function createBot({ username, password, delay }) {
     })
 
     bot.on('error', (err) => {
-      if (
-        err.message.includes('Cannot read properties of null') ||
-        err.message.includes('read ECONNRESET') ||
-        err.message.includes('Cannot read properties of undefined')
-      ) return
       console.log(`💥 ${username} error:`, err.message)
     })
 
@@ -108,10 +92,6 @@ function createBot({ username, password, delay }) {
 
     function goToAndClickNPC(bot) {
       if (teleportingStatus[bot.username]) return
-      if (!bot.entity || !bot.player) {
-        console.warn(`⚠️ ${bot.username} not fully ready. Skipping NPC interaction.`)
-        return
-      }
 
       const npc = bot.nearestEntity(e =>
         e.type === 'player' &&
@@ -179,9 +159,7 @@ function createBot({ username, password, delay }) {
       if (rightClickIntervals[bot.username] || teleportingStatus[bot.username]) return
       bot.setQuickBarSlot(0)
       rightClickIntervals[bot.username] = setInterval(() => {
-        try {
-          bot.activateItem()
-        } catch {}
+        bot.activateItem()
       }, 300)
     }
 
