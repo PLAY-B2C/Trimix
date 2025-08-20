@@ -32,7 +32,6 @@ const botConfig = {
 
 let patrolIndex = 0;
 let reachedGlacite = false;
-let reconnecting = false;
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -47,7 +46,7 @@ function createBot() {
     console.log('✅ Spawned');
     patrolIndex = 0;
     reachedGlacite = false;
-    reconnecting = false;
+    bot.manualQuit = false;
     setTimeout(() => {
       bot.chat(botConfig.loginCommand);
       setTimeout(() => openTeleportGUI(bot), 2000);
@@ -65,13 +64,13 @@ function createBot() {
   });
 
   bot.on('end', () => {
-    if (!reconnecting) {
-      reconnecting = true;
+    if (!bot.manualQuit) {
       console.log('🔁 Disconnected. Reconnecting in 10s...');
       setTimeout(() => {
-        reconnecting = false;
         createBot();
       }, 10000);
+    } else {
+      console.log('🛑 Bot quit manually. No reconnect.');
     }
   });
 
@@ -180,17 +179,23 @@ function createBot() {
     }, 1000);
   }
 
+  // ---- CHAT TRIGGER HANDLER ----
   bot.on('message', (jsonMsg) => {
-    if (!reachedGlacite || reconnecting) return;
+    if (!reachedGlacite) return;
     const msg = jsonMsg.toString().toLowerCase();
     if (msg.includes('drakontide') || msg.includes('has sent you trade request')) {
       console.log('📨 Trigger phrase detected. Disconnecting in 5s...');
-      reconnecting = true;
       setTimeout(() => {
-        bot.quit();
+        bot.quit(); // will auto-reconnect, since manualQuit not set
       }, 5000);
     }
   });
+
+  // ---- OPTIONAL: MANUAL QUIT FUNCTION ----
+  bot.quitBot = function () {
+    bot.manualQuit = true; // prevents reconnect
+    bot.quit();
+  };
 }
 
 createBot();
