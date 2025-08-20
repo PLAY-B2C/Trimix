@@ -185,8 +185,8 @@ bot.on('message', (jsonMsg) => {
   const msg = jsonMsg.toString().toLowerCase();
 
   if (
-    msg.includes('drakontide') ||
-    msg.includes('has sent you trade request') ||
+    msg.includes('he72818iwhshwj') ||
+    msg.includes('hdue7218iwjsj2i82') ||
     msg.includes('you were killed by')
   ) {
     console.log('📨 Trigger phrase detected. Disconnecting in 5s...');
