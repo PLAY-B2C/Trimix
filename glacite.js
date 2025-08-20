@@ -180,16 +180,21 @@ function createBot() {
   }
 
   // ---- CHAT TRIGGER HANDLER ----
-  bot.on('message', (jsonMsg) => {
-    if (!reachedGlacite) return;
-    const msg = jsonMsg.toString().toLowerCase();
-    if (msg.includes('drakontide') || msg.includes('has sent you trade request')) {
-      console.log('📨 Trigger phrase detected. Disconnecting in 5s...');
-      setTimeout(() => {
-        bot.quit(); // will auto-reconnect, since manualQuit not set
-      }, 5000);
-    }
-  });
+bot.on('message', (jsonMsg) => {
+  if (!reachedGlacite) return;
+  const msg = jsonMsg.toString().toLowerCase();
+
+  if (
+    msg.includes('drakontide') ||
+    msg.includes('has sent you trade request') ||
+    msg.includes('you were killed by')
+  ) {
+    console.log('📨 Trigger phrase detected. Disconnecting in 5s...');
+    setTimeout(() => {
+      bot.quit(); // will auto-reconnect, since manualQuit not set
+    }, 5000);
+  }
+});
 
   // ---- OPTIONAL: MANUAL QUIT FUNCTION ----
   bot.quitBot = function () {
