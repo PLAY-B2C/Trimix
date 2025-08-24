@@ -6,8 +6,8 @@ const PORT = 25565
 // Bot usernames
 const BOT_NAMES = [
   'lancelot',
-  'darkemberxd'
-  'behappyinlife'
+  'darkemberxd',
+  'behappyinlife',
   'gojolordn'
 ]
 
