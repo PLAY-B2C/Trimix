@@ -8,6 +8,7 @@ const BOT_NAMES = [
   'lancelot',
   'darkemberxd'
   'behappyinlife'
+  'gojolordn'
 ]
 
 // Delay before reconnect (in ms)
