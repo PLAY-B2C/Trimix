@@ -1,43 +1,34 @@
 import os
 import json
-import netifaces
-import time
 
-# Get Wi-Fi SSID using termux-api
-def get_wifi_name():
-    wifi_info = os.popen("termux-wifi-connectioninfo").read()
-    data = json.loads(wifi_info)
-    return data.get("ssid", "Unknown")
+# Get nearby Wi-Fi networks
+def get_wifi_networks():
+    wifi_scan = os.popen("termux-wifi-scaninfo").read()
+    return json.loads(wifi_scan)
 
-# Get local IP + subnet mask
-def get_network_range():
-    iface = "wlan0"
-    ip = netifaces.ifaddresses(iface)[netifaces.AF_INET][0]['addr']
-    netmask = netifaces.ifaddresses(iface)[netifaces.AF_INET][0]['netmask']
+# Rate security level
+def rate_security(capabilities):
+    if "WEP" in capabilities:
+        return "⚠️ Weak (WEP - easily hackable)"
+    elif "WPA2" in capabilities and "WPA3" not in capabilities:
+        return "✅ Secure (WPA2)"
+    elif "WPA3" in capabilities:
+        return "🔒 Very Secure (WPA3)"
+    elif "ESS" in capabilities and "WPA" not in capabilities:
+        return "❌ Open (No password!)"
+    else:
+        return f"ℹ️ Unknown ({capabilities})"
 
-    # Convert netmask to CIDR
-    bits = sum([bin(int(x)).count("1") for x in netmask.split(".")])
-    network = f"{ip}/{bits}"
-    return network
-
-def scan_network(network, ssid):
-    print(f"\n🔎 Scanning Wi-Fi: {ssid} ({network}) ...\n")
-    os.system(f"nmap -sn {network} > scan.txt")
-
-    with open("scan.txt") as f:
-        data = f.read()
-
-    print(data)
-
-    # Example: detect unknown device
-    if "192.168.1.105" in data:  # Replace with known device IPs
-        print("⚠️ Unknown device detected!")
-        os.system('termux-notification --title "Wi-Fi Alert" --content "Unknown device detected!"')
-
+# Main
 if __name__ == "__main__":
-    ssid = get_wifi_name()
-    network = get_network_range()
-
-    while True:
-        scan_network(network, ssid)
-        time.sleep(60)  # scan every 1 min
+    networks = get_wifi_networks()
+    print("\n📡 Nearby Wi-Fi Security Report:\n")
+    
+    for net in networks:
+        ssid = net.get("ssid", "Unknown")
+        strength = net.get("level", "N/A")
+        security = rate_security(net.get("capabilities", ""))
+        
+        print(f"SSID: {ssid}")
+        print(f"  Signal: {strength} dBm")
+        print(f"  Security: {security}\n")
