@@ -13,7 +13,7 @@ const botConfig = {
   host: 'mc.fakepixel.fun',
   username: 'JamaaLcaliph',
   version: '1.16.5',
-  loginCommand: '/login 7860AA',
+  loginCommand: '/login 3043AA',
   warpCommand: '/warp spider',
   waypoints: [
     new Vec3(-233, 80, -244),
