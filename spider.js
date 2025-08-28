@@ -58,8 +58,8 @@ function createBot() {
     console.log('✅ Spawned');
     patrolIndex = 0;
     homeReached = false;
-    bot.manualQuit = false;
     stopClicking();
+    bot.manualQuit = false;
     setTimeout(() => {
       bot.chat(botConfig.loginCommand);
       setTimeout(() => openTeleportGUI(bot), 2000);
@@ -125,8 +125,10 @@ function createBot() {
     const maxRetries = 3;
 
     function moveToNext() {
-      if (patrolIndex >= botConfig.waypoints.length)
-        patrolIndex = 0; // loop patrol
+      // ✅ After last waypoint, restart at home (11)
+      if (patrolIndex >= botConfig.waypoints.length) {
+        patrolIndex = 11;
+      }
 
       const target = botConfig.waypoints[patrolIndex];
       bot.pathfinder.setGoal(new GoalNear(target.x, target.y - 3, target.z, 1));
@@ -141,7 +143,7 @@ function createBot() {
           retryCount = 0;
           console.log(`📍 Reached waypoint ${patrolIndex}`);
 
-          // If home is reached for the first time
+          // If home is reached first time
           if (patrolIndex === 11 && !homeReached) {
             console.log('🏠 Reached patrol home. Enabling chat triggers + starting right click spam...');
             homeReached = true;
