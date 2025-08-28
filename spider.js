@@ -42,7 +42,7 @@ const botConfig = {
 };
 
 let patrolIndex = 0;
-let reachedHome = false;
+let homeReached = false;
 let clickInterval = null;
 
 function createBot() {
@@ -57,8 +57,9 @@ function createBot() {
   bot.once('spawn', () => {
     console.log('✅ Spawned');
     patrolIndex = 0;
-    reachedHome = false;
+    homeReached = false;
     bot.manualQuit = false;
+    stopClicking();
     setTimeout(() => {
       bot.chat(botConfig.loginCommand);
       setTimeout(() => openTeleportGUI(bot), 2000);
@@ -68,7 +69,7 @@ function createBot() {
   bot.on('death', () => {
     console.log('☠️ Bot died. Restarting patrol...');
     patrolIndex = 0;
-    reachedHome = false;
+    homeReached = false;
     stopClicking();
     setTimeout(() => {
       bot.chat(botConfig.warpCommand);
@@ -140,9 +141,10 @@ function createBot() {
           retryCount = 0;
           console.log(`📍 Reached waypoint ${patrolIndex}`);
 
-          // If home is reached, start right click spam
-          if (patrolIndex === 11) {
-            console.log('🏠 Reached patrol home. Starting right click spam...');
+          // If home is reached for the first time
+          if (patrolIndex === 11 && !homeReached) {
+            console.log('🏠 Reached patrol home. Enabling chat triggers + starting right click spam...');
+            homeReached = true;
             startClicking();
           }
 
@@ -199,6 +201,7 @@ function createBot() {
 
   // ---- CHAT TRIGGER HANDLER ----
   bot.on('message', (jsonMsg) => {
+    if (!homeReached) return; // only active after reaching home
     const msg = jsonMsg.toString().toLowerCase();
     if (
       msg.includes('drakontide') ||
