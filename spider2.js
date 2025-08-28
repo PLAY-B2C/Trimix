@@ -208,37 +208,4 @@ function createBot() {
   };
 }
 
-createBot();      if (distXZ < 2) {
-        clearInterval(interval);
-        retryCount = 0;
-        console.log(`📍 Reached waypoint ${patrolIndex}`);
-
-        if (patrolIndex === 7 && !homeReached) {
-          console.log('🏠 Reached home waypoint. Enabling chat triggers + clicking...');
-          homeReached = true;
-          startClicking();
-        }
-
-        patrolIndex++;
-        setTimeout(moveToNext, 600);
-
-      } else if (!bot.pathfinder.isMoving()) {
-        clearInterval(interval);
-        retryCount++;
-        if (retryCount <= maxRetries) {
-          console.log(`🔁 Retry ${retryCount}/${maxRetries} for waypoint ${patrolIndex}`);
-          setTimeout(moveToNext, 800);
-        } else {
-          console.log(`⚠️ Stuck at waypoint ${patrolIndex}. Skipping to next...`);
-          patrolIndex++;
-          retryCount = 0;
-          setTimeout(moveToNext, 800);
-        }
-      }
-    }, 500);
-  }
-
-  moveToNext();
-}
-
 createBot();
