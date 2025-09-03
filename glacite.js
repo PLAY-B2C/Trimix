@@ -11,7 +11,7 @@ console.warn = (msg, ...args) => {
 
 const botConfig = {
   host: 'mc.fakepixel.fun',
-  username: 'JamaaLcaliph',
+  username: 'B2C',
   version: '1.16.5',
   loginCommand: '/login 3043AA',
   warpCommand: '/warp dwarven',
@@ -185,7 +185,7 @@ bot.on('message', (jsonMsg) => {
   const msg = jsonMsg.toString().toLowerCase();
 
   if (
-    msg.includes('1234549wonana') ||
+    msg.includes('B2C') ||
     msg.includes('JamaaLcaliph') ||
     msg.includes('you were killed by')
   ) {
