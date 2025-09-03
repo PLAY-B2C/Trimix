@@ -11,7 +11,7 @@ console.warn = (msg, ...args) => {
 
 const botConfig = {
   host: 'mc.fakepixel.fun',
-  username: 'B2C',
+  username: 'JamaaLcaliph',
   version: '1.16.5',
   loginCommand: '/login 3043AA',
   warpCommand: '/warp dwarven',
@@ -185,8 +185,8 @@ bot.on('message', (jsonMsg) => {
   const msg = jsonMsg.toString().toLowerCase();
 
   if (
-    msg.includes('B2C') ||
-    msg.includes('b2c') ||
+    msg.includes('1234549wonana') ||
+    msg.includes('JamaaLcaliph') ||
     msg.includes('you were killed by')
   ) {
     console.log('📨 Trigger phrase detected. Disconnecting in 5s...');
