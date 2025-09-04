@@ -186,7 +186,7 @@ bot.on('message', (jsonMsg) => {
 
   if (
     msg.includes('B2C') ||
-    msg.includes('JamaaLcaliph') ||
+    msg.includes('This server will restart') ||
     msg.includes('you were killed by')
   ) {
     console.log('📨 Trigger phrase detected. Disconnecting in 5s...');
