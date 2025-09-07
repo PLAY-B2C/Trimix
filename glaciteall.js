@@ -14,12 +14,14 @@ const botConfigs = [
   {
     username: 'B2C',
     loginCommand: '/login 3043AA',
-    warpCommand: '/warp dwarven'
+    warpCommand: '/warp dwarven',
+    reconnectDelay: 0 // first bot reconnects immediately
   },
   {
     username: 'JamaaLcaliph',
     loginCommand: '/login 3043AA',
-    warpCommand: '/warp dwarven'
+    warpCommand: '/warp dwarven',
+    reconnectDelay: 30000 // second bot always 30s after first
   }
 ];
 
@@ -49,7 +51,8 @@ function createBot(config) {
     host: sharedSettings.host,
     username: config.username,
     version: sharedSettings.version,
-    connectTimeout: 0 // 🚀 disables the 30s timeout
+    connectTimeout: 0,          // disables TCP connect timeout
+    checkTimeoutInterval: 0     // disables mineflayer watchdog (30s keepalive timeout)
   });
 
   bot.loadPlugin(pathfinder);
@@ -78,7 +81,9 @@ function createBot(config) {
   bot.on('end', () => {
     if (!bot.manualQuit) {
       console.log(`🔁 ${config.username} disconnected. Reconnecting in 10s...`);
-      setTimeout(() => createBot(config), 10000);
+      setTimeout(() => {
+        createBot(config);
+      }, 10000 + config.reconnectDelay); // stagger reconnects
     } else {
       console.log(`🛑 ${config.username} quit manually. No reconnect.`);
     }
@@ -201,7 +206,7 @@ function createBot(config) {
     ) {
       console.log(`📨 ${config.username} trigger phrase detected. Disconnecting in 5s...`);
       setTimeout(() => {
-        bot.quit(); // will auto-reconnect, since manualQuit not set
+        bot.quit(); // will auto-reconnect
       }, 5000);
     }
   });
