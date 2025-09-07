@@ -48,7 +48,8 @@ function createBot(config) {
   const bot = mineflayer.createBot({
     host: sharedSettings.host,
     username: config.username,
-    version: sharedSettings.version
+    version: sharedSettings.version,
+    connectTimeout: 0 // 🚀 disables the 30s timeout
   });
 
   bot.loadPlugin(pathfinder);
