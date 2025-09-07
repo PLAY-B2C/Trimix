@@ -14,14 +14,12 @@ const botConfigs = [
   {
     username: 'B2C',
     loginCommand: '/login 3043AA',
-    warpCommand: '/warp dwarven',
-    reconnectDelay: 0 // first bot reconnects immediately
+    warpCommand: '/warp dwarven'
   },
   {
     username: 'JamaaLcaliph',
     loginCommand: '/login 3043AA',
-    warpCommand: '/warp dwarven',
-    reconnectDelay: 30000 // second bot always 30s after first
+    warpCommand: '/warp dwarven'
   }
 ];
 
@@ -43,28 +41,30 @@ const sharedSettings = {
   ]
 };
 
+// ---- CREATE BOT ----
 function createBot(config) {
-  let patrolIndex = 0;
-  let reachedGlacite = false;
-
   const bot = mineflayer.createBot({
     host: sharedSettings.host,
     username: config.username,
     version: sharedSettings.version,
-    connectTimeout: 0,          // disables TCP connect timeout
-    checkTimeoutInterval: 0     // disables mineflayer watchdog (30s keepalive timeout)
+    connectTimeout: 0,               // no TCP connection timeout
+    checkTimeoutInterval: 86400000   // 24h watchdog timeout
   });
+
+  let patrolIndex = 0;
+  let reachedGlacite = false;
 
   bot.loadPlugin(pathfinder);
 
   bot.once('spawn', () => {
-    console.log(`✅ ${config.username} Spawned`);
+    console.log(`✅ ${config.username} spawned`);
     patrolIndex = 0;
     reachedGlacite = false;
     bot.manualQuit = false;
+
     setTimeout(() => {
       bot.chat(config.loginCommand);
-      setTimeout(() => openTeleportGUI(bot), 2000);
+      setTimeout(() => openTeleportGUI(bot, config), 2000);
     }, 2000);
   });
 
@@ -74,7 +74,7 @@ function createBot(config) {
     reachedGlacite = false;
     setTimeout(() => {
       bot.chat(config.warpCommand);
-      setTimeout(() => startPatrol(bot), 8000);
+      setTimeout(() => startPatrol(bot, config), 8000);
     }, 2000);
   });
 
@@ -83,17 +83,17 @@ function createBot(config) {
       console.log(`🔁 ${config.username} disconnected. Reconnecting in 10s...`);
       setTimeout(() => {
         createBot(config);
-      }, 10000 + config.reconnectDelay); // stagger reconnects
+      }, 10000);
     } else {
       console.log(`🛑 ${config.username} quit manually. No reconnect.`);
     }
   });
 
   bot.on('error', err => {
-    console.log(`❌ ${config.username} Error:`, err.message);
+    console.log(`❌ ${config.username} error:`, err.message);
   });
 
-  function openTeleportGUI(bot) {
+  function openTeleportGUI(bot, config) {
     bot.setQuickBarSlot(0);
     bot.activateItem();
     bot.once('windowOpen', async window => {
@@ -109,12 +109,12 @@ function createBot(config) {
       }
       setTimeout(() => {
         bot.chat(config.warpCommand);
-        setTimeout(() => startPatrol(bot), 8000);
+        setTimeout(() => startPatrol(bot, config), 8000);
       }, 2000);
     });
   }
 
-  function startPatrol(bot) {
+  function startPatrol(bot, config) {
     const mcData = require('minecraft-data')(bot.version);
     const movements = new Movements(bot, mcData);
     movements.maxDropDown = 10;
@@ -143,7 +143,7 @@ function createBot(config) {
           console.log(`📍 ${config.username} reached waypoint ${patrolIndex}`);
           if (patrolIndex === sharedSettings.waypoints.length - 1) {
             console.log(`🌟 ${config.username} reached Glacite. Executing final right-click...`);
-            afterReachingGlacite();
+            afterReachingGlacite(bot);
           } else {
             patrolIndex++;
             setTimeout(moveToNext, 600);
@@ -156,7 +156,7 @@ function createBot(config) {
             setTimeout(moveToNext, 800);
           } else {
             console.log(`⚠️ ${config.username} stuck at waypoint ${patrolIndex}. Finding next nearest...`);
-            patrolIndex = getNextNearestWaypointIndex(patrolIndex + 1);
+            patrolIndex = getNextNearestWaypointIndex(bot, patrolIndex + 1);
             retryCount = 0;
             setTimeout(moveToNext, 800);
           }
@@ -164,25 +164,25 @@ function createBot(config) {
       }, 500);
     }
 
-    function getNextNearestWaypointIndex(minIndex = 0) {
-      const pos = bot.entity.position;
-      let nearestIndex = minIndex;
-      let minDist = Infinity;
-      for (let i = minIndex; i < sharedSettings.waypoints.length; i++) {
-        const wp = sharedSettings.waypoints[i];
-        const dist = pos.distanceTo(wp);
-        if (dist < minDist) {
-          minDist = dist;
-          nearestIndex = i;
-        }
-      }
-      return nearestIndex;
-    }
-
     moveToNext();
   }
 
-  function afterReachingGlacite() {
+  function getNextNearestWaypointIndex(bot, minIndex = 0) {
+    const pos = bot.entity.position;
+    let nearestIndex = minIndex;
+    let minDist = Infinity;
+    for (let i = minIndex; i < sharedSettings.waypoints.length; i++) {
+      const wp = sharedSettings.waypoints[i];
+      const dist = pos.distanceTo(wp);
+      if (dist < minDist) {
+        minDist = dist;
+        nearestIndex = i;
+      }
+    }
+    return nearestIndex;
+  }
+
+  function afterReachingGlacite(bot) {
     reachedGlacite = true;
     bot.setQuickBarSlot(2);
     bot.activateItem();
@@ -206,20 +206,18 @@ function createBot(config) {
     ) {
       console.log(`📨 ${config.username} trigger phrase detected. Disconnecting in 5s...`);
       setTimeout(() => {
-        bot.quit(); // will auto-reconnect
+        bot.quit(); // auto-reconnect, since manualQuit not set
       }, 5000);
     }
   });
 
-  // ---- MANUAL QUIT ----
+  // ---- OPTIONAL: MANUAL QUIT FUNCTION ----
   bot.quitBot = function () {
-    bot.manualQuit = true;
+    bot.manualQuit = true; // prevents reconnect
     bot.quit();
   };
 }
 
-// ---- START BOTH BOTS WITH 30s LATENCY ----
-createBot(botConfigs[0]); // First bot immediately
-setTimeout(() => {
-  createBot(botConfigs[1]); // Second bot after 30 seconds
-}, 30000);
+// ---- RUN BOTH BOTS WITH 30s GAP ----
+createBot(botConfigs[0]);
+setTimeout(() => createBot(botConfigs[1]), 30000);
