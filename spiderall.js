@@ -3,12 +3,14 @@ const Vec3 = require('vec3');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const { GoalNear } = goals;
 
+// Silence objectType warning
 const originalWarn = console.warn;
 console.warn = (msg, ...args) => {
   if (typeof msg === 'string' && msg.includes('objectType is deprecated')) return;
   originalWarn(msg, ...args);
 };
 
+// Both bot configs
 const botsConfig = [
   {
     username: 'DrakonTide',
@@ -233,6 +235,6 @@ function createBot(config) {
   };
 }
 
-// Run first bot instantly, second bot with 5s delay
+// Run bots: first instantly, second after 24h
 createBot(botsConfig[0]);
-setTimeout(() => createBot(botsConfig[1]), 5000);
+setTimeout(() => createBot(botsConfig[1]), 24 * 60 * 60 * 1000); // 24h = 86,400,000 ms
