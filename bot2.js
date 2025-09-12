@@ -115,19 +115,3 @@ function startStrafing(bot) {
 
 // 🚀 Start the bot
 createBot();
-}
-
-// ↔️ Left/right strafe loop every 45s
-function startStrafing(bot) {
-  let strafeLeft = true;
-  bot.setControlState('left', true);
-
-  setInterval(() => {
-    strafeLeft = !strafeLeft;
-    bot.setControlState('left', strafeLeft);
-    bot.setControlState('right', !strafeLeft);
-  }, 45000);
-}
-
-// 🚀 Start the bot
-createBot();
