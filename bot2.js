@@ -114,7 +114,7 @@ function startStrafing(bot) {
 }
 
 // 🚀 Start the bot
-createBot();  });
+createBot();
 }
 
 // ↔️ Left/right strafe loop every 45s
