@@ -91,14 +91,20 @@ function preventViewMovement(bot, yaw, pitch) {
   });
 }
 
-// ⛏️ Constant block breaking without rotating
+// ⛏️ Always hold left click
 function breakBlocksConstantly(bot) {
-  setInterval(() => {
+  bot.on('physicTick', () => {
     const block = bot.blockAtCursor();
     if (block) {
-      bot.dig(block, true).catch(() => {}); // ignore errors
+      bot._client.write('block_dig', {
+        status: 0, // START_DESTROY_BLOCK
+        location: block.position,
+        face: 1
+      });
     }
-  }, 500); // every 0.5s
+    // Always swing arm like holding mouse down
+    bot.swingArm('right', true);
+  });
 }
 
 // ↔️ Left/right strafe loop every 45s
