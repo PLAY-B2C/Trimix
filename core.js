@@ -12,7 +12,7 @@ const BOT_NAMES = [
 ]
 
 // Delay before reconnect (in ms)
-const RECONNECT_DELAY = 5000
+const RECONNECT_DELAY = 1000
 
 function createBot(username) {
   let bot
