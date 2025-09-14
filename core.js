@@ -5,10 +5,10 @@ const PORT = 25565
 
 // Bot usernames
 const BOT_NAMES = [
-  'Kingyash1105',
-  'darkemsberxd',
-  'behappyyinlife',
-  'gojolozrdn'
+  'B2C',
+  't6688i',
+  '765tgg',
+  'yu8877'
 ]
 
 // Delay before reconnect (in ms)
