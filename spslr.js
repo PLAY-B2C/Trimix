@@ -227,6 +227,8 @@ function createBot() {
 
   // ---- CHAT TRIGGER HANDLER ----
   bot.on('message', (jsonMsg) => {
+    if (!homeReached) return; // ignore chat until patrol loop starts
+
     const msg = jsonMsg.toString().toLowerCase();
 
     // Disconnect trigger
