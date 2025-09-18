@@ -225,11 +225,26 @@ function createBot() {
 
       bot.once("windowOpen", async (window) => {
         try {
-          await bot.clickWindow(47, 0, 1); // shift-click slot 47
-          await bot.clickWindow(11, 0, 1); // shift-click slot 11
-          console.log("✅ Sold items via bazaar");
+          await bot.waitForTicks(20); // wait ~1s for GUI to load
+
+          try {
+            await bot.clickWindow(47, 0, 1); // shift-click slot 47
+            console.log("✅ Tried clicking slot 47");
+          } catch (err) {
+            console.log("⚠️ Slot 47 click failed:", err.message);
+          }
+
+          await bot.waitForTicks(10);
+
+          try {
+            await bot.clickWindow(11, 0, 1); // shift-click slot 11
+            console.log("✅ Tried clicking slot 11");
+          } catch (err) {
+            console.log("⚠️ Slot 11 click failed:", err.message);
+          }
+
         } catch (err) {
-          console.log("❌ Auto-sell click error:", err.message);
+          console.log("❌ Auto-sell routine error:", err.message);
         }
 
         setTimeout(() => {
