@@ -41,6 +41,12 @@ function createBot() {
     version: botConfig.version
   });
 
+  // ⏱️ Set client timeout to 24 hours + keep alive
+  if (bot._client && bot._client.socket) {
+    bot._client.socket.setTimeout(24 * 60 * 60 * 1000); // 24 hours in ms
+    bot._client.socket.setKeepAlive(true, 10000); // send keepalive every 10s
+  }
+
   bot.loadPlugin(pathfinder);
 
   bot.once('spawn', () => {
@@ -170,6 +176,45 @@ function createBot() {
       return nearestIndex;
     }
 
+    moveToNext();
+  }
+
+  function startClicking() {
+    stopClicking();
+    bot.setQuickBarSlot(0);
+    clickInterval = setInterval(() => {
+      bot.activateItem();
+    }, 600);
+  }
+
+  function stopClicking() {
+    if (clickInterval) {
+      clearInterval(clickInterval);
+      clickInterval = null;
+    }
+  }
+
+  bot.on('message', (jsonMsg) => {
+    if (!homeReached) return;
+    const msg = jsonMsg.toString().toLowerCase();
+    if (
+      msg.includes('jamaalcaliph') ||
+      msg.includes('you were killed by')
+    ) {
+      console.log('📨 Trigger phrase detected. Disconnecting in 5s...');
+      setTimeout(() => {
+        bot.quit();
+      }, 5000);
+    }
+  });
+
+  bot.quitBot = function () {
+    bot.manualQuit = true;
+    bot.quit();
+  };
+}
+
+createBot();
     moveToNext();
   }
 
