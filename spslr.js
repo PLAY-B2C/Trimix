@@ -44,7 +44,6 @@ const botConfig = {
 let patrolIndex = 0;
 let homeReached = false;
 let clickInterval = null;
-let sellInterval = null; // auto-sell timer
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -61,7 +60,6 @@ function createBot() {
     homeReached = false;
     stopClicking();
     bot.manualQuit = false;
-    stopAutoSellTimer();
     setTimeout(() => {
       bot.chat(botConfig.loginCommand);
       setTimeout(() => openTeleportGUI(bot), 2000);
@@ -73,7 +71,6 @@ function createBot() {
     patrolIndex = 0;
     homeReached = false;
     stopClicking();
-    stopAutoSellTimer();
     setTimeout(() => {
       bot.chat(botConfig.warpCommand);
       setTimeout(() => startPatrol(bot), 8000);
@@ -129,7 +126,7 @@ function createBot() {
 
     function moveToNext() {
       if (patrolIndex >= botConfig.waypoints.length) {
-        patrolIndex = 11;
+        patrolIndex = 11; // restart at home
       }
 
       const target = botConfig.waypoints[patrolIndex];
@@ -146,10 +143,9 @@ function createBot() {
           console.log(`📍 Reached waypoint ${patrolIndex}`);
 
           if (patrolIndex === 11 && !homeReached) {
-            console.log('🏠 Reached patrol home. Enabling triggers + starting right click spam...');
+            console.log('🏠 Reached patrol home. Enabling chat triggers + starting right click spam...');
             homeReached = true;
             startClicking();
-            startAutoSellTimer(bot); // start 10-min auto-sell loop
           }
 
           patrolIndex++;
@@ -204,84 +200,51 @@ function createBot() {
   }
 
   // ---- AUTO SELL ----
-  function startAutoSellTimer(bot) {
-    stopAutoSellTimer();
-    sellInterval = setInterval(() => {
-      doAutoSell(bot);
-    }, 10 * 60 * 1000); // every 10 min
-  }
-
-  function stopAutoSellTimer() {
-    if (sellInterval) {
-      clearInterval(sellInterval);
-      sellInterval = null;
-    }
-  }
-
-  async function doAutoSell(bot) {
+  async function autoSell(bot) {
     try {
-      console.log("💰 Starting auto-sell routine...");
-      bot.chat("/bz");
+      console.log('🛒 Starting auto-sell...');
+      bot.chat('/bz');
 
-      bot.once("windowOpen", async (window) => {
+      bot.once('windowOpen', async (window) => {
         try {
-          await bot.waitForTicks(20); // wait ~1s for GUI to load
-
-          try {
-            await bot.clickWindow(47, 0, 1); // shift-click slot 47
-            console.log("✅ Tried clicking slot 47");
-          } catch (err) {
-            console.log("⚠️ Slot 47 click failed:", err.message);
-          }
-
-          await bot.waitForTicks(10);
-
-          try {
-            await bot.clickWindow(11, 0, 1); // shift-click slot 11
-            console.log("✅ Tried clicking slot 11");
-          } catch (err) {
-            console.log("⚠️ Slot 11 click failed:", err.message);
-          }
-
+          await bot.clickWindow(47, 0, 1); // shift-click slot 47
+          await bot.clickWindow(11, 0, 1); // shift-click slot 11
+          console.log('✅ Auto-sell done.');
         } catch (err) {
-          console.log("❌ Auto-sell routine error:", err.message);
+          console.log('❌ Auto-sell click error:', err.message);
         }
 
         setTimeout(() => {
-          bot.chat("/warp spider");
-          console.log("🔄 Warping back to spider...");
-          setTimeout(() => {
-            patrolIndex = 0;
-            homeReached = false;
-            stopClicking();
-            startPatrol(bot);
-          }, 8000);
-        }, 1500);
+          console.log('🔄 Warping back to spider...');
+          bot.chat(botConfig.warpCommand);
+          setTimeout(() => startPatrol(bot), 8000);
+        }, 2000);
       });
     } catch (err) {
-      console.log("❌ Auto-sell error:", err.message);
+      console.log('❌ Auto-sell error:', err.message);
     }
   }
 
-  // ---- CHAT TRIGGERS ----
+  // ---- CHAT TRIGGER HANDLER ----
   bot.on('message', (jsonMsg) => {
     const msg = jsonMsg.toString().toLowerCase();
 
-    if (!homeReached) return;
-
-    if (msg.includes("sell") || msg.includes("inventory is full")) {
-      doAutoSell(bot);
-    }
-
-    if (msg.includes('drakontide') || msg.includes('you were killed by')) {
+    // Disconnect trigger
+    if (msg.includes('b2c') || msg.includes('you were killed by')) {
       console.log('📨 Trigger phrase detected. Disconnecting in 5s...');
       setTimeout(() => {
         bot.quit(); // will auto-reconnect
       }, 5000);
+      return;
+    }
+
+    // Auto-sell trigger
+    if (msg.includes('sell')) {
+      console.log('📨 Chat "sell" detected. Running auto-sell...');
+      autoSell(bot);
     }
   });
 
-  // ---- MANUAL QUIT ----
   bot.quitBot = function () {
     bot.manualQuit = true;
     bot.quit();
