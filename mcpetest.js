@@ -9,7 +9,7 @@ function startBot() {
     port: 53746,                    // default Bedrock port
     username: 'OGplay4er22990',     // bot username
     offline: true,                  // set false if using Xbox login
-    version: '1.21.100',            // Minecraft Bedrock version
+    version: '1.21.102.1',            // Minecraft Bedrock version
     timeout: TIMEOUT_MS
   });
 
