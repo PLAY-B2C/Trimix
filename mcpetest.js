@@ -5,8 +5,8 @@ const TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
 function startBot() {
   const client = bedrock.createClient({
-    host: 'play.craftersmc.net',   // server IP or domain
-    port: 19132,                    // default Bedrock port
+    host: 'ABCD9190.aternos.me',   // server IP or domain
+    port: 53746,                    // default Bedrock port
     username: 'OGplay4er22990',     // bot username
     offline: true,                  // set false if using Xbox login
     version: '1.21.100',            // Minecraft Bedrock version
