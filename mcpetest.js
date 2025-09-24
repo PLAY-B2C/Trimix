@@ -1,9 +1,9 @@
 const bedrock = require('bedrock-protocol');
 
 const client = bedrock.createClient({
-  host: 'your.server.ip',   // change this
+  host: 'play.craftersmc.net',   // change this
   port: 19132,              // default Bedrock port
-  username: 'WoodBot',      // bot username
+  username: 'OGplayer22990',      // bot username
   offline: true             // set to false if using Xbox login
 });
 
