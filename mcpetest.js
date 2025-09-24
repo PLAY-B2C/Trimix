@@ -1,10 +1,11 @@
 const bedrock = require('bedrock-protocol');
 
 const client = bedrock.createClient({
-  host: 'play.craftersmc.net',   // change this
-  port: 19132,              // default Bedrock port
-  username: 'OGplay4er22990',      // bot username
-  offline: true             // set to false if using Xbox login
+  host: 'play.craftersmc.net',   // change this if needed
+  port: 19132,                    // default Bedrock port
+  username: 'OGplay4er22990',     // bot username
+  offline: true,                  // set to false if using Xbox login
+  version: '1.21.100'             // set to Bedrock version 1.21.100
 });
 
 client.on('join', () => {
