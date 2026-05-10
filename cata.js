@@ -4,6 +4,7 @@ const mcDataLoader = require('minecraft-data')
 
 let rightClickIntervals = {}
 let teleportingStatus = {}
+let keepAliveStarted = {}
 
 const knownBotNames = ['DrakonTide', 'Supreme_Bolt', 'JamaaLcaliph', 'B2C', 'BoltMC']
 
@@ -67,7 +68,6 @@ function createBot({ username, password, delay }) {
         startKeepAlive(bot)
       }
 
-      // ⚡ NEW: Rotate head 180° when Giga Lightning strikes
       if (msg.includes('giga lightning struck you for') && !teleportingStatus[username]) {
         console.log(`⚡ ${username} was struck by Giga Lightning! Rotating head 180°.`)
         rotateHead180(bot)
@@ -87,12 +87,14 @@ function createBot({ username, password, delay }) {
     })
 
     bot.on('error', (err) => {
+      if (err.message.includes('unknown objective')) return
       console.log(`💥 ${username} error:`, err.message)
     })
 
     bot.on('end', () => {
       console.log(`🔌 ${username} disconnected. Reconnecting in 5s...`)
       clearInterval(rightClickIntervals[username])
+      delete keepAliveStarted[username]
       setTimeout(() => createBot({ username, password, delay: 0 }), 5000)
     })
 
@@ -176,6 +178,8 @@ function createBot({ username, password, delay }) {
     }
 
     function startKeepAlive(bot) {
+      if (keepAliveStarted[bot.username]) return
+      keepAliveStarted[bot.username] = true
       setInterval(() => {
         if (bot && bot.player) {
           bot._client.write('ping', { keepAliveId: Date.now() })
@@ -184,7 +188,6 @@ function createBot({ username, password, delay }) {
       }, 30000)
     }
 
-    // ⚡ NEW: Rotate head 180 degrees
     function rotateHead180(bot) {
       const currentYaw = bot.entity.yaw
       const targetYaw = currentYaw + Math.PI
@@ -192,16 +195,16 @@ function createBot({ username, password, delay }) {
       console.log(`🔄 ${bot.username} head rotated 180°`)
     }
 
-    process.on('uncaughtException', (err) => {
-      console.error('🛑 Uncaught Exception:', err)
-    })
-
-    process.on('unhandledRejection', (reason, promise) => {
-      console.error('🛑 Unhandled Promise:', reason)
-    })
-
   }, delay)
 }
+
+process.on('uncaughtException', (err) => {
+  console.error('🛑 Uncaught Exception:', err)
+})
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🛑 Unhandled Promise:', reason)
+})
 
 // Launching bots
 createBot({ username: 'JamaaLcaliph', password: '3043AA', delay: 0 })
