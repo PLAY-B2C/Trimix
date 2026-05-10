@@ -1,5 +1,5 @@
 const mineflayer = require('mineflayer')
-const { pathfinder, Movements, goals } = require('mineflayer-pathfinder')
+const { pathfinder } = require('mineflayer-pathfinder')
 
 let rightClickIntervals = {}
 let teleportingStatus = {}
@@ -50,6 +50,7 @@ function createBot({ username, password, delay }) {
 
       if (msg.includes('Dungeon starts in') && !teleportingStatus[username]) {
         console.log(`🔁 ${username} start spamming right-click.`)
+        bot.look(bot.entity.yaw, 0, true)
         startRightClickSpam(bot)
       }
 
@@ -86,7 +87,14 @@ function createBot({ username, password, delay }) {
       if (rightClickIntervals[bot.username] || teleportingStatus[bot.username]) return
       bot.setQuickBarSlot(0)
       rightClickIntervals[bot.username] = setInterval(() => {
-        bot.activateItem()
+        try {
+          const block = bot.blockAtCursor(5)
+          if (block) {
+            bot.activateBlock(block)
+          } else {
+            bot.activateItem()
+          }
+        } catch (e) {}
       }, 300)
     }
 
