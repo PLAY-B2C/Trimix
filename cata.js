@@ -50,7 +50,7 @@ bot.on('message', (message) => {
       console.log(`🔄 ${username} teleport completed.`)  
     }, 5000)  
   }  
-  
+
   if (msg.includes('the dungeon will begin') && !teleportingStatus[username]) {  
     console.log(`🏃 ${username} moving to NPC.`)  
     goToAndClickNPC(bot)  
@@ -58,7 +58,7 @@ bot.on('message', (message) => {
 
   // Removed: auto-disconnect on "this dungeon will close in"  
 
-  if (msg.includes('Dungeon starts in 2 seconds.') && !teleportingStatus[username]) {  
+  if (msg.includes('i first entered the dungeon') && !teleportingStatus[username]) {  
     console.log(`🔁 ${username} start spamming right-click.`)  
     startRightClickSpam(bot)  
   }  
@@ -192,4 +192,4 @@ process.on('unhandledRejection', (reason, promise) => {
 }
 
 // Launching bots
-createBot({ username: 'DrakonTide', password: '3043AA', delay: 0 })
+createBot({ username: 'JamaaLcaliph', password: '3043AA', delay: 0 })
