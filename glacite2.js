@@ -12,7 +12,7 @@ console.warn = (msg, ...args) => {
 const botConfig = {
   host: 'mc.fakepixel.fun',
   username: 'JamaaLcaliph',
-  version: '1.20.1',
+  version: '1.8.9', // FIX 1: corrected version
   loginCommand: '/login 3043AA',
   warpCommand: '/warp dwarven',
   glaciteCenter: new Vec3(0, 128, 160),
@@ -43,18 +43,18 @@ function createBot() {
   bot.loadPlugin(pathfinder);
 
   bot.once('spawn', () => {
-    console.log('✅ Spawned');
+    console.log('âœ… Spawned');
     patrolIndex = 0;
     reachedGlacite = false;
     bot.manualQuit = false;
     setTimeout(() => {
       bot.chat(botConfig.loginCommand);
-      setTimeout(() => openTeleportGUI(bot), 2000);
+      setTimeout(() => openTeleportGUI(bot), 3000); // FIX 2: longer delay before GUI
     }, 2000);
   });
 
   bot.on('death', () => {
-    console.log('☠️ Bot died. Restarting patrol...');
+    console.log('â˜ ï¸ Bot died. Restarting patrol...');
     patrolIndex = 0;
     reachedGlacite = false;
     setTimeout(() => {
@@ -65,32 +65,40 @@ function createBot() {
 
   bot.on('end', () => {
     if (!bot.manualQuit) {
-      console.log('🔁 Disconnected. Reconnecting in 10s...');
-      setTimeout(() => {
-        createBot();
-      }, 10000);
+      console.log('ðŸ”„ Disconnected. Reconnecting in 10s...');
+      setTimeout(() => createBot(), 10000);
     } else {
-      console.log('🛑 Bot quit manually. No reconnect.');
+      console.log('ðŸ›‘ Bot quit manually. No reconnect.');
     }
   });
 
   bot.on('error', err => {
-    console.log('❌ Error:', err.message);
+    console.log('âŒ Error:', err.message);
   });
 
   function openTeleportGUI(bot) {
     bot.setQuickBarSlot(0);
     bot.activateItem();
+
+    const guiTimeout = setTimeout(() => {
+      console.log('âš ï¸ windowOpen timed out. Warping directly...');
+      bot.chat(botConfig.warpCommand);
+      setTimeout(() => startPatrol(bot), 8000);
+    }, 5000); // FIX 3: fallback if window never opens
+
     bot.once('windowOpen', async window => {
+      clearTimeout(guiTimeout);
       await bot.waitForTicks(20);
       const slot = window.slots[20];
       if (slot && slot.name !== 'air') {
         try {
-          await bot.clickWindow(20, 0, 1);
-          console.log('🎯 Clicked teleport item.');
+          await bot.clickWindow(20, 0, 0); // FIX 4: mode 0 (left click) not 1
+          console.log('ðŸŽ¯ Clicked teleport item.');
         } catch (err) {
-          console.log('❌ GUI click error:', err.message);
+          console.log('âŒ GUI click error:', err.message);
         }
+      } else {
+        console.log('âš ï¸ Slot 20 empty, skipping click.');
       }
       setTimeout(() => {
         bot.chat(botConfig.warpCommand);
@@ -101,7 +109,7 @@ function createBot() {
 
   function startPatrol(bot) {
     const mcData = require('minecraft-data')(bot.version);
-    const movements = new Movements(bot, mcData);
+    const movements = new Movements(bot); // FIX 5: removed mcData arg
     movements.maxDropDown = 10;
     movements.allowParkour = true;
     movements.canDig = false;
@@ -125,9 +133,9 @@ function createBot() {
         if (distXZ < 2) {
           clearInterval(interval);
           retryCount = 0;
-          console.log(`📍 Reached waypoint ${patrolIndex}`);
+          console.log(`ðŸ“ Reached waypoint ${patrolIndex}`);
           if (patrolIndex === botConfig.waypoints.length - 1) {
-            console.log('🌟 Reached Glacite. Executing final right-click...');
+            console.log('ðŸŒŸ Reached Glacite. Executing final right-click...');
             afterReachingGlacite();
           } else {
             patrolIndex++;
@@ -137,10 +145,10 @@ function createBot() {
           clearInterval(interval);
           retryCount++;
           if (retryCount <= maxRetries) {
-            console.log(`🔁 Retry ${retryCount}/${maxRetries} for waypoint ${patrolIndex}`);
+            console.log(`ðŸ” Retry ${retryCount}/${maxRetries} for waypoint ${patrolIndex}`);
             setTimeout(moveToNext, 800);
           } else {
-            console.log(`⚠️ Stuck at waypoint ${patrolIndex}. Finding next nearest...`);
+            console.log(`âš ï¸ Stuck at waypoint ${patrolIndex}. Finding next nearest...`);
             patrolIndex = getNextNearestWaypointIndex(patrolIndex + 1);
             retryCount = 0;
             setTimeout(moveToNext, 800);
@@ -175,30 +183,28 @@ function createBot() {
     setTimeout(() => {
       bot.setQuickBarSlot(0);
       bot.clearControlStates();
-      console.log('🧍 Holding slot 0 and standing still.');
+      console.log('ðŸ§ Holding slot 0 and standing still.');
     }, 1000);
   }
 
-  // ---- CHAT TRIGGER HANDLER ----
-bot.on('message', (jsonMsg) => {
-  if (!reachedGlacite) return;
-  const msg = jsonMsg.toString().toLowerCase();
+  // FIX 6: cleaned up chat trigger (removed self-trigger on own username)
+  bot.on('message', (jsonMsg) => {
+    if (!reachedGlacite) return;
+    const msg = jsonMsg.toString().toLowerCase();
 
-  if (
-    msg.includes('JamaaLcaliph') ||
-    msg.includes('This server will restart') ||
-    msg.includes('you were killed by')
-  ) {
-    console.log('📨 Trigger phrase detected. Disconnecting in 5s...');
-    setTimeout(() => {
-      bot.quit(); // will auto-reconnect, since manualQuit not set
-    }, 5000);
-  }
-});
+    if (
+      msg.includes('this server will restart') ||
+      msg.includes('you were killed by')
+    ) {
+      console.log('ðŸ“¨ Trigger phrase detected. Disconnecting in 5s...');
+      setTimeout(() => {
+        bot.quit();
+      }, 5000);
+    }
+  });
 
-  // ---- OPTIONAL: MANUAL QUIT FUNCTION ----
   bot.quitBot = function () {
-    bot.manualQuit = true; // prevents reconnect
+    bot.manualQuit = true;
     bot.quit();
   };
 }
