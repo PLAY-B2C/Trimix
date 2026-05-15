@@ -12,7 +12,7 @@ console.warn = (msg, ...args) => {
 const botConfig = {
   host: 'mc.fakepixel.fun',
   username: 'JamaaLcaliph',
-  version: '1.16.5',
+  version: '1.20.1',
   loginCommand: '/login 3043AA',
   warpCommand: '/warp dwarven',
   glaciteCenter: new Vec3(0, 128, 160),
