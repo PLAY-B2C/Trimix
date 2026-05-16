@@ -5,6 +5,7 @@ const mcDataLoader = require('minecraft-data')
 let rightClickIntervals = {}
 let teleportingStatus = {}
 let keepAliveStarted = {}
+let dodgeLoops = {}
 
 const knownBotNames = ['DrakonTide', 'Supreme_Bolt', 'JamaaLcaliph', 'B2C', 'BoltMC']
 
@@ -69,7 +70,7 @@ function createBot({ username, password, delay }) {
       }
 
       if (msg.includes('giga lightning struck you for') && !teleportingStatus[username]) {
-        console.log(`⚡ ${username} was struck by Giga Lightning! Rotating head 180°.`)
+        console.log(`⚡ ${username} was struck by Giga Lightning! Rotating head 180° and starting dodge loop.`)
         rotateHead180(bot)
       }
     })
@@ -94,7 +95,9 @@ function createBot({ username, password, delay }) {
     bot.on('end', () => {
       console.log(`🔌 ${username} disconnected. Reconnecting in 5s...`)
       clearInterval(rightClickIntervals[username])
+      clearInterval(dodgeLoops[username])
       delete keepAliveStarted[username]
+      delete dodgeLoops[username]
       setTimeout(() => createBot({ username, password, delay: 0 }), 5000)
     })
 
@@ -193,6 +196,35 @@ function createBot({ username, password, delay }) {
       const targetYaw = currentYaw + Math.PI
       bot.look(targetYaw, bot.entity.pitch, false)
       console.log(`🔄 ${bot.username} head rotated 180°`)
+      startDodgeLoop(bot)
+    }
+
+    function startDodgeLoop(bot) {
+      if (dodgeLoops[bot.username]) return
+      console.log(`🔁 ${bot.username} dodge loop started (every 5 min)`)
+
+      dodgeLoops[bot.username] = setInterval(() => {
+        if (teleportingStatus[bot.username]) return
+
+        console.log(`🚶 ${bot.username} dodge: moving back 2 then forward 2`)
+
+        // Move backward ~2 blocks
+        bot.setControlState('back', true)
+        setTimeout(() => {
+          bot.setControlState('back', false)
+
+          // Brief pause then move forward ~2 blocks
+          setTimeout(() => {
+            bot.setControlState('forward', true)
+            setTimeout(() => {
+              bot.setControlState('forward', false)
+              console.log(`✅ ${bot.username} dodge complete.`)
+            }, 400)
+          }, 200)
+
+        }, 400)
+
+      }, 5 * 60 * 1000) // every 5 minutes
     }
 
   }, delay)
