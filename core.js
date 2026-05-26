@@ -1,57 +1,115 @@
 const mineflayer = require('mineflayer')
 
-const HOST = 'reserver.fakepixel.fun'
-const PORT = 25565
+// ─── Config ───────────────────────────────────────────────────────────────────
+const CONFIG = {
+  host: 'reserver.fakepixel.fun',
+  port: 25565,
+  reconnectDelay: 5000,      // ms before reconnect attempt
+  maxReconnectDelay: 60000,  // cap for exponential backoff
+  version: false,            // set to e.g. '1.8.9' if needed
+}
 
-// Bot usernames
 const BOT_NAMES = [
   'PookiePrincessRl',
   'Drogenking_123',
-  '765tgg',
-  'yu8877'
 ]
 
-// Delay before reconnect (in ms)
-const RECONNECT_DELAY = 1000
+// ─── Logger ───────────────────────────────────────────────────────────────────
+function log(username, level, msg) {
+  const time = new Date().toISOString().replace('T', ' ').slice(0, 19)
+  const levels = { info: '\x1b[32m', warn: '\x1b[33m', error: '\x1b[31m', reset: '\x1b[0m' }
+  const color = levels[level] ?? ''
+  console.log(`${color}[${time}] [${username}] [${level.toUpperCase()}] ${msg}${levels.reset}`)
+}
 
+// ─── Bot Factory ──────────────────────────────────────────────────────────────
 function createBot(username) {
-  let bot
-  let reconnectTimeout = null
+  let bot = null
+  let reconnectTimer = null
+  let reconnectAttempts = 0
+  let isDestroyed = false
 
-  function start() {
+  function getBackoffDelay() {
+    // Exponential backoff with jitter, capped at maxReconnectDelay
+    const base = CONFIG.reconnectDelay * Math.pow(1.5, Math.min(reconnectAttempts, 10))
+    const jitter = Math.random() * 1000
+    return Math.min(base + jitter, CONFIG.maxReconnectDelay)
+  }
+
+  function scheduleReconnect() {
+    if (reconnectTimer || isDestroyed) return
+    const delay = getBackoffDelay()
+    reconnectAttempts++
+    log(username, 'warn', `Reconnecting in ${(delay / 1000).toFixed(1)}s (attempt #${reconnectAttempts})...`)
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null
+      connect()
+    }, delay)
+  }
+
+  function connect() {
+    if (isDestroyed) return
+
     bot = mineflayer.createBot({
-      host: HOST,
-      port: PORT,
-      username: username
+      host: CONFIG.host,
+      port: CONFIG.port,
+      username,
+      ...(CONFIG.version && { version: CONFIG.version }),
     })
 
-    bot.on('login', () => {
-      console.log(`[${username}] Logged in.`)
+    // ── Events ──────────────────────────────────────────────────────────────
+
+    bot.once('login', () => {
+      reconnectAttempts = 0 // reset backoff on successful login
+      log(username, 'info', `Logged in to ${CONFIG.host}:${CONFIG.port}`)
+    })
+
+    bot.on('spawn', () => {
+      log(username, 'info', 'Spawned in world')
+    })
+
+    bot.on('kicked', (reason) => {
+      let readable = reason
+      try { readable = JSON.parse(reason)?.text ?? reason } catch {}
+      log(username, 'warn', `Kicked: ${readable}`)
     })
 
     bot.on('end', (reason) => {
-      console.log(`[${username}] Disconnected: ${reason}`)
+      log(username, 'warn', `Disconnected: ${reason}`)
+      bot.removeAllListeners()
+      bot = null
       scheduleReconnect()
     })
 
     bot.on('error', (err) => {
-      console.log(`[${username}] Error: ${err.message}`)
+      log(username, 'error', `${err.message}`)
+      // 'end' will fire after an error, so no reconnect needed here
+    })
+
+    bot.on('chat', (sender, message) => {
+      if (sender === username) return
+      log(username, 'info', `<${sender}> ${message}`)
     })
   }
 
-  function scheduleReconnect() {
-    if (reconnectTimeout) return // Prevent stacking reconnect timers
-    reconnectTimeout = setTimeout(() => {
-      reconnectTimeout = null
-      console.log(`[${username}] Reconnecting...`)
-      start()
-    }, RECONNECT_DELAY)
+  // Public API
+  function destroy() {
+    isDestroyed = true
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
+    if (bot) { bot.quit('Shutting down'); bot = null }
+    log(username, 'info', 'Bot destroyed.')
   }
 
-  start()
+  connect()
+  return { username, destroy }
 }
 
-// Start all bots
-BOT_NAMES.forEach(name => {
-  createBot(name)
+// ─── Main ─────────────────────────────────────────────────────────────────────
+const bots = BOT_NAMES.map(name => createBot(name))
+
+// Graceful shutdown on CTRL+C
+process.on('SIGINT', () => {
+  console.log('\nShutting down all bots...')
+  bots.forEach(b => b.destroy())
+  setTimeout(() => process.exit(0), 1500)
 })
