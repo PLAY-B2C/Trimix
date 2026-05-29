@@ -71,8 +71,11 @@ function createBot() {
 
   // ── Chat logging ──────────────────────────────────────────────────────────
 
-  // All chat messages (includes player chat, system messages, death messages, etc.)
-  bot.on('message', (jsonMsg) => {
+  bot.on('message', (jsonMsg, position) => {
+    // 'chat' = player messages, 'system' = server notifications
+    // skip everything else (hotbar, above_hotbar, game_info, etc.)
+    if (position !== 'chat' && position !== 'system') return;
+
     const text = jsonMsg.toString();
     console.log(`[CHAT] ${text}`);
 
@@ -85,20 +88,6 @@ function createBot() {
       console.log('📨 Trigger phrase detected. Disconnecting in 5s...');
       setTimeout(() => bot.quit(), 5000);
     }
-  });
-
-  // Player-to-player chat specifically (username + message separated)
-  bot.on('chat', (username, message) => {
-    if (username === bot.username) {
-      console.log(`[CHAT] <${username} (self)> ${message}`);
-    } else {
-      console.log(`[CHAT] <${username}> ${message}`);
-    }
-  });
-
-  // Whispers sent to the bot
-  bot.on('whisper', (username, message) => {
-    console.log(`[WHISPER] <${username} -> you> ${message}`);
   });
 
   // ─────────────────────────────────────────────────────────────────────────
