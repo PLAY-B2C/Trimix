@@ -19,7 +19,8 @@ const botConfig = {
   waypoints: [
     new Vec3(-271, 44, -239),
     new Vec3(-235, 46, -255),
-    new Vec3(-208, 42, -260)
+    new Vec3(-208, 42, -260),
+    new Vec3(-246, 44, -294)
   ]
 };
 
