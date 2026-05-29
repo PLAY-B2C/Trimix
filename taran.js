@@ -12,7 +12,7 @@ console.warn = (msg, ...args) => {
 const botConfig = {
   host: 'mc.fakepixel.fun',
   username: 'B2C',
-  version: '1.8.9', // FIX 1: corrected version
+  version: '1.8.9',
   loginCommand: '/login 3043AA',
   warpCommand: '/warp arachne',
   glaciteCenter: new Vec3(0, 128, 160),
@@ -36,18 +36,18 @@ function createBot() {
   bot.loadPlugin(pathfinder);
 
   bot.once('spawn', () => {
-    console.log('âœ… Spawned');
+    console.log('✅ Spawned');
     patrolIndex = 0;
     reachedGlacite = false;
     bot.manualQuit = false;
     setTimeout(() => {
       bot.chat(botConfig.loginCommand);
-      setTimeout(() => openTeleportGUI(bot), 3000); // FIX 2: longer delay before GUI
+      setTimeout(() => openTeleportGUI(bot), 3000);
     }, 2000);
   });
 
   bot.on('death', () => {
-    console.log('â˜ ï¸ Bot died. Restarting patrol...');
+    console.log('☠️ Bot died. Restarting patrol...');
     patrolIndex = 0;
     reachedGlacite = false;
     setTimeout(() => {
@@ -58,26 +58,60 @@ function createBot() {
 
   bot.on('end', () => {
     if (!bot.manualQuit) {
-      console.log('ðŸ”„ Disconnected. Reconnecting in 10s...');
+      console.log('🔄 Disconnected. Reconnecting in 10s...');
       setTimeout(() => createBot(), 10000);
     } else {
-      console.log('ðŸ›‘ Bot quit manually. No reconnect.');
+      console.log('🛑 Bot quit manually. No reconnect.');
     }
   });
 
   bot.on('error', err => {
-    console.log('âŒ Error:', err.message);
+    console.log('❌ Error:', err.message);
   });
+
+  // ── Chat logging ──────────────────────────────────────────────────────────
+
+  // All chat messages (includes player chat, system messages, death messages, etc.)
+  bot.on('message', (jsonMsg) => {
+    const text = jsonMsg.toString();
+    console.log(`[CHAT] ${text}`);
+
+    if (!reachedGlacite) return;
+    const lower = text.toLowerCase();
+    if (
+      lower.includes('this server will restart') ||
+      lower.includes('you were killed by')
+    ) {
+      console.log('📨 Trigger phrase detected. Disconnecting in 5s...');
+      setTimeout(() => bot.quit(), 5000);
+    }
+  });
+
+  // Player-to-player chat specifically (username + message separated)
+  bot.on('chat', (username, message) => {
+    if (username === bot.username) {
+      console.log(`[CHAT] <${username} (self)> ${message}`);
+    } else {
+      console.log(`[CHAT] <${username}> ${message}`);
+    }
+  });
+
+  // Whispers sent to the bot
+  bot.on('whisper', (username, message) => {
+    console.log(`[WHISPER] <${username} -> you> ${message}`);
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   function openTeleportGUI(bot) {
     bot.setQuickBarSlot(0);
     bot.activateItem();
 
     const guiTimeout = setTimeout(() => {
-      console.log('âš ï¸ windowOpen timed out. Warping directly...');
+      console.log('⚠️ windowOpen timed out. Warping directly...');
       bot.chat(botConfig.warpCommand);
       setTimeout(() => startPatrol(bot), 8000);
-    }, 5000); // FIX 3: fallback if window never opens
+    }, 5000);
 
     bot.once('windowOpen', async window => {
       clearTimeout(guiTimeout);
@@ -85,13 +119,13 @@ function createBot() {
       const slot = window.slots[20];
       if (slot && slot.name !== 'air') {
         try {
-          await bot.clickWindow(20, 0, 0); // FIX 4: mode 0 (left click) not 1
-          console.log('ðŸŽ¯ Clicked teleport item.');
+          await bot.clickWindow(20, 0, 0);
+          console.log('🎯 Clicked teleport item.');
         } catch (err) {
-          console.log('âŒ GUI click error:', err.message);
+          console.log('❌ GUI click error:', err.message);
         }
       } else {
-        console.log('âš ï¸ Slot 20 empty, skipping click.');
+        console.log('⚠️ Slot 20 empty, skipping click.');
       }
       setTimeout(() => {
         bot.chat(botConfig.warpCommand);
@@ -102,7 +136,7 @@ function createBot() {
 
   function startPatrol(bot) {
     const mcData = require('minecraft-data')(bot.version);
-    const movements = new Movements(bot); // FIX 5: removed mcData arg
+    const movements = new Movements(bot);
     movements.maxDropDown = 10;
     movements.allowParkour = true;
     movements.canDig = false;
@@ -126,9 +160,9 @@ function createBot() {
         if (distXZ < 2) {
           clearInterval(interval);
           retryCount = 0;
-          console.log(`ðŸ“ Reached waypoint ${patrolIndex}`);
+          console.log(`📍 Reached waypoint ${patrolIndex}`);
           if (patrolIndex === botConfig.waypoints.length - 1) {
-            console.log('ðŸŒŸ Reached Glacite. Executing final right-click...');
+            console.log('🌟 Reached Glacite. Executing final right-click...');
             afterReachingGlacite();
           } else {
             patrolIndex++;
@@ -138,10 +172,10 @@ function createBot() {
           clearInterval(interval);
           retryCount++;
           if (retryCount <= maxRetries) {
-            console.log(`ðŸ” Retry ${retryCount}/${maxRetries} for waypoint ${patrolIndex}`);
+            console.log(`🔁 Retry ${retryCount}/${maxRetries} for waypoint ${patrolIndex}`);
             setTimeout(moveToNext, 800);
           } else {
-            console.log(`âš ï¸ Stuck at waypoint ${patrolIndex}. Finding next nearest...`);
+            console.log(`⚠️ Stuck at waypoint ${patrolIndex}. Finding next nearest...`);
             patrolIndex = getNextNearestWaypointIndex(patrolIndex + 1);
             retryCount = 0;
             setTimeout(moveToNext, 800);
@@ -176,25 +210,9 @@ function createBot() {
     setTimeout(() => {
       bot.setQuickBarSlot(0);
       bot.clearControlStates();
-      console.log('ðŸ§ Holding slot 0 and standing still.');
+      console.log('🧍 Holding slot 0 and standing still.');
     }, 1000);
   }
-
-  // FIX 6: cleaned up chat trigger (removed self-trigger on own username)
-  bot.on('message', (jsonMsg) => {
-    if (!reachedGlacite) return;
-    const msg = jsonMsg.toString().toLowerCase();
-
-    if (
-      msg.includes('this server will restart') ||
-      msg.includes('you were killed by')
-    ) {
-      console.log('ðŸ“¨ Trigger phrase detected. Disconnecting in 5s...');
-      setTimeout(() => {
-        bot.quit();
-      }, 5000);
-    }
-  });
 
   bot.quitBot = function () {
     bot.manualQuit = true;
