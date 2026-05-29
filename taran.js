@@ -70,11 +70,7 @@ function createBot() {
     console.log('❌ Error:', err.message);
   });
 
-  // ── Chat logging ──────────────────────────────────────────────────────────
-
   bot.on('message', (jsonMsg, position) => {
-    // 'chat' = player messages, 'system' = server notifications
-    // skip everything else (hotbar, above_hotbar, game_info, etc.)
     if (position !== 'chat' && position !== 'system') return;
 
     const text = jsonMsg.toString();
@@ -90,8 +86,6 @@ function createBot() {
       setTimeout(() => bot.quit(), 5000);
     }
   });
-
-  // ─────────────────────────────────────────────────────────────────────────
 
   function openTeleportGUI(bot) {
     bot.setQuickBarSlot(0);
@@ -165,28 +159,11 @@ function createBot() {
             console.log(`🔁 Retry ${retryCount}/${maxRetries} for waypoint ${patrolIndex}`);
             setTimeout(moveToNext, 800);
           } else {
-            console.log(`⚠️ Stuck at waypoint ${patrolIndex}. Finding next nearest...`);
-            patrolIndex = getNextNearestWaypointIndex(patrolIndex + 1);
-            retryCount = 0;
-            setTimeout(moveToNext, 800);
+            console.log(`⚠️ Stuck at waypoint ${patrolIndex} after ${maxRetries} retries. Disconnecting to reconnect...`);
+            bot.quit();
           }
         }
       }, 500);
-    }
-
-    function getNextNearestWaypointIndex(minIndex = 0) {
-      const pos = bot.entity.position;
-      let nearestIndex = minIndex;
-      let minDist = Infinity;
-      for (let i = minIndex; i < botConfig.waypoints.length; i++) {
-        const wp = botConfig.waypoints[i];
-        const dist = pos.distanceTo(wp);
-        if (dist < minDist) {
-          minDist = dist;
-          nearestIndex = i;
-        }
-      }
-      return nearestIndex;
     }
 
     moveToNext();
