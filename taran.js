@@ -26,6 +26,7 @@ const botConfig = {
 
 let patrolIndex = 0;
 let reachedGlacite = false;
+let idleMovementInterval = null;
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -49,6 +50,7 @@ function createBot() {
 
   bot.on('death', () => {
     console.log('☠️ Bot died. Restarting patrol...');
+    stopIdleMovement();
     patrolIndex = 0;
     reachedGlacite = false;
     setTimeout(() => {
@@ -58,6 +60,7 @@ function createBot() {
   });
 
   bot.on('end', () => {
+    stopIdleMovement();
     if (!bot.manualQuit) {
       console.log('🔄 Disconnected. Reconnecting in 10s...');
       setTimeout(() => createBot(), 10000);
@@ -169,6 +172,32 @@ function createBot() {
     moveToNext();
   }
 
+  // Walks forward 2 blocks, waits, then walks backward 2 blocks
+  async function doIdleNudge() {
+    if (!reachedGlacite) return;
+    console.log('🚶 Idle nudge: moving forward 2 blocks...');
+
+    bot.setControlState('forward', true);
+    await new Promise(r => setTimeout(r, 800)); // ~2 blocks at walk speed
+    bot.setControlState('forward', false);
+
+    await new Promise(r => setTimeout(r, 500));
+
+    console.log('🚶 Idle nudge: moving backward 2 blocks...');
+    bot.setControlState('back', true);
+    await new Promise(r => setTimeout(r, 800));
+    bot.setControlState('back', false);
+
+    console.log('🧍 Idle nudge complete. Standing still.');
+  }
+
+  function stopIdleMovement() {
+    if (idleMovementInterval) {
+      clearInterval(idleMovementInterval);
+      idleMovementInterval = null;
+    }
+  }
+
   function afterReachingGlacite() {
     reachedGlacite = true;
     bot.setQuickBarSlot(2);
@@ -178,11 +207,19 @@ function createBot() {
       bot.setQuickBarSlot(0);
       bot.clearControlStates();
       console.log('🧍 Holding slot 0 and standing still.');
+
+      // Start idle movement loop: nudge every 6 minutes
+      stopIdleMovement(); // clear any existing interval
+      idleMovementInterval = setInterval(() => {
+        doIdleNudge();
+      }, 6 * 60 * 1000); // every 6 minutes
+
     }, 1000);
   }
 
   bot.quitBot = function () {
     bot.manualQuit = true;
+    stopIdleMovement();
     bot.quit();
   };
 }
