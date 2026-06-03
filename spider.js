@@ -151,12 +151,17 @@ function createBot() {
     let stuckTicks = 0;
     let lastPos = bot.entity.position.clone();
 
+    // Tracks how many full "stuck → retry" cycles have happened for this waypoint
+    let stuckRetries = 0;      // normal goal-retry counter  (max 3)
+    let jumpRetries  = 0;      // jump-assist retry counter   (max 3)
+
     const poll = setInterval(() => {
       if (!patrolActive) { clearInterval(poll); return; }
 
       const pos = bot.entity.position;
       const distXZ = Math.hypot(pos.x - target.x, pos.z - target.z);
 
+      // ── Arrived ────────────────────────────────────────────────────────────
       if (distXZ <= botConfig.waypointRadius) {
         clearInterval(poll);
         console.log(`📍 Passed waypoint ${patrolIndex}`);
@@ -172,6 +177,7 @@ function createBot() {
         return;
       }
 
+      // ── Stuck detection (no movement for 3 s = 30 × 100 ms) ───────────────
       const moved = pos.distanceTo(lastPos);
       if (moved < 0.05) {
         stuckTicks++;
@@ -180,15 +186,54 @@ function createBot() {
         lastPos = pos.clone();
       }
 
-      if (stuckTicks >= 30) {
-        stuckTicks = 0;
-        console.log(`⚠️ Stuck near waypoint ${patrolIndex}, retrying goal...`);
+      if (stuckTicks < 30) return;   // not stuck yet
+      stuckTicks = 0;
+      lastPos = pos.clone();
+
+      // ── Phase 1: normal goal retry (up to 3×) ─────────────────────────────
+      if (stuckRetries < 3) {
+        stuckRetries++;
+        console.log(`⚠️ Stuck at waypoint ${patrolIndex} — goal retry ${stuckRetries}/3`);
         bot.pathfinder.setGoal(null);
         setTimeout(() => {
           if (!patrolActive) return;
           bot.pathfinder.setGoal(new GoalNear(target.x, target.y, target.z, 1), true);
         }, 300);
+        return;
       }
+
+      // ── Phase 2: jump + retry (up to 3×) ──────────────────────────────────
+      if (jumpRetries < 3) {
+        jumpRetries++;
+        console.log(`🦘 Jump-assist attempt ${jumpRetries}/3 at waypoint ${patrolIndex}`);
+        bot.pathfinder.setGoal(null);
+
+        // Spam a few jumps to dislodge the bot from whatever it's caught on
+        let jumps = 0;
+        const jumpTimer = setInterval(() => {
+          if (!patrolActive) { clearInterval(jumpTimer); return; }
+          bot.setControlState('jump', true);
+          setTimeout(() => bot.setControlState('jump', false), 150);
+          jumps++;
+          if (jumps >= 4) {
+            clearInterval(jumpTimer);
+            // Reset stuckRetries so it gets 3 more normal retries after jumping
+            stuckRetries = 0;
+            setTimeout(() => {
+              if (!patrolActive) return;
+              bot.pathfinder.setGoal(new GoalNear(target.x, target.y, target.z, 1), true);
+            }, 300);
+          }
+        }, 250);
+        return;
+      }
+
+      // ── Phase 3: all retries exhausted → disconnect & reconnect ───────────
+      clearInterval(poll);
+      console.log(`❌ Waypoint ${patrolIndex} unreachable after all retries. Disconnecting to reconnect...`);
+      patrolActive = false;
+      stopClicking();
+      bot.quit(); // manualQuit is false → end handler will reconnect in 10 s
     }, 100);
   }
 
@@ -210,7 +255,7 @@ function createBot() {
   bot.on('message', (jsonMsg) => {
     if (!homeReached) return;
     const msg = jsonMsg.toString().toLowerCase();
-    if (msg.includes('drakontide') || msg.includes('you were killed by')) {
+    if (msg.includes('jamaalcaliph') || msg.includes('you were killed by')) {
       console.log('📨 Trigger phrase detected. Disconnecting in 5s...');
       setTimeout(() => bot.quit(), 5000);
     }
