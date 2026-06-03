@@ -12,9 +12,12 @@ console.warn = (msg, ...args) => {
 const botConfig = {
   host: 'mc.fakepixel.fun',
   username: 'DrakonTide',
-  version: '1.16.5',
+  version: '1.8.9',
   loginCommand: '/login 3043AA',
   warpCommand: '/warp spider',
+  waypointRadius: 3,
+  homeIndex: 11,
+  loopStartIndex: 11,
   waypoints: [
     new Vec3(-233, 80, -244),
     new Vec3(-261, 86, -237),
@@ -44,6 +47,7 @@ const botConfig = {
 let patrolIndex = 0;
 let homeReached = false;
 let clickInterval = null;
+let patrolActive = false;
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -55,9 +59,14 @@ function createBot() {
   bot.loadPlugin(pathfinder);
 
   bot.once('spawn', () => {
+    try {
+      bot._client.socket.setTimeout(24 * 60 * 60 * 1000);
+      bot._client.socket.setKeepAlive(true, 10000);
+    } catch (_) {}
     console.log('✅ Spawned');
     patrolIndex = 0;
     homeReached = false;
+    patrolActive = false;
     stopClicking();
     bot.manualQuit = false;
     setTimeout(() => {
@@ -70,6 +79,7 @@ function createBot() {
     console.log('☠️ Bot died. Restarting patrol...');
     patrolIndex = 0;
     homeReached = false;
+    patrolActive = false;
     stopClicking();
     setTimeout(() => {
       bot.chat(botConfig.warpCommand);
@@ -78,19 +88,17 @@ function createBot() {
   });
 
   bot.on('end', () => {
+    patrolActive = false;
+    stopClicking();
     if (!bot.manualQuit) {
       console.log('🔁 Disconnected. Reconnecting in 10s...');
-      setTimeout(() => {
-        createBot();
-      }, 10000);
+      setTimeout(createBot, 10000);
     } else {
       console.log('🛑 Bot quit manually. No reconnect.');
     }
   });
 
-  bot.on('error', err => {
-    console.log('❌ Error:', err.message);
-  });
+  bot.on('error', err => console.log('❌ Error:', err.message));
 
   function openTeleportGUI(bot) {
     bot.setQuickBarSlot(0);
@@ -114,84 +122,82 @@ function createBot() {
   }
 
   function startPatrol(bot) {
+    if (patrolActive) return;
+    patrolActive = true;
+
     const mcData = require('minecraft-data')(bot.version);
     const movements = new Movements(bot, mcData);
     movements.maxDropDown = 10;
     movements.allowParkour = true;
     movements.canDig = false;
+    movements.allowSprinting = true;
+    movements.canUseElytra = false;
     bot.pathfinder.setMovements(movements);
 
-    let retryCount = 0;
-    const maxRetries = 3;
+    console.log('🚶 Patrol started.');
+    moveToWaypoint();
+  }
 
-    function moveToNext() {
-      // ✅ After last waypoint, restart at home (11)
-      if (patrolIndex >= botConfig.waypoints.length) {
-        patrolIndex = 11;
-      }
+  function moveToWaypoint() {
+    if (!patrolActive) return;
 
-      const target = botConfig.waypoints[patrolIndex];
-      bot.pathfinder.setGoal(new GoalNear(target.x, target.y - 3, target.z, 1));
-
-      const interval = setInterval(() => {
-        const distXZ = Math.hypot(
-          bot.entity.position.x - target.x,
-          bot.entity.position.z - target.z
-        );
-        if (distXZ < 2) {
-          clearInterval(interval);
-          retryCount = 0;
-          console.log(`📍 Reached waypoint ${patrolIndex}`);
-
-          // If home is reached first time
-          if (patrolIndex === 11 && !homeReached) {
-            console.log('🏠 Reached patrol home. Enabling chat triggers + starting right click spam...');
-            homeReached = true;
-            startClicking();
-          }
-
-          patrolIndex++;
-          setTimeout(moveToNext, 600);
-        } else if (!bot.pathfinder.isMoving()) {
-          clearInterval(interval);
-          retryCount++;
-          if (retryCount <= maxRetries) {
-            console.log(`🔁 Retry ${retryCount}/${maxRetries} for waypoint ${patrolIndex}`);
-            setTimeout(moveToNext, 800);
-          } else {
-            console.log(`⚠️ Stuck at waypoint ${patrolIndex}. Finding next nearest...`);
-            patrolIndex = getNextNearestWaypointIndex(patrolIndex + 1);
-            retryCount = 0;
-            setTimeout(moveToNext, 800);
-          }
-        }
-      }, 500);
+    if (patrolIndex >= botConfig.waypoints.length) {
+      patrolIndex = botConfig.loopStartIndex;
     }
 
-    function getNextNearestWaypointIndex(minIndex = 0) {
+    const target = botConfig.waypoints[patrolIndex];
+    bot.pathfinder.setGoal(new GoalNear(target.x, target.y, target.z, 1), true);
+
+    let stuckTicks = 0;
+    let lastPos = bot.entity.position.clone();
+
+    const poll = setInterval(() => {
+      if (!patrolActive) { clearInterval(poll); return; }
+
       const pos = bot.entity.position;
-      let nearestIndex = minIndex;
-      let minDist = Infinity;
-      for (let i = minIndex; i < botConfig.waypoints.length; i++) {
-        const wp = botConfig.waypoints[i];
-        const dist = pos.distanceTo(wp);
-        if (dist < minDist) {
-          minDist = dist;
-          nearestIndex = i;
-        }
-      }
-      return nearestIndex;
-    }
+      const distXZ = Math.hypot(pos.x - target.x, pos.z - target.z);
 
-    moveToNext();
+      if (distXZ <= botConfig.waypointRadius) {
+        clearInterval(poll);
+        console.log(`📍 Passed waypoint ${patrolIndex}`);
+
+        if (patrolIndex === botConfig.homeIndex && !homeReached) {
+          console.log('🏠 Home reached — starting right-click spam...');
+          homeReached = true;
+          startClicking();
+        }
+
+        patrolIndex++;
+        moveToWaypoint();
+        return;
+      }
+
+      const moved = pos.distanceTo(lastPos);
+      if (moved < 0.05) {
+        stuckTicks++;
+      } else {
+        stuckTicks = 0;
+        lastPos = pos.clone();
+      }
+
+      if (stuckTicks >= 30) {
+        stuckTicks = 0;
+        console.log(`⚠️ Stuck near waypoint ${patrolIndex}, retrying goal...`);
+        bot.pathfinder.setGoal(null);
+        setTimeout(() => {
+          if (!patrolActive) return;
+          bot.pathfinder.setGoal(new GoalNear(target.x, target.y, target.z, 1), true);
+        }, 300);
+      }
+    }, 100);
   }
 
   function startClicking() {
     stopClicking();
     bot.setQuickBarSlot(0);
     clickInterval = setInterval(() => {
-      bot.activateItem();
-    }, 600); // every 0.6s
+      if (patrolActive) bot.activateItem();
+    }, 600);
   }
 
   function stopClicking() {
@@ -201,24 +207,19 @@ function createBot() {
     }
   }
 
-  // ---- CHAT TRIGGER HANDLER ----
   bot.on('message', (jsonMsg) => {
-    if (!homeReached) return; // only active after reaching home
+    if (!homeReached) return;
     const msg = jsonMsg.toString().toLowerCase();
-    if (
-      msg.includes('drakontide') ||
-      msg.includes('you were killed by')
-    ) {
+    if (msg.includes('drakontide') || msg.includes('you were killed by')) {
       console.log('📨 Trigger phrase detected. Disconnecting in 5s...');
-      setTimeout(() => {
-        bot.quit(); // will auto-reconnect, since manualQuit not set
-      }, 5000);
+      setTimeout(() => bot.quit(), 5000);
     }
   });
 
-  // ---- OPTIONAL: MANUAL QUIT FUNCTION ----
   bot.quitBot = function () {
-    bot.manualQuit = true; // prevents reconnect
+    bot.manualQuit = true;
+    patrolActive = false;
+    stopClicking();
     bot.quit();
   };
 }
