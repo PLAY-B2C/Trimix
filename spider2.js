@@ -10,7 +10,7 @@ console.warn = (msg, ...args) => {
 };
 
 const botConfig = {
-  host: 'mc.fakepixel.fun',
+  host: 'fakepixel.fun',
   username: 'JamaaLcaliph',
   version: '1.8.9',
   loginCommand: '/login 3043AA',
