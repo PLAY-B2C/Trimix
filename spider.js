@@ -11,7 +11,7 @@ console.warn = (msg, ...args) => {
 
 const botConfig = {
   host: 'fakepixel.fun',
-  username: 'DrakonTide',
+  username: 'JamaaLcaliph',
   version: '1.8.9',
   loginCommand: '/login 3043AA',
   warpCommand: '/warp spider',
