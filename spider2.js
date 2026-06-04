@@ -28,11 +28,8 @@ const botConfig = {
     new Vec3(-258, 61, -273),
     new Vec3(-282, 65, -295)
   ],
-  // How close (XZ) the bot needs to be to consider a waypoint "passed"
   waypointRadius: 3,
-  // Home waypoint index
   homeIndex: 6,
-  // Loop restarts from this index after reaching the end
   loopStartIndex: 6
 };
 
@@ -51,7 +48,6 @@ function createBot() {
   bot.loadPlugin(pathfinder);
 
   bot.once('spawn', () => {
-    // Socket is guaranteed live by the time spawn fires
     try {
       bot._client.socket.setTimeout(24 * 60 * 60 * 1000);
       bot._client.socket.setKeepAlive(true, 10000);
@@ -62,7 +58,6 @@ function createBot() {
     patrolActive = false;
     stopClicking();
     bot.manualQuit = false;
-
     setTimeout(() => {
       bot.chat(botConfig.loginCommand);
       setTimeout(() => openTeleportGUI(bot), 2000);
@@ -94,7 +89,6 @@ function createBot() {
 
   bot.on('error', err => console.log('❌ Error:', err.message));
 
-  // ─── Teleport GUI ───────────────────────────────────────────────────────────
   function openTeleportGUI(bot) {
     bot.setQuickBarSlot(0);
     bot.activateItem();
@@ -116,7 +110,6 @@ function createBot() {
     });
   }
 
-  // ─── Patrol ─────────────────────────────────────────────────────────────────
   function startPatrol(bot) {
     if (patrolActive) return;
     patrolActive = true;
@@ -127,16 +120,13 @@ function createBot() {
     movements.allowParkour = true;
     movements.canDig = false;
     movements.allowSprinting = true;
-    movements.canUseElytra = false; // not in 1.8.9
+    movements.canUseElytra = false;
     bot.pathfinder.setMovements(movements);
 
     console.log('🚶 Patrol started.');
     moveToWaypoint();
   }
 
-  // Core smooth patrol: sets goal, polls XZ distance every 100ms,
-  // advances as soon as the bot is within radius — no waiting for pathfinder
-  // "goal reached" event which can cause a full stop.
   function moveToWaypoint() {
     if (!patrolActive) return;
 
@@ -145,13 +135,12 @@ function createBot() {
     }
 
     const target = botConfig.waypoints[patrolIndex];
-
-    // Use a loose GoalNear so pathfinder keeps moving toward it
-    // but we detect arrival ourselves to chain smoothly
     bot.pathfinder.setGoal(new GoalNear(target.x, target.y, target.z, 1), true);
 
     let stuckTicks = 0;
     let lastPos = bot.entity.position.clone();
+    let stuckRetries = 0;  // normal goal-retry counter (max 3)
+    let jumpRetries  = 0;  // jump-assist retry counter  (max 3)
 
     const poll = setInterval(() => {
       if (!patrolActive) { clearInterval(poll); return; }
@@ -159,10 +148,9 @@ function createBot() {
       const pos = bot.entity.position;
       const distXZ = Math.hypot(pos.x - target.x, pos.z - target.z);
 
-      // ── Arrived? ──────────────────────────────────────────────────────────
+      // ── Arrived ────────────────────────────────────────────────────────────
       if (distXZ <= botConfig.waypointRadius) {
         clearInterval(poll);
-
         console.log(`📍 Passed waypoint ${patrolIndex}`);
 
         if (patrolIndex === botConfig.homeIndex && !homeReached) {
@@ -172,12 +160,11 @@ function createBot() {
         }
 
         patrolIndex++;
-        // No delay — chain immediately for smooth flow
         moveToWaypoint();
         return;
       }
 
-      // ── Stuck detection ───────────────────────────────────────────────────
+      // ── Stuck detection (no movement for 3 s = 30 × 100 ms) ───────────────
       const moved = pos.distanceTo(lastPos);
       if (moved < 0.05) {
         stuckTicks++;
@@ -186,20 +173,55 @@ function createBot() {
         lastPos = pos.clone();
       }
 
-      // If stuck for ~3 seconds (30 × 100ms), retry goal
-      if (stuckTicks >= 30) {
-        stuckTicks = 0;
-        console.log(`⚠️ Stuck near waypoint ${patrolIndex}, retrying goal...`);
+      if (stuckTicks < 30) return;
+      stuckTicks = 0;
+      lastPos = pos.clone();
+
+      // ── Phase 1: normal goal retry (up to 3×) ─────────────────────────────
+      if (stuckRetries < 3) {
+        stuckRetries++;
+        console.log(`⚠️ Stuck at waypoint ${patrolIndex} — goal retry ${stuckRetries}/3`);
         bot.pathfinder.setGoal(null);
         setTimeout(() => {
           if (!patrolActive) return;
           bot.pathfinder.setGoal(new GoalNear(target.x, target.y, target.z, 1), true);
         }, 300);
+        return;
       }
+
+      // ── Phase 2: jump + retry (up to 3×) ──────────────────────────────────
+      if (jumpRetries < 3) {
+        jumpRetries++;
+        console.log(`🦘 Jump-assist attempt ${jumpRetries}/3 at waypoint ${patrolIndex}`);
+        bot.pathfinder.setGoal(null);
+
+        let jumps = 0;
+        const jumpTimer = setInterval(() => {
+          if (!patrolActive) { clearInterval(jumpTimer); return; }
+          bot.setControlState('jump', true);
+          setTimeout(() => bot.setControlState('jump', false), 150);
+          jumps++;
+          if (jumps >= 4) {
+            clearInterval(jumpTimer);
+            stuckRetries = 0; // reset so it gets 3 more normal retries after jump
+            setTimeout(() => {
+              if (!patrolActive) return;
+              bot.pathfinder.setGoal(new GoalNear(target.x, target.y, target.z, 1), true);
+            }, 300);
+          }
+        }, 250);
+        return;
+      }
+
+      // ── Phase 3: all retries exhausted → disconnect & reconnect ───────────
+      clearInterval(poll);
+      console.log(`❌ Waypoint ${patrolIndex} unreachable after all retries. Disconnecting to reconnect...`);
+      patrolActive = false;
+      stopClicking();
+      bot.quit(); // manualQuit is false → end handler reconnects in 10s
     }, 100);
   }
 
-  // ─── Right-click spam ────────────────────────────────────────────────────────
   function startClicking() {
     stopClicking();
     bot.setQuickBarSlot(0);
@@ -215,11 +237,10 @@ function createBot() {
     }
   }
 
-  // ─── Chat triggers ───────────────────────────────────────────────────────────
   bot.on('message', (jsonMsg) => {
     if (!homeReached) return;
     const msg = jsonMsg.toString().toLowerCase();
-    if (msg.includes('jamaalcaliph') || msg.includes('you were killed by')) {
+    if (msg.includes('drakontide') || msg.includes('you were killed by')) {
       console.log('📨 Trigger phrase detected. Disconnecting in 5s...');
       setTimeout(() => bot.quit(), 5000);
     }
