@@ -45,6 +45,10 @@ function createBot() {
     version: botConfig.version
   });
 
+  // Each bot instance gets its own "alive" flag so stale listeners
+  // from a previous instance never fire after disconnect
+  let alive = true;
+
   bot.loadPlugin(pathfinder);
 
   bot.once('spawn', () => {
@@ -59,24 +63,28 @@ function createBot() {
     stopClicking();
     bot.manualQuit = false;
     setTimeout(() => {
+      if (!alive) return;
       bot.chat(botConfig.loginCommand);
-      setTimeout(() => openTeleportGUI(bot), 2000);
+      setTimeout(() => { if (alive) openTeleportGUI(bot); }, 2000);
     }, 2000);
   });
 
   bot.on('death', () => {
+    if (!alive) return;
     console.log('☠️ Bot died. Restarting patrol...');
     patrolIndex = 0;
     homeReached = false;
     patrolActive = false;
     stopClicking();
     setTimeout(() => {
+      if (!alive) return;
       bot.chat(botConfig.warpCommand);
-      setTimeout(() => startPatrol(bot), 8000);
+      setTimeout(() => { if (alive) startPatrol(bot); }, 8000);
     }, 2000);
   });
 
   bot.on('end', () => {
+    alive = false;          // kill all pending callbacks for this instance
     patrolActive = false;
     stopClicking();
     if (!bot.manualQuit) {
@@ -93,7 +101,13 @@ function createBot() {
     bot.setQuickBarSlot(0);
     bot.activateItem();
     bot.once('windowOpen', async window => {
-      await bot.waitForTicks(20);
+      // Guard: bot may have disconnected while waiting for the window
+      if (!alive) return;
+
+      // Replace waitForTicks with a plain setTimeout to avoid the tick-timeout crash
+      await new Promise(res => setTimeout(res, 1000));
+      if (!alive) return;
+
       const slot = window.slots[20];
       if (slot && slot.name !== 'air') {
         try {
@@ -103,15 +117,17 @@ function createBot() {
           console.log('❌ GUI click error:', err.message);
         }
       }
+      if (!alive) return;
       setTimeout(() => {
+        if (!alive) return;
         bot.chat(botConfig.warpCommand);
-        setTimeout(() => startPatrol(bot), 8000);
+        setTimeout(() => { if (alive) startPatrol(bot); }, 8000);
       }, 2000);
     });
   }
 
   function startPatrol(bot) {
-    if (patrolActive) return;
+    if (!alive || patrolActive) return;
     patrolActive = true;
 
     const mcData = require('minecraft-data')(bot.version);
@@ -128,7 +144,7 @@ function createBot() {
   }
 
   function moveToWaypoint() {
-    if (!patrolActive) return;
+    if (!alive || !patrolActive) return;
 
     if (patrolIndex >= botConfig.waypoints.length) {
       patrolIndex = botConfig.loopStartIndex;
@@ -137,15 +153,15 @@ function createBot() {
     const target = botConfig.waypoints[patrolIndex];
     bot.pathfinder.setGoal(new GoalNear(target.x, target.y, target.z, 1), true);
 
-    let stuckTicks = 0;
-    let lastPos = bot.entity.position.clone();
-    let stuckRetries = 0;  // normal goal-retry counter (max 3)
-    let jumpRetries  = 0;  // jump-assist retry counter  (max 3)
+    let stuckTicks  = 0;
+    let lastPos     = bot.entity.position.clone();
+    let stuckRetries = 0;
+    let jumpRetries  = 0;
 
     const poll = setInterval(() => {
-      if (!patrolActive) { clearInterval(poll); return; }
+      if (!alive || !patrolActive) { clearInterval(poll); return; }
 
-      const pos = bot.entity.position;
+      const pos    = bot.entity.position;
       const distXZ = Math.hypot(pos.x - target.x, pos.z - target.z);
 
       // ── Arrived ────────────────────────────────────────────────────────────
@@ -164,14 +180,10 @@ function createBot() {
         return;
       }
 
-      // ── Stuck detection (no movement for 3 s = 30 × 100 ms) ───────────────
+      // ── Stuck detection (30 × 100 ms = 3 s) ───────────────────────────────
       const moved = pos.distanceTo(lastPos);
-      if (moved < 0.05) {
-        stuckTicks++;
-      } else {
-        stuckTicks = 0;
-        lastPos = pos.clone();
-      }
+      if (moved < 0.05) { stuckTicks++; }
+      else { stuckTicks = 0; lastPos = pos.clone(); }
 
       if (stuckTicks < 30) return;
       stuckTicks = 0;
@@ -183,7 +195,7 @@ function createBot() {
         console.log(`⚠️ Stuck at waypoint ${patrolIndex} — goal retry ${stuckRetries}/3`);
         bot.pathfinder.setGoal(null);
         setTimeout(() => {
-          if (!patrolActive) return;
+          if (!alive || !patrolActive) return;
           bot.pathfinder.setGoal(new GoalNear(target.x, target.y, target.z, 1), true);
         }, 300);
         return;
@@ -194,18 +206,16 @@ function createBot() {
         jumpRetries++;
         console.log(`🦘 Jump-assist attempt ${jumpRetries}/3 at waypoint ${patrolIndex}`);
         bot.pathfinder.setGoal(null);
-
         let jumps = 0;
         const jumpTimer = setInterval(() => {
-          if (!patrolActive) { clearInterval(jumpTimer); return; }
+          if (!alive || !patrolActive) { clearInterval(jumpTimer); return; }
           bot.setControlState('jump', true);
           setTimeout(() => bot.setControlState('jump', false), 150);
-          jumps++;
-          if (jumps >= 4) {
+          if (++jumps >= 4) {
             clearInterval(jumpTimer);
-            stuckRetries = 0; // reset so it gets 3 more normal retries after jump
+            stuckRetries = 0;
             setTimeout(() => {
-              if (!patrolActive) return;
+              if (!alive || !patrolActive) return;
               bot.pathfinder.setGoal(new GoalNear(target.x, target.y, target.z, 1), true);
             }, 300);
           }
@@ -213,12 +223,12 @@ function createBot() {
         return;
       }
 
-      // ── Phase 3: all retries exhausted → disconnect & reconnect ───────────
+      // ── Phase 3: give up → disconnect & reconnect ─────────────────────────
       clearInterval(poll);
-      console.log(`❌ Waypoint ${patrolIndex} unreachable after all retries. Disconnecting to reconnect...`);
+      console.log(`❌ Waypoint ${patrolIndex} unreachable after all retries. Reconnecting...`);
       patrolActive = false;
       stopClicking();
-      bot.quit(); // manualQuit is false → end handler reconnects in 10s
+      bot.quit();
     }, 100);
   }
 
@@ -226,28 +236,28 @@ function createBot() {
     stopClicking();
     bot.setQuickBarSlot(0);
     clickInterval = setInterval(() => {
-      if (patrolActive) bot.activateItem();
+      if (alive && patrolActive) bot.activateItem();
     }, 600);
   }
 
   function stopClicking() {
-    if (clickInterval) {
-      clearInterval(clickInterval);
-      clickInterval = null;
-    }
+    if (clickInterval) { clearInterval(clickInterval); clickInterval = null; }
   }
 
   bot.on('message', (jsonMsg) => {
-    if (!homeReached) return;
+    // Guard: ignore if this instance is already dead
+    if (!alive || !homeReached) return;
     const msg = jsonMsg.toString().toLowerCase();
     if (msg.includes('drakontide') || msg.includes('you were killed by')) {
       console.log('📨 Trigger phrase detected. Disconnecting in 5s...');
+      alive = false; // prevent double-trigger
       setTimeout(() => bot.quit(), 5000);
     }
   });
 
   bot.quitBot = function () {
     bot.manualQuit = true;
+    alive = false;
     patrolActive = false;
     stopClicking();
     bot.quit();
