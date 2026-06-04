@@ -37,12 +37,15 @@ let patrolIndex = 0;
 let homeReached = false;
 let clickInterval = null;
 let patrolActive = false;
+let activePoll = null;
 
 function createBot() {
   const bot = mineflayer.createBot({
     host: botConfig.host,
     username: botConfig.username,
-    version: botConfig.version
+    version: botConfig.version,
+    keepAlive: true,
+    checkTimeoutInterval: 60000
   });
 
   // Each bot instance gets its own "alive" flag so stale listeners
@@ -84,7 +87,8 @@ function createBot() {
   });
 
   bot.on('end', () => {
-    alive = false;          // kill all pending callbacks for this instance
+    alive = false;
+    if (activePoll) { clearInterval(activePoll); activePoll = null; }
     patrolActive = false;
     stopClicking();
     if (!bot.manualQuit) {
@@ -158,7 +162,9 @@ function createBot() {
     let stuckRetries = 0;
     let jumpRetries  = 0;
 
-    const poll = setInterval(() => {
+    if (activePoll) { clearInterval(activePoll); activePoll = null; }
+    activePoll = setInterval(() => {
+    const poll = activePoll;
       if (!alive || !patrolActive) { clearInterval(poll); return; }
 
       const pos    = bot.entity.position;
