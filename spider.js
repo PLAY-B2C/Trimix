@@ -53,7 +53,9 @@ function createBot() {
   const bot = mineflayer.createBot({
     host: botConfig.host,
     username: botConfig.username,
-    version: botConfig.version
+    version: botConfig.version,
+    keepAlive: true,
+    checkTimeoutInterval: 60000
   });
 
   // Per-instance alive flag — prevents stale callbacks/listeners
