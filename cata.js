@@ -26,6 +26,7 @@ function createBot({ username, password, delay }) {
     bot.once('spawn', () => {
       console.log(`✅ ${username} spawned.`)
       bot.chat(`/login ${password}`)
+      startDodgeLoop(bot)
     })
 
     bot.on('message', (message) => {
@@ -67,11 +68,6 @@ function createBot({ username, password, delay }) {
         console.log(`😴 ${username} going AFK.`)
         stopRightClickSpam(bot)
         startKeepAlive(bot)
-      }
-
-      if (msg.includes('giga lightning struck you for') && !teleportingStatus[username]) {
-        console.log(`⚡ ${username} was struck by Giga Lightning! Rotating head 180° and starting dodge loop.`)
-        rotateHead180(bot)
       }
     })
 
@@ -189,14 +185,6 @@ function createBot({ username, password, delay }) {
           console.log(`📶 ${bot.username} keep-alive ping sent.`)
         }
       }, 30000)
-    }
-
-    function rotateHead180(bot) {
-      const currentYaw = bot.entity.yaw
-      const targetYaw = currentYaw + Math.PI
-      bot.look(targetYaw, bot.entity.pitch, false)
-      console.log(`🔄 ${bot.username} head rotated 180°`)
-      startDodgeLoop(bot)
     }
 
     function startDodgeLoop(bot) {
