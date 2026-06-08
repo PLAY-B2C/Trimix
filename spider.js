@@ -18,6 +18,7 @@ const botConfig = {
   waypointRadius: 3,
   homeIndex: 11,
   loopStartIndex: 11,
+  reconnectInterval: 35 * 60 * 1000, // 35 minutes in ms
   waypoints: [
     new Vec3(-233, 80, -244),
     new Vec3(-261, 86, -237),
@@ -62,6 +63,7 @@ function createBot() {
   // Per-instance alive flag — prevents stale callbacks/listeners
   // from a previous instance firing after disconnect
   let alive = true;
+  let reconnectTimer = null; // 35-min timer handle
 
   bot.loadPlugin(pathfinder);
 
@@ -75,6 +77,7 @@ function createBot() {
     homeReached = false;
     patrolActive = false;
     stopClicking();
+    clearReconnectTimer();
     bot.manualQuit = false;
     setTimeout(() => {
       if (!alive) return;
@@ -90,6 +93,7 @@ function createBot() {
     homeReached = false;
     patrolActive = false;
     stopClicking();
+    clearReconnectTimer();
     setTimeout(() => {
       if (!alive) return;
       bot.chat(botConfig.warpCommand);
@@ -99,6 +103,7 @@ function createBot() {
 
   bot.on('end', () => {
     alive = false;
+    clearReconnectTimer();
     if (activePoll) { clearInterval(activePoll); activePoll = null; }
     patrolActive = false;
     stopClicking();
@@ -112,14 +117,35 @@ function createBot() {
 
   bot.on('error', err => console.log('❌ Error:', err.message));
 
+  // ── 35-minute reconnect timer helpers ──────────────────────────────────────
+  function startReconnectTimer() {
+    clearReconnectTimer();
+    console.log('⏱️  35-minute reconnect timer started.');
+    reconnectTimer = setTimeout(() => {
+      if (!alive) return;
+      console.log('⏰ 35 minutes elapsed — disconnecting for scheduled reconnect...');
+      patrolActive = false;
+      stopClicking();
+      bot.manualQuit = false; // allow auto-reconnect on 'end'
+      alive = false;
+      bot.quit();
+    }, botConfig.reconnectInterval);
+  }
+
+  function clearReconnectTimer() {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+  }
+  // ───────────────────────────────────────────────────────────────────────────
+
   function openTeleportGUI(bot) {
     bot.setQuickBarSlot(0);
     bot.activateItem();
     bot.once('windowOpen', async window => {
       if (!alive) return;
 
-      // Plain setTimeout instead of waitForTicks — avoids tick-timeout crash
-      // if the bot disconnects while waiting
       await new Promise(res => setTimeout(res, 1000));
       if (!alive) return;
 
@@ -155,6 +181,7 @@ function createBot() {
     bot.pathfinder.setMovements(movements);
 
     console.log('🚶 Patrol started.');
+    startReconnectTimer(); // ← 35-min clock begins here
     moveToWaypoint();
   }
 
@@ -175,7 +202,7 @@ function createBot() {
 
     if (activePoll) { clearInterval(activePoll); activePoll = null; }
     activePoll = setInterval(() => {
-    const poll = activePoll;
+      const poll = activePoll;
       if (!alive || !patrolActive) { clearInterval(poll); return; }
 
       const pos    = bot.entity.position;
@@ -245,6 +272,7 @@ function createBot() {
       console.log(`❌ Waypoint ${patrolIndex} unreachable after all retries. Reconnecting...`);
       patrolActive = false;
       stopClicking();
+      clearReconnectTimer();
       bot.quit();
     }, 100);
   }
@@ -264,9 +292,10 @@ function createBot() {
   bot.on('message', (jsonMsg) => {
     if (!alive || !homeReached) return;
     const msg = jsonMsg.toString().toLowerCase();
-    if (msg.includes('jamaalcaliph') || msg.includes('you were killed by')) {
+    if (msg.includes('go offline') || msg.includes('you were killed by')) {
       console.log('📨 Trigger phrase detected. Disconnecting in 5s...');
       alive = false; // prevent double-trigger
+      clearReconnectTimer();
       setTimeout(() => bot.quit(), 5000);
     }
   });
@@ -276,6 +305,7 @@ function createBot() {
     alive = false;
     patrolActive = false;
     stopClicking();
+    clearReconnectTimer();
     bot.quit();
   };
 }
