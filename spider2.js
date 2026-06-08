@@ -30,7 +30,8 @@ const botConfig = {
   ],
   waypointRadius: 3,
   homeIndex: 6,
-  loopStartIndex: 6
+  loopStartIndex: 6,
+  reconnectInterval: 35 * 60 * 1000, // 35 minutes in ms
 };
 
 let patrolIndex = 0;
@@ -51,6 +52,7 @@ function createBot() {
   // Each bot instance gets its own "alive" flag so stale listeners
   // from a previous instance never fire after disconnect
   let alive = true;
+  let reconnectTimer = null; // 35-min timer handle
 
   bot.loadPlugin(pathfinder);
 
@@ -64,6 +66,7 @@ function createBot() {
     homeReached = false;
     patrolActive = false;
     stopClicking();
+    clearReconnectTimer();
     bot.manualQuit = false;
     setTimeout(() => {
       if (!alive) return;
@@ -79,6 +82,7 @@ function createBot() {
     homeReached = false;
     patrolActive = false;
     stopClicking();
+    clearReconnectTimer();
     setTimeout(() => {
       if (!alive) return;
       bot.chat(botConfig.warpCommand);
@@ -88,6 +92,7 @@ function createBot() {
 
   bot.on('end', () => {
     alive = false;
+    clearReconnectTimer();
     if (activePoll) { clearInterval(activePoll); activePoll = null; }
     patrolActive = false;
     stopClicking();
@@ -100,6 +105,29 @@ function createBot() {
   });
 
   bot.on('error', err => console.log('❌ Error:', err.message));
+
+  // ── 35-minute reconnect timer helpers ──────────────────────────────────────
+  function startReconnectTimer() {
+    clearReconnectTimer();
+    console.log('⏱️  35-minute reconnect timer started.');
+    reconnectTimer = setTimeout(() => {
+      if (!alive) return;
+      console.log('⏰ 35 minutes elapsed — disconnecting for scheduled reconnect...');
+      patrolActive = false;
+      stopClicking();
+      bot.manualQuit = false; // allow auto-reconnect on 'end'
+      alive = false;
+      bot.quit();
+    }, botConfig.reconnectInterval);
+  }
+
+  function clearReconnectTimer() {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+  }
+  // ───────────────────────────────────────────────────────────────────────────
 
   function openTeleportGUI(bot) {
     bot.setQuickBarSlot(0);
@@ -144,6 +172,7 @@ function createBot() {
     bot.pathfinder.setMovements(movements);
 
     console.log('🚶 Patrol started.');
+    startReconnectTimer(); // ← 35-min clock begins here
     moveToWaypoint();
   }
 
@@ -234,6 +263,7 @@ function createBot() {
       console.log(`❌ Waypoint ${patrolIndex} unreachable after all retries. Reconnecting...`);
       patrolActive = false;
       stopClicking();
+      clearReconnectTimer();
       bot.quit();
     }, 100);
   }
@@ -257,6 +287,7 @@ function createBot() {
     if (msg.includes('drakontide') || msg.includes('you were killed by')) {
       console.log('📨 Trigger phrase detected. Disconnecting in 5s...');
       alive = false; // prevent double-trigger
+      clearReconnectTimer();
       setTimeout(() => bot.quit(), 5000);
     }
   });
@@ -266,6 +297,7 @@ function createBot() {
     alive = false;
     patrolActive = false;
     stopClicking();
+    clearReconnectTimer();
     bot.quit();
   };
 }
