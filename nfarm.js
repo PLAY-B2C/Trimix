@@ -13,7 +13,7 @@ console.warn = (msg, ...args) => {
 const botConfig = {
   host: 'fakepixel.fun',
   username: 'DrakonTide',
-  version: '1.12.2',
+  version: '1.8.9',
   loginCommand: '/login 3043AA',
   warpCommand: '/warp island',
 };
@@ -46,18 +46,6 @@ function createBot() {
 
   function stopClicking() {
     if (clickInterval) { clearInterval(clickInterval); clickInterval = null; }
-  }
-
-  // ── Crop hitbox patch ──────────────────────────────────────────────────────
-  function patchCropHitboxes() {
-    const cropBlocks = [59, 141, 142, 115]; // wheat, carrot, potato, nether wart
-    const registry = bot.registry;
-    cropBlocks.forEach(id => {
-      const block = registry.blocks[id];
-      if (!block) return;
-      block.shapes = [[0, 0, 0, 1, 1, 1]];
-      console.log(`🌾 Patched hitbox for block ID ${id} (${block.name})`);
-    });
   }
 
   // ── GUI (copied from reference bot) ───────────────────────────────────────
@@ -93,7 +81,6 @@ function createBot() {
     lastY = bot.entity.position.y;
 
     bot.setQuickBarSlot(0);
-    patchCropHitboxes();
     bot.look(Math.PI / 2, 0, true);
     console.log('🌾 Farming started — moving right.');
 
