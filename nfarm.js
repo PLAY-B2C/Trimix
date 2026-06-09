@@ -48,6 +48,11 @@ function createBot() {
           location: block.position,
           face: 1
         });
+        bot._client.write('block_dig', {
+          status: 2,
+          location: block.position,
+          face: 1
+        });
       }
       setImmediate(attack);
     }
