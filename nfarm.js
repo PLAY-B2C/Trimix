@@ -37,15 +37,28 @@ function createBot() {
   function startClicking() {
     stopClicking();
     bot.setQuickBarSlot(0);
-    clickInterval = setInterval(() => {
-      if (!alive || !farmingActive) return;
-      bot.swingArm();
-    }, 100);
-    console.log('🖱️ Attacking on slot 0.');
+    let running = true;
+
+    function attack() {
+      if (!alive || !farmingActive || !running) return;
+      const block = bot.blockAtCursor(4);
+      if (block) {
+        bot._client.write('block_dig', {
+          status: 0,
+          location: block.position,
+          face: 1
+        });
+      }
+      setImmediate(attack);
+    }
+
+    clickInterval = { stop: () => { running = false; } };
+    attack();
+    console.log('🖱️ Holding attack on slot 0.');
   }
 
   function stopClicking() {
-    if (clickInterval) { clearInterval(clickInterval); clickInterval = null; }
+    if (clickInterval) { clickInterval.stop(); clickInterval = null; }
   }
 
   // ── GUI (copied from reference bot) ───────────────────────────────────────
