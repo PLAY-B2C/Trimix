@@ -123,8 +123,13 @@ function createBot() {
       bot.chat(botConfig.loginCommand);
       setTimeout(() => {
         if (!alive) return;
-        bot.chat(botConfig.warpCommand);
-        setTimeout(() => { if (alive) startFarming(); }, 5000);
+        // GUI interaction before warp
+        openGUIAndClick();
+        setTimeout(() => {
+          if (!alive) return;
+          bot.chat(botConfig.warpCommand);
+          setTimeout(() => { if (alive) startFarming(); }, 5000);
+        }, 2000);
       }, 2000);
     }, 2000);
   });
