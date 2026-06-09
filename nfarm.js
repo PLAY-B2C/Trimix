@@ -31,21 +31,16 @@ function createBot() {
   let farmingActive = false;
   let movingRight = true;
   let lastY = null;
-  let clickInterval = null;
 
   // ── Clicking ───────────────────────────────────────────────────────────────
   function startClicking() {
     stopClicking();
-    bot.setQuickBarSlot(0);
-    clickInterval = setInterval(() => {
-      if (!alive || !farmingActive) return;
-      bot.activateItem();
-    }, 100);
-    console.log('🖱️ Left-click started on slot 0.');
+    bot.setControlState('attack', true);
+    console.log('🖱️ Left-click held on slot 0.');
   }
 
   function stopClicking() {
-    if (clickInterval) { clearInterval(clickInterval); clickInterval = null; }
+    bot.setControlState('attack', false);
   }
 
   // ── Crop hitbox patch ──────────────────────────────────────────────────────
@@ -55,7 +50,7 @@ function createBot() {
     cropBlocks.forEach(id => {
       const block = registry.blocks[id];
       if (!block) return;
-      block.boundingBox = 'block';
+      block.shapes = [[0, 0, 0, 1, 1, 1]];
       console.log(`🌾 Patched hitbox for block ID ${id} (${block.name})`);
     });
   }
@@ -92,6 +87,7 @@ function createBot() {
     farmingActive = true;
     lastY = bot.entity.position.y;
 
+    bot.setQuickBarSlot(0);
     patchCropHitboxes();
     bot.look(Math.PI / 2, 0, true);
     console.log('🌾 Farming started — moving right.');
@@ -161,8 +157,8 @@ function createBot() {
     }, 2000);
   });
 
-  bot.on('chat', (username, message) => {
-    console.log(`💬 ${username}: ${message}`);
+  bot.on('message', (jsonMsg) => {
+    console.log(`💬 ${jsonMsg.toString()}`);
   });
 
   bot.on('death', () => {
