@@ -31,16 +31,21 @@ function createBot() {
   let farmingActive = false;
   let movingRight = true;
   let lastY = null;
+  let clickInterval = null;
 
   // ── Clicking ───────────────────────────────────────────────────────────────
   function startClicking() {
     stopClicking();
-    bot.setControlState('attack', true);
-    console.log('🖱️ Left-click held on slot 0.');
+    bot.setQuickBarSlot(0);
+    clickInterval = setInterval(() => {
+      if (!alive || !farmingActive) return;
+      bot.swingArm();
+    }, 100);
+    console.log('🖱️ Attacking on slot 0.');
   }
 
   function stopClicking() {
-    bot.setControlState('attack', false);
+    if (clickInterval) { clearInterval(clickInterval); clickInterval = null; }
   }
 
   // ── Crop hitbox patch ──────────────────────────────────────────────────────
@@ -157,7 +162,8 @@ function createBot() {
     }, 2000);
   });
 
-  bot.on('message', (jsonMsg) => {
+  bot.on('message', (jsonMsg, position) => {
+    if (position === 'game_info') return;
     console.log(`💬 ${jsonMsg.toString()}`);
   });
 
