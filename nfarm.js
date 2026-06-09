@@ -27,7 +27,88 @@ function createBot() {
   });
 
   let alive = true;
+  let farmingActive = false;
+  let movingRight = true;
+  let lastY = null;
 
+  // ── GUI interaction ────────────────────────────────────────────────────────
+  function openGUIAndClick() {
+    bot.activateItem();
+    bot.once('windowOpen', async window => {
+      if (!alive) return;
+      await new Promise(res => setTimeout(res, 800));
+      if (!alive) return;
+      const slot = window.slots[11];
+      if (slot && slot.name !== 'air') {
+        try {
+          await bot.clickWindow(11, 0, 0);
+          console.log('🪟 Clicked GUI slot 11.');
+        } catch (err) {
+          console.log('❌ GUI click error:', err.message);
+        }
+      } else {
+        console.log('⚠️ Slot 11 is empty.');
+        bot.closeWindow(window);
+      }
+    });
+  }
+
+  // ── Farming movement ───────────────────────────────────────────────────────
+  function startFarming() {
+    if (farmingActive) return;
+    farmingActive = true;
+    lastY = bot.entity.position.y;
+
+    bot.look(Math.PI / 2, 0, true);
+    console.log('🌾 Farming started — moving right.');
+
+    setMoveDirection('right');
+
+    // Nudge forward 100ms every 10 seconds
+    const nudgeInterval = setInterval(() => {
+      if (!alive || !farmingActive) { clearInterval(nudgeInterval); return; }
+      bot.look(Math.PI / 2, 0, true);
+      bot.setControlState('forward', true);
+      setTimeout(() => bot.setControlState('forward', false), 100);
+    }, 10000);
+
+    // Poll for Y drop every 200ms
+    const poll = setInterval(() => {
+      if (!alive || !farmingActive) { clearInterval(poll); return; }
+
+      const currentY = bot.entity.position.y;
+      const drop = lastY - currentY;
+
+      if (drop >= 2) {
+        lastY = currentY;
+        movingRight = !movingRight;
+        const dir = movingRight ? 'right' : 'left';
+        console.log(`⬇️ Dropped ${drop.toFixed(1)} blocks — switching to ${dir}`);
+        setMoveDirection(dir);
+      }
+    }, 200);
+  }
+
+  function setMoveDirection(dir) {
+    bot.setControlState('left', false);
+    bot.setControlState('right', false);
+    if (dir === 'right') {
+      bot.setControlState('right', true);
+    } else {
+      bot.setControlState('left', true);
+    }
+    bot.look(Math.PI / 2, 0, true);
+  }
+
+  function stopFarming() {
+    farmingActive = false;
+    bot.setControlState('right', false);
+    bot.setControlState('left', false);
+    bot.setControlState('forward', false);
+    console.log('🛑 Farming stopped.');
+  }
+
+  // ── Bot lifecycle ──────────────────────────────────────────────────────────
   bot.loadPlugin(pathfinder);
 
   bot.once('spawn', () => {
@@ -43,12 +124,26 @@ function createBot() {
       setTimeout(() => {
         if (!alive) return;
         bot.chat(botConfig.warpCommand);
+        setTimeout(() => { if (alive) startFarming(); }, 5000);
       }, 2000);
+    }, 2000);
+  });
+
+  bot.on('death', () => {
+    if (!alive) return;
+    console.log('☠️ Died. Restarting...');
+    stopFarming();
+    movingRight = true;
+    setTimeout(() => {
+      if (!alive) return;
+      bot.chat(botConfig.warpCommand);
+      setTimeout(() => { if (alive) startFarming(); }, 5000);
     }, 2000);
   });
 
   bot.on('end', () => {
     alive = false;
+    stopFarming();
     if (!bot.manualQuit) {
       console.log('🔁 Disconnected. Reconnecting in 10s...');
       setTimeout(createBot, 10000);
@@ -62,6 +157,7 @@ function createBot() {
   bot.quitBot = function () {
     bot.manualQuit = true;
     alive = false;
+    stopFarming();
     bot.quit();
   };
 }
