@@ -30,26 +30,46 @@ function createBot() {
   let farmingActive = false;
   let movingRight = true;
   let lastY = null;
+  let clickInterval = null;
 
-  // ── GUI interaction ────────────────────────────────────────────────────────
-  function openGUIAndClick() {
+  // ── Clicking ───────────────────────────────────────────────────────────────
+  function startClicking() {
+    stopClicking();
+    bot.setQuickBarSlot(0);
+    clickInterval = setInterval(() => {
+      if (!alive || !farmingActive) return;
+      bot.activateItem();
+    }, 100);
+    console.log('🖱️ Left-click started on slot 0.');
+  }
+
+  function stopClicking() {
+    if (clickInterval) { clearInterval(clickInterval); clickInterval = null; }
+  }
+
+  // ── GUI (copied from reference bot) ───────────────────────────────────────
+  function openTeleportGUI() {
+    bot.setQuickBarSlot(0);
     bot.activateItem();
     bot.once('windowOpen', async window => {
       if (!alive) return;
-      await new Promise(res => setTimeout(res, 800));
+      await new Promise(res => setTimeout(res, 1000));
       if (!alive) return;
-      const slot = window.slots[11];
+      const slot = window.slots[20];
       if (slot && slot.name !== 'air') {
         try {
-          await bot.clickWindow(11, 0, 0);
-          console.log('🪟 Clicked GUI slot 11.');
+          await bot.clickWindow(20, 0, 1);
+          console.log('🎯 Clicked teleport item.');
         } catch (err) {
           console.log('❌ GUI click error:', err.message);
         }
-      } else {
-        console.log('⚠️ Slot 11 is empty.');
-        bot.closeWindow(window);
       }
+      if (!alive) return;
+      setTimeout(() => {
+        if (!alive) return;
+        bot.chat(botConfig.warpCommand);
+        setTimeout(() => { if (alive) startFarming(); }, 5000);
+      }, 2000);
     });
   }
 
@@ -61,6 +81,9 @@ function createBot() {
 
     bot.look(Math.PI / 2, 0, true);
     console.log('🌾 Farming started — moving right.');
+
+    // Hold slot 0 and start clicking
+    startClicking();
 
     setMoveDirection('right');
 
@@ -105,6 +128,7 @@ function createBot() {
     bot.setControlState('right', false);
     bot.setControlState('left', false);
     bot.setControlState('forward', false);
+    stopClicking();
     console.log('🛑 Farming stopped.');
   }
 
@@ -121,16 +145,7 @@ function createBot() {
     setTimeout(() => {
       if (!alive) return;
       bot.chat(botConfig.loginCommand);
-      setTimeout(() => {
-        if (!alive) return;
-        // GUI interaction before warp
-        openGUIAndClick();
-        setTimeout(() => {
-          if (!alive) return;
-          bot.chat(botConfig.warpCommand);
-          setTimeout(() => { if (alive) startFarming(); }, 5000);
-        }, 2000);
-      }, 2000);
+      setTimeout(() => { if (alive) openTeleportGUI(); }, 2000);
     }, 2000);
   });
 
