@@ -6,6 +6,7 @@ const { GoalNear } = goals;
 const originalWarn = console.warn;
 console.warn = (msg, ...args) => {
   if (typeof msg === 'string' && msg.includes('objectType is deprecated')) return;
+  if (typeof msg === 'string' && msg.includes('chunk failed to load')) return;
   originalWarn(msg, ...args);
 };
 
@@ -47,6 +48,18 @@ function createBot() {
     if (clickInterval) { clearInterval(clickInterval); clickInterval = null; }
   }
 
+  // ── Crop hitbox patch ──────────────────────────────────────────────────────
+  function patchCropHitboxes() {
+    const cropBlocks = [59, 141, 142, 115]; // wheat, carrot, potato, nether wart
+    const registry = bot.registry;
+    cropBlocks.forEach(id => {
+      const block = registry.blocks[id];
+      if (!block) return;
+      block.boundingBox = 'block';
+      console.log(`🌾 Patched hitbox for block ID ${id} (${block.name})`);
+    });
+  }
+
   // ── GUI (copied from reference bot) ───────────────────────────────────────
   function openTeleportGUI() {
     bot.setQuickBarSlot(0);
@@ -79,12 +92,11 @@ function createBot() {
     farmingActive = true;
     lastY = bot.entity.position.y;
 
+    patchCropHitboxes();
     bot.look(Math.PI / 2, 0, true);
     console.log('🌾 Farming started — moving right.');
 
-    // Hold slot 0 and start clicking
     startClicking();
-
     setMoveDirection('right');
 
     // Nudge forward 100ms every 10 seconds
@@ -147,6 +159,10 @@ function createBot() {
       bot.chat(botConfig.loginCommand);
       setTimeout(() => { if (alive) openTeleportGUI(); }, 2000);
     }, 2000);
+  });
+
+  bot.on('chat', (username, message) => {
+    console.log(`💬 ${username}: ${message}`);
   });
 
   bot.on('death', () => {
