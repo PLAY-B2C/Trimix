@@ -13,7 +13,7 @@ console.warn = (msg, ...args) => {
 const botConfig = {
   host: 'fakepixel.fun',
   username: 'DrakonTide',
-  version: '1.8.9',
+  version: '1.12.2',
   loginCommand: '/login 3043AA',
   warpCommand: '/warp island',
 };
@@ -41,20 +41,17 @@ function createBot() {
 
     function attack() {
       if (!alive || !farmingActive || !running) return;
-      const block = bot.blockAtCursor(4);
-      if (block) {
+      const pos = bot.entity.position;
+      const block = bot.blockAt(pos.offset(-1, 0, 0)) ||
+                    bot.blockAt(pos.offset(-1, -1, 0));
+      if (block && block.type === 115) {
         bot._client.write('block_dig', {
           status: 0,
           location: block.position,
           face: 1
         });
-        bot._client.write('block_dig', {
-          status: 2,
-          location: block.position,
-          face: 1
-        });
       }
-      setImmediate(attack);
+      setTimeout(attack, 50);
     }
 
     clickInterval = { stop: () => { running = false; } };
