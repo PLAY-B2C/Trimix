@@ -31,44 +31,26 @@ function createBot() {
   let farmingActive = false;
   let movingRight = true;
   let lastY = null;
-  let clickInterval = null;
 
   // ── Clicking ───────────────────────────────────────────────────────────────
   function startClicking() {
-    stopClicking();
     bot.setQuickBarSlot(0);
-    let running = true;
-
-    function attack() {
-      if (!alive || !farmingActive || !running) return;
-      const pos = bot.entity.position;
-      const block = bot.blockAt(pos.offset(-1, 0, 0)) ||
-                    bot.blockAt(pos.offset(-1, -1, 0));
-      if (block && block.type === 115) {
-        bot._client.write('block_dig', {
-          status: 0,
-          location: block.position,
-          face: 1
-        });
-        setTimeout(() => {
-          if (!alive || !farmingActive) return;
-          bot._client.write('block_dig', {
-            status: 2,
-            location: block.position,
-            face: 1
-          });
-        }, 20);
-      }
-      setTimeout(attack, 100);
-    }
-
-    clickInterval = { stop: () => { running = false; } };
-    attack();
+    bot.on('physicsTick', onTick);
     console.log('🖱️ Holding attack on slot 0.');
   }
 
+  function onTick() {
+    if (!alive || !farmingActive) return;
+    const pos = bot.entity.position;
+    const block = bot.blockAt(pos.offset(-1, 0, 0)) ||
+                  bot.blockAt(pos.offset(-1, -1, 0));
+    if (block && block.type === 115) {
+      bot.dig(block, true).catch(() => {});
+    }
+  }
+
   function stopClicking() {
-    if (clickInterval) { clickInterval.stop(); clickInterval = null; }
+    bot.removeListener('physicsTick', onTick);
   }
 
   // ── GUI (copied from reference bot) ───────────────────────────────────────
