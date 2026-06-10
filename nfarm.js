@@ -31,6 +31,7 @@ function createBot() {
   let farmingActive = false;
   let movingRight = true;
   let lastY = null;
+  let isDigging = false; // 🔥 Tracks whether the bot is currently holding left-click / mining
 
   // ── Clicking ───────────────────────────────────────────────────────────────
   function startClicking() {
@@ -40,17 +41,31 @@ function createBot() {
   }
 
   function onTick() {
-    if (!alive || !farmingActive) return;
+    // 🔥 If the bot is dead, farming is off, or already mining a block, skip this tick
+    if (!alive || !farmingActive || isDigging) return;
+
     const pos = bot.entity.position;
     const block = bot.blockAt(pos.offset(-1, 0, 0)) ||
                   bot.blockAt(pos.offset(-1, -1, 0));
+
     if (block && block.type === 115) {
-      bot.dig(block, true).catch(() => {});
+      isDigging = true; // Lock digging state
+
+      // 'ignore' stops the bot from snapping its neck instantly toward the block, 
+      // allowing it to look smoothly in your designated look direction.
+      bot.dig(block, 'ignore')
+        .then(() => {
+          isDigging = false; // Unlock when block breaks successfully
+        })
+        .catch(() => {
+          isDigging = false; // Unlock if it fails/gets interrupted so it can try again
+        });
     }
   }
 
   function stopClicking() {
     bot.removeListener('physicsTick', onTick);
+    isDigging = false; 
   }
 
   // ── GUI (copied from reference bot) ───────────────────────────────────────
