@@ -37,24 +37,17 @@ function createBot() {
     if (!alive || !farmingActive) return;
     bot.look(Math.PI / 2, 0, true);
 
-    const blocks = bot.findBlocks({
-      matching: b => b.name === 'nether_wart',
-      maxDistance: 10,
-      count: 5
-    });
+    const pos = bot.entity.position.floored();
 
-    blocks.forEach(pos => {
-      bot._client.write('block_dig', {
-        status: 0,
-        location: pos,
-        face: 1
-      });
-      bot._client.write('block_dig', {
-        status: 2,
-        location: pos,
-        face: 1
-      });
-    });
+    for (let x = 1; x <= 5; x++) {
+      for (let y = 0; y <= 3; y++) {
+        const block = bot.blockAt(pos.offset(-x, y, 0));
+        if (block && block.name === 'nether_wart') {
+          bot._client.write('block_dig', { status: 0, location: block.position, face: 1 });
+          bot._client.write('block_dig', { status: 2, location: block.position, face: 1 });
+        }
+      }
+    }
   }
 
   function startClicking() {
