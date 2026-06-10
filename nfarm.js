@@ -40,12 +40,10 @@ function createBot() {
     const pos = bot.entity.position.floored();
 
     for (let x = 1; x <= 5; x++) {
-      for (let y = 0; y <= 3; y++) {
-        const block = bot.blockAt(pos.offset(-x, y, 0));
-        if (block && block.name === 'nether_wart') {
-          bot._client.write('block_dig', { status: 0, location: block.position, face: 1 });
-          bot._client.write('block_dig', { status: 2, location: block.position, face: 1 });
-        }
+      const block = bot.blockAt(pos.offset(-x, 2, 0));
+      if (block && block.name === 'nether_wart') {
+        bot._client.write('block_dig', { status: 0, location: block.position, face: 1 });
+        bot._client.write('block_dig', { status: 2, location: block.position, face: 1 });
       }
     }
   }
