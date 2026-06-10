@@ -50,8 +50,16 @@ function createBot() {
           location: block.position,
           face: 1
         });
+        setTimeout(() => {
+          if (!alive || !farmingActive) return;
+          bot._client.write('block_dig', {
+            status: 2,
+            location: block.position,
+            face: 1
+          });
+        }, 20);
       }
-      setTimeout(attack, 50);
+      setTimeout(attack, 100);
     }
 
     clickInterval = { stop: () => { running = false; } };
