@@ -36,22 +36,25 @@ function createBot() {
   function onTick() {
     if (!alive || !farmingActive) return;
     bot.look(Math.PI / 2, 0, true);
-    const block = bot.findBlock({
+
+    const blocks = bot.findBlocks({
       matching: b => b.name === 'nether_wart',
-      maxDistance: 10
+      maxDistance: 10,
+      count: 5
     });
-    if (block) {
+
+    blocks.forEach(pos => {
       bot._client.write('block_dig', {
         status: 0,
-        location: block.position,
+        location: pos,
         face: 1
       });
       bot._client.write('block_dig', {
         status: 2,
-        location: block.position,
+        location: pos,
         face: 1
       });
-    }
+    });
   }
 
   function startClicking() {
