@@ -35,12 +35,11 @@ function createBot() {
   // ── Clicking ───────────────────────────────────────────────────────────────
   function onTick() {
     if (!alive || !farmingActive) return;
+    bot.look(Math.PI / 2, 0, true);
     const pos = bot.entity.position;
     const block = bot.blockAt(pos.offset(-1, 0, 0)) ||
                   bot.blockAt(pos.offset(-1, -1, 0));
-    if (block && block.name !== 'air') {
-      bot.dig(block, true).catch(() => {});
-    }
+    console.log(block ? `Found: ${block.name} type:${block.type}` : 'no block');
   }
 
   function startClicking() {
